@@ -14,3 +14,7 @@ The above-described workflow has been digitilized into the so-called Campaign Pl
 
 The presentation about the tool from the WESC 2019 conference can be found here: 
 https://zenodo.org/record/3247797#.XR37V6eQ3RY
+
+Preliminary results of the CPT application can be found here:
+https://data.dtu.dk/collections/Campaign_Planning_Tool_results_for_three_sites_in_complex_terrain/4559624
+
