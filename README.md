@@ -12,7 +12,7 @@ A WindScanner system consisting of two synchronized scanning lidar potentially r
 
 The above-described workflow has been digitilized into the so-called Campaign Planning Tool (CPT) currently provided as a Python library which allows users an effective way to plan measurement campaigns with WindScanner systems.
 
-The presentation about the tool from the WESC 2019 conference can be found here: 
+The presentation about the tool from the WESC 2019 conference can be found here:<br>
 https://zenodo.org/record/3247797#.XR37V6eQ3RY
 
 Preliminary results of the CPT application can be found here:<br>
