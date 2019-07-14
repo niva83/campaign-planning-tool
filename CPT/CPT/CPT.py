@@ -42,18 +42,31 @@ class CPT():
     self.landcover_layer = None    
     self.exclusion_layer = None    
     self.elevation_angle_layer = None
-    self.viewshed_layer = None
+    self.los_layer = None
     self.range_layer = None
     self.combined_layer = None
     self.intersecting_angle_layer = None
-    self. = None
     self.aerial_layer = None    
 
-    self.flags = {'topography':False, 'landcover':False, 'exclusions': False,  
-                  'viewshed':False, 'elevation_angle': False, 'range': False, 'intersecting_angle':False, 'measurements_optimized': False}    
+    # # add missing flags as you code
+    # self.flags = {'topography':False, 'landcover':False, 'exclusions': False,  
+    #               'viewshed':False, 'elevation_angle': False, 'range': False, 'intersecting_angle':False, 'measurements_optimized': False}    
 
 
-    NO_LAYOUTS = NO_LAYOUTS + 1
+    # NO_LAYOUTS = NO_LAYOUTS + 1
+  def kok(self):
+    b = 23 + 2
+    return b
+
+  def generate_mesh(self, *kwargs):
+      # """
+      # adding measurement points
+      # *kwargs:
+      # - measurement_points as triplet (Easting,Northing,Height) or (lon, lat, height)
+      # - UTM zone (if easting norhting height is given) or nothing
+      # """
+    return print('completed')
+
 
   def add_measurements(self, *kwargs):
       """
@@ -84,6 +97,42 @@ class CPT():
       """
     pass
 
+  def find_measurements(self):
+      """
+      Doc String
+      """
+    pass
+
+  def generate_topographic_layer(self):
+      """
+      Doc String
+      """
+    pass
+
+  def generate_landcover_layer(self):
+      """
+      Doc String
+      """
+    pass
+
+  def generate_los_layer(self):
+      """
+      Doc String
+      """
+    pass
+
+  def generate_range_layer(self):
+      """
+      Doc String
+      """
+    pass
+
+  def generate_elevation_layer(self):
+      """
+      Doc String
+      """
+    pass
+
   def generate_combined_layer(self):
       """
       Check flags for calculating other layers:
@@ -97,13 +146,13 @@ class CPT():
       """
     pass
 
-  def place_first_lidar(self):
+  def generate_intersecting_layer(self):
       """
       Doc String
       """
     pass
 
-  def place_second_lidar(self):
+  def generate_second_lidar_layer(self):
       """
       Doc String
       """
@@ -121,13 +170,7 @@ class CPT():
       """
     pass
 
-  def find_measurements(self):
-      """
-      Doc String
-      """
-    pass
-
-  def export_layout(self):
+  def export_campaign_design(self):
       """
       Doc String
       """
