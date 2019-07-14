@@ -1,26 +1,22 @@
 class CPT():
+  LANDCOVER_DATA_PATH = ""
+  GOOGLE_API_KEY = ""
+  NO_LIDARS = 0
+  NO_LAYOUTS = 0
 
-  def __init__(self, **kwargs):
-    if not 'measurement_points' in kwargs:
-      self.measurement_points = None
-    else:
-      self.measurement_points = kwargs['measurement_points']          
-
-    if not 'utm_zone' in kwargs:
-      self.utm_zone = None
-    else:
-      self.utm_zone = kwargs['utm_zone']          
-
-    if not 'lidar_1_pos' in kwargs:
-      self.lidar_1_pos = None
-    else:
-      self.lidar_1_pos = kwargs['lidar_1_pos']            
-
-    if not 'lidar_2_pos' in kwargs:
-      self.lidar_2_pos = None
-    else:
-      self.lidar_2_pos = kwargs['lidar_2_pos']      
+  def __init__(self, *kwargs):
+    # measurement positions
+    self.measurements_initial = None
+    self.measurements_optimized = None
+    self.measurements_identified = None
+    self.measurements_reachable = None
+    self.utm_zone = None
     
+    # lidar positions
+    self.lidar_1_pos = None    
+    self.lidar_2_pos = None
+
+    # Lidar constraints
     if not 'max_elevation_angle' in kwargs:
       self.max_elevation_angle = 5 # in deg
     else:
@@ -40,16 +36,64 @@ class CPT():
       self.max_acceleration = 100 # in deg/s^2
     else:
       self.max_acceleration = kwargs['max_acceleration']
-      
+    
+    # GIS layers
+    self.topography_layer = None
+    self.landcover_layer = None    
+    self.exclusion_layer = None    
+    self.elevation_angle_layer = None
+    self.viewshed_layer = None
+    self.range_layer = None
+    self.combined_layer = None
+    self.intersecting_angle_layer = None
+    self. = None
+    self.aerial_layer = None    
+
+    self.flags = {'topography':False, 'landcover':False, 'exclusions': False,  
+                  'viewshed':False, 'elevation_angle': False, 'range': False, 'intersecting_angle':False, 'measurements_optimized': False}    
+
+
+    NO_LAYOUTS = NO_LAYOUTS + 1
+
+  def add_measurements(self, *kwargs):
+      """
+      adding measurement points
+      *kwargs:
+      - measurement_points as triplet (Easting,Northing,Height) or (lon, lat, height)
+      - UTM zone (if easting norhting height is given) or nothing
+      """
+
+    pass
+
+  def add_lidars(self, *kwargs):
+      """
+      adding lidar positions points
+      *kwargs:
+      - lidar_pos_1
+      - lidar_pos_2
+
+      must find closes index for lidar position...
+      """
+
+    pass
+
+
   def optimize_measurements(self):
       """
-      Doc String
+      Disc covering problem  applied on the set of measurement points.
       """
     pass
 
-  def generate_layers(self):
+  def generate_combined_layer(self):
       """
-      Doc String
+      Check flags for calculating other layers:
+      - DEM layer
+      - Landcover layer
+      - Exclusion zone layer
+      - LOS blockage layer
+      - Elevation angle layer
+      - Range layer
+      - Aerial image???
       """
     pass
 
