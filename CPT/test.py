@@ -1,4 +1,4 @@
-from CPT.CPT import CPT as CPT
+# from CPT.CPT import CPT as CPT
+from CPT.CPT import *
 
-test = CPT()
-test1 = CPT(min_elevation_angle = 5)
+test = CPT(utm_zone = '23W')
