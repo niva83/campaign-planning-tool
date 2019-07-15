@@ -168,13 +168,7 @@ class CPT():
         if (self.utm_zone == None) and (not 'utm_zone' in kwargs):
             print('UTM zone not specified!')
             self.flags['utm'] = False
-        elif (self.utm_zone == None) and ('utm_zone' in kwargs):
-            if check_utm_zone(kwargs['utm_zone']):
-                self.utm_zone = kwargs['utm_zone'][:-1]
-                self.grid_code = kwargs['utm_zone'].upper() 
-                self.epsg_code = utm2epsg(kwargs['utm_zone']) 
-                self.flags['utm'] = True
-        else: 
+        elif 'utm_zone' in kwargs:
             if check_utm_zone(kwargs['utm_zone']):
                 self.utm_zone = kwargs['utm_zone'][:-1]
                 self.grid_code = kwargs['utm_zone'].upper() 
