@@ -174,6 +174,12 @@ class CPT():
                 self.grid_code = kwargs['utm_zone'].upper() 
                 self.epsg_code = utm2epsg(kwargs['utm_zone']) 
                 self.flags['utm'] = True
+        else: 
+            if check_utm_zone(kwargs['utm_zone']):
+                self.utm_zone = kwargs['utm_zone'][:-1]
+                self.grid_code = kwargs['utm_zone'].upper() 
+                self.epsg_code = utm2epsg(kwargs['utm_zone']) 
+                self.flags['utm'] = True
         
         if self.flags['utm'] and check_measurements(kwargs['measurements']):
 
