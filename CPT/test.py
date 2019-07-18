@@ -45,72 +45,19 @@ def measurement_optimization_plt(DPI=100):
     plt.ylabel('Northing [m]', fontsize=12)
     ax.legend(loc='lower left', fontsize=10)
 
-    ax.set_xlim(-10,10)
-    ax.set_ylim(-10,10)
+    ax.set_xlim(-5,15)
+    ax.set_ylim(-5,15)
 
     ax.set_aspect(1.0)
     plt.show()
-
-
-
-
-
-
-# def generating_disc_matrix(points,radius):
-    
-#     points_combination = np.asarray(list(combinations(list(points[:,(0,1)]), 2)))    
-#     discs = (points_combination[:,0] + points_combination[:,1]) / 2
-
-#     temp = np.asarray(list(product(list(discs), list(points[:,(0,1)]))))
-#     distances =  np.linalg.norm(temp[:,0] - temp[:,1], axis = 1)
-#     distances = np.where(distances <= radius, 1, 0)
-    
-#     matrix = np.asarray(np.split(distances,len(discs)))
-#     total_covered_points = np.sum(matrix,axis = 1)
-
-#     matrix = matrix[(-total_covered_points).argsort()]
-#     discs = discs[(-total_covered_points).argsort()]
-
-#     # adding 0 m for elevation of each disc
-#     discs = np.append(discs.T, np.array([np.zeros(len(discs))]),axis=0).T
-
-#     return discs, matrix
-
-# def disc_covering(points, radius):
-#     discs, matrix = generating_disc_matrix(points,radius)
-#     points_uncovered = points
-#     points_covered_total = np.zeros((0,3))
-#     discs_selected = np.zeros((0,3))
-#     i = 0
-#     j = len(points_uncovered)
-
-#     while i <= (len(discs) - 1) and j > 0 :
-#         indexes = np.where(matrix[i] == 1 )
-#         points_covered = points[indexes]
-#         points_new = array_difference(points_covered, points_covered_total)
-#         if len(points_new) > 0:
-#             points_covered_total = np.append(points_covered_total, points_new,axis=0)
-#             discs_selected = np.append(discs_selected, np.array([discs[i]]),axis=0)
-#         points_uncovered = array_difference(points_uncovered, points_covered)        
-#         i += 1
-#         j = len(points_uncovered)
-#     discs_selected = np.append(discs_selected, points_uncovered, axis = 0)
-    
-
-
-#     print(points_uncovered)
-#     print(points_covered_total)
-#     # print(points_covered_total)
-#     print("Selected discs:")
-#     print(discs_selected)
-        
     
 
 map_center = [0,0]
-REPRESENT_RADIUS = 5
+REPRESENT_RADIUS = 2
+np.random
 points = np.array([[1,3,3],[2,1,4],[5,2,1],[0,7.4,1],[7.4,4,1]])
 new = CPT()
-new.set_utm_zone("31V")
+new.set_utm_zone("32V")
 new.add_measurements(measurements = points)
 new.REP_RADIUS = REPRESENT_RADIUS
 new.optimize_measurements()

@@ -1,55 +1,6 @@
 import numpy as np
 from itertools import combinations, product
 
-def check_utm_zone(utm_zone):
-        flag = False
-        grid_codes = ['C','D','E','F','G','H','J','K','L','M','N','P','Q','R','S','T','U','V','W','X']
-        try:
-
-            grid_code = utm_zone[-1].upper() # in case users put lower case 
-            utm_zone = int(utm_zone[:-1])
-            if grid_code in grid_codes:
-                flag = True
-            else:
-                print('Incorrect grid code!\nEnter a correct grid code!')
-                flag = False
-            
-            if utm_zone >= 1 and utm_zone <= 60:
-                flag = True and flag
-            else:
-                print('Incorrect UTM zone!\nEnter a correct UTM zone!')
-                flag = False
-        except:
-            flag = False
-            print('Wrong input!\nHint: there should not be spaces between UTM zone and grid code!')
-        return flag
-
-
-def which_hemisphere(utm_zone):
-        grid_codes = ['C','D','E','F','G','H','J','K','L','M','N','P','Q','R','S','T','U','V','W','X']
-        
-        if check_utm_zone(utm_zone):
-            grid_code = utm_zone[-1].upper() # in case users put lower case 
-            if grid_code in grid_codes[:10]:
-                return 'South'
-            else:
-                return 'North'
-                
-        else:
-            return None
-
-        
-def utm2epsg(utm_zone):
-        if check_utm_zone(utm_zone):
-            hemisphere = which_hemisphere(utm_zone)
-                
-            if hemisphere == 'North':
-                return '326' + utm_zone[:-1]
-            else:
-                return '327' + utm_zone[:-1]
-        else:
-            return None        
-
 def array_difference(A,B):
     """
     Finding which elements in array A are not present in
@@ -80,37 +31,6 @@ def array_difference(A,B):
 
     D = D.view(A.dtype).reshape(-1, ncols)
     return D
-
-# THIS FUNCTION SHOULD GO AS STATIC METHOD
-def check_measurements(points):
-        if(type(points).__module__ == np.__name__):
-                if (len(points.shape) == 1 and points.shape[0] == 3) or (len(points.shape) == 2 and points.shape[1] == 3):
-                    return True
-                else:
-                    print('Wrong dimensions!')
-                    print('Measurement positions were not added')
-                    return False
-        else:
-            print('Input is not numpy array!')
-            print('Measurement positions were not added')
-            return False
-
-# THIS FUNCTION SHOULD GO AS STATIC METHOD
-def check_lidars(points):
-        if(type(points).__module__ == np.__name__):
-                if (len(points.shape) == 1 and points.shape[0] == 3):
-                    return True
-                else:
-                    print('Wrong dimensions!\nLidar position is described by 3 parameters:\n(1)Easting\n(2)Northing\n(3)Height')
-                    print('Lidar position was not added')
-                    return False
-        else:
-            print('Input is not numpy array!')
-            print('Lidar position was not added')
-            return False
-
-
-
 
 class CPT():
     LANDCOVER_DATA_PATH = ""
@@ -157,10 +77,10 @@ class CPT():
             self.grid_code = None
             self.epsg_code = None 
         else:
-            if check_utm_zone(kwargs['utm_zone']):
+            if self.check_utm_zone(kwargs['utm_zone']):
                 self.utm_zone = kwargs['utm_zone'][:-1]
-                self.grid_code = kwargs['utm_zone'].upper() 
-                self.epsg_code = utm2epsg(kwargs['utm_zone']) 
+                self.grid_code = kwargs['utm_zone'][-1].upper() 
+                self.epsg_code = self.utm2epsg(kwargs['utm_zone']) 
                 self.flags['utm'] = True
             else:
                 self.utm_zone = None
@@ -192,12 +112,12 @@ class CPT():
 
 
         CPT.NO_LAYOUTS += 1
-
+    
     def set_utm_zone(self, utm_zone):
-        if check_utm_zone(utm_zone):
+        if self.check_utm_zone(utm_zone):
             self.utm_zone = utm_zone[:-1]
-            self.grid_code = utm_zone.upper() 
-            self.epsg_code = utm2epsg(utm_zone) 
+            self.grid_code = utm_zone[-1].upper() 
+            self.epsg_code = self.utm2epsg(utm_zone) 
             self.flags['utm'] = True
 
     def utm_exists(self, **kwargs):
@@ -205,17 +125,17 @@ class CPT():
             print('UTM zone not specified!')
             self.flags['utm'] = False
         elif 'utm_zone' in kwargs:
-            if check_utm_zone(kwargs['utm_zone']):
+            if self.check_utm_zone(kwargs['utm_zone']):
                 self.utm_zone = kwargs['utm_zone'][:-1]
-                self.grid_code = kwargs['utm_zone'].upper() 
-                self.epsg_code = utm2epsg(kwargs['utm_zone']) 
+                self.grid_code = kwargs['utm_zone'][-1].upper() 
+                self.epsg_code = self.utm2epsg(kwargs['utm_zone']) 
                 self.flags['utm'] = True
         
     def add_measurements(self, **kwargs):
         self.utm_exists(**kwargs)
         if self.flags['utm'] == False:
             print('Cannot add measurement points without specificing UTM zone!')
-        if self.flags['utm'] and check_measurements(kwargs['measurements']):
+        if self.flags['utm'] and self.check_measurement_positions(kwargs['measurements']):
             if len(kwargs['measurements'].shape) == 2:
                     self.measurements_initial = np.unique(kwargs['measurements'], axis=0)
             else:
@@ -280,11 +200,11 @@ class CPT():
             if self.flags['utm'] == False:
                 print('Cannot add lidar positions without specificing UTM zone!')
             else:        
-                if 'lidar_1_pos' in kwargs and check_lidars(kwargs['lidar_1_pos']):
+                if 'lidar_1_pos' in kwargs and self.check_lidar_position(kwargs['lidar_1_pos']):
                     self.lidar_1_pos = kwargs['lidar_1_pos']
                     self.flags['lidar_1_pos'] = True
                     print('Lidar 1 position added!')
-                if 'lidar_2_pos' in kwargs and check_lidars(kwargs['lidar_2_pos']):
+                if 'lidar_2_pos' in kwargs and self.check_lidar_position(kwargs['lidar_2_pos']):
                     self.lidar_2_pos = kwargs['lidar_2_pos']
                     self.flags['lidar_2_pos'] = True
                     print('Lidar 2 position added!')
@@ -292,49 +212,203 @@ class CPT():
             print('Lidar position(s) not specified!')        
 
     def generate_mesh(self, **kwargs):
-            """
-            Generate equally spaced (measurement) points on a horizontal plane.
+        """
+        Generate equally spaced (measurement) points on a horizontal plane.
 
-            Parameters
-            ----------
-            center : ndarray
-                    3D array containing data with `float` or `int` type
-                    corresponding to Easting, Northing and Height coordinates of the mesh center.
-                    3D array data are expressed in meters.
-            map_extent : int
-                    map extent in Easting and Northing in meters.
-            mesh_res : int
-                    mesh resolution for Easting and Northing in meters.
-            """
+        Parameters
+        ----------
+        center : ndarray
+                3D array containing data with `float` or `int` type
+                corresponding to Easting, Northing and Height coordinates of the mesh center.
+                3D array data are expressed in meters.
+        map_extent : int
+                map extent in Easting and Northing in meters.
+        mesh_res : int
+                mesh resolution for Easting and Northing in meters.
+        """
 
-            if 'map_extent' in kwargs:
-                self.MAP_EXTENT = kwargs['map_extent']
-            if 'map_center' in kwargs:
-                self.map_center = kwargs['map_center']
-                self.flags['map_center_added'] = True
-            elif self.flags['measurements_added']:
-                self.map_center = np.int_(np.mean(self.measurements_initial,axis = 0))
-                self.flags['map_center_added'] = True
+        if 'map_extent' in kwargs:
+            self.MAP_EXTENT = kwargs['map_extent']
+        if 'map_center' in kwargs:
+            self.map_center = kwargs['map_center']
+            self.flags['map_center_added'] = True
+        elif self.flags['measurements_added']:
+            self.map_center = np.int_(np.mean(self.measurements_initial,axis = 0))
+            self.flags['map_center_added'] = True
+        else:
+            print('Map center missing!')
+            print('Mesh cannot be generated!')
+            self.flags['map_center_added'] = False
+
+        if self.flags['map_center_added']:
+            # securing that the input parameters are int 
+            self.map_center = np.int_(self.map_center)
+            self.MAP_EXTENT = int(int(self.MAP_EXTENT / self.MESH_RES) * self.MESH_RES)
+            self.map_corners = np.array([self.map_center[:2] - self.MAP_EXTENT, 
+                                            self.map_center[:2] + self.MAP_EXTENT])
+
+            self.x, self.y = np.meshgrid(
+                    np.arange(self.map_corners[0][0], self.map_corners[1][0] + self.MAP_EXTENT, self.MESH_RES),
+                    np.arange(self.map_corners[0][1], self.map_corners[1][1] + self.MAP_EXTENT, self.MESH_RES)
+                            )
+            
+            self.z = np.full(self.x.shape, self.map_center[2])		
+            self.mesh = np.array([self.x, self.y, self.z]).T.reshape(-1, 3)
+    @staticmethod
+    def check_measurement_positions(points):
+        if(type(points).__module__ == np.__name__):
+                if (len(points.shape) == 1 and points.shape[0] == 3) or (len(points.shape) == 2 and points.shape[1] == 3):
+                    return True
+                else:
+                    print('Wrong dimensions!')
+                    print('Measurement positions were not added')
+                    return False
+        else:
+            print('Input is not numpy array!')
+            print('Measurement positions were not added')
+            return False
+
+    @staticmethod
+    def check_lidar_position(lidar_position):
+        if(type(lidar_position).__module__ == np.__name__):
+                if (len(lidar_position.shape) == 1 and lidar_position.shape[0] == 3):
+                    return True
+                else:
+                    print('Wrong dimensions!\nLidar position is described by 3 parameters:\n(1)Easting\n(2)Northing\n(3)Height')
+                    print('Lidar position was not added')
+                    return False
+        else:
+            print('Input is not numpy array!')
+            print('Lidar position was not added')
+            return False      
+
+    @staticmethod  
+    def check_utm_zone(utm_zone):
+        """
+        Checks whether UTM zone with grid code is valid or not.
+
+        Parameters
+        ----------
+        utm_zone : str
+            A string containing UTM zone with grid code.
+        
+        Returns
+        -------
+        out : bool
+            A boolean indicating True or False .
+        
+        Examples
+        --------
+        If UTM zone and grid code exist.
+        >>> utm2epsg('31V') 
+        True
+
+        If UTM zone and/or grid code don't exist.
+        >>> utm2epsg('61Z')
+        False
+        """ 
+        flag = False
+        grid_codes = ['C','D','E','F','G','H','J','K','L','M','N','P','Q','R','S','T','U','V','W','X']
+        try:
+
+            grid_code = utm_zone[-1].upper() # in case users put lower case 
+            utm_zone = int(utm_zone[:-1])
+            if grid_code in grid_codes:
+                print('Correct grid code!')
+                flag = True
             else:
-                print('Map center missing!')
-                print('Mesh cannot be generated!')
-                self.flags['map_center_added'] = False
+                print('Incorrect grid code!\nEnter a correct grid code!')
+                flag = False
+            
+            if utm_zone >= 1 and utm_zone <= 60:
+                print('Correct UTM zone!')
+                flag = True and flag
+            else:
+                print('Incorrect UTM zone!\nEnter a correct UTM zone!')
+                flag = False
+        except:
+            flag = False
+            print('Wrong input!\nHint: there should not be spaces between UTM zone and grid code!')
+        return flag
 
-            if self.flags['map_center_added']:
-                # securing that the input parameters are int 
-                self.map_center = np.int_(self.map_center)
-                self.MAP_EXTENT = int(int(self.MAP_EXTENT / self.MESH_RES) * self.MESH_RES)
-                self.map_corners = np.array([self.map_center[:2] - self.MAP_EXTENT, 
-                                             self.map_center[:2] + self.MAP_EXTENT])
+    @staticmethod
+    def which_hemisphere(utm_zone):
+        """
+        Returns whether UTM zone belongs to the  Northern or Southern hemisphere. 
 
-                self.x, self.y = np.meshgrid(
-                        np.arange(self.map_corners[0][0], self.map_corners[1][0] + self.MAP_EXTENT, self.MESH_RES),
-                        np.arange(self.map_corners[0][1], self.map_corners[1][1] + self.MAP_EXTENT, self.MESH_RES)
-                                )
-                
-                self.z = np.full(self.x.shape, self.map_center[2])		
-                self.mesh = np.array([self.x, self.y, self.z]).T.reshape(-1, 3)
+        Parameters
+        ----------
+        utm_zone : str
+            A string containing UTM zone with grid code.
+        
+        Returns
+        -------
+        out : str
+            A string indicating North or South hemisphere.
+        
+        Examples
+        --------
+        If UTM zone and grid code exist.
+        >>> utm2epsg('31V') 
+        'North'
 
+        >>> utm2epsg('31C') 
+        'South'        
+
+        If UTM zone and/or grid code don't exist.
+        >>> utm2epsg('61Z')
+        None
+        """
+ 
+        grid_codes = ['C','D','E','F','G','H','J','K','L','M','N','P','Q','R','S','T','U','V','W','X']
+        grid_code = utm_zone[-1].upper() # in case users put lower case 
+        if int(utm_zone[:-1]) >= 1 and int(utm_zone[:-1]) <= 60:
+            if grid_code in grid_codes[10:]:
+                return 'North'
+            elif grid_code in grid_codes[:10]:
+                return 'South'
+            else:
+                return None
+        else:
+            return None
+
+    @staticmethod        
+    def utm2epsg(utm_zone):
+        """
+        Converts UTM zone with grid code to EPSG code.
+
+        Parameters
+        ----------
+        utm_zone : str
+            A string representing an UTM zone with a grid code, containing digits (from 1 to 60) 
+            indicating the UTM zone followed by a character ('C' to 'X' excluding 'O') for the grid code.
+        
+        Returns
+        -------
+        out : str
+            A string containing EPSG code.
+        
+        Examples
+        --------
+        If UTM zone and grid code exist.
+        >>> utm2epsg('31V') 
+        '32631'
+
+        If UTM zone and/or grid code don't exist.
+        >>> utm2epsg('61Z')
+        None
+        """
+        grid_codes = ['C','D','E','F','G','H','J','K','L','M','N','P','Q','R','S','T','U','V','W','X']
+        grid_code = utm_zone[-1].upper() # in case users put lower case 
+        if int(utm_zone[:-1]) >= 1 and int(utm_zone[:-1]) <= 60:
+            if grid_code in grid_codes[10:]:
+                return '326' + utm_zone[:-1]
+            elif grid_code in grid_codes[:10]:
+                return '327' + utm_zone[:-1]
+            else:
+                return None
+        else:
+            return None
 
     # def optimize_measurements(self):
     #         """
