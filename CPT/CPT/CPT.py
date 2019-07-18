@@ -4,7 +4,7 @@ from itertools import combinations, product
 def array_difference(A,B):
     """
     Finding which elements in array A are not present in
-    array B.
+    array B. 
 
     Parameters
     ----------
@@ -12,6 +12,23 @@ def array_difference(A,B):
         nD array containing data with `float` or `int` type
     B : ndarray
         nD array containing data with `float` or `int` type
+
+    Returns
+    -------
+    out : ndarray
+        nD array containing data with 'float' or 'int' type
+    
+    Examples
+    --------
+    >>> A = np.array([[1,2,3],[1,1,1]])
+    >>> B = np.array([[3,3,3],[3,2,3],[1,1,1]])
+    >>> array_difference(A, B)
+    array([[1, 2, 3]])
+
+    >>> A = np.array([[1,2,3],[1,1,1]])
+    >>> B = np.array([[1,2,3],[3,3,3],[3,2,3],[1,1,1]])
+    >>> array_difference(A,B)
+    array([], dtype=float64)
     """
 
     nrows, ncols = A.shape
@@ -33,11 +50,47 @@ def array_difference(A,B):
     return D
 
 class CPT():
+    """
+    A class for designing scanning lidar measurement campaigns.
+
+    ...
+
+    Attributes
+    ----------
+    LANDCOVER_DATA_PATH : str
+        The path to a CORINE landcover dataset.
+        A default value set to an empty string.
+    GOOGLE_API_KEY : str
+        An API key to access Google Maps database.
+        A default value is set to an empty string.
+    MESH_RES : int
+        The resolution of the mesh used for GIS layers creation.
+        The resolution is expressed in meters. 
+        A default value is set to 100 m.
+    MESH_EXTENT : int
+        The mesh extent along x and y axes as a single value.
+        The extent is expressed in meters. 
+        A default value is set to 5000 m.
+    REP_RADIUS : int
+        MEASNET's representativness radius of measurements.
+        The radius is expressed in meters.
+        A default value is set to 500 m.
+    MAX_ELEVATION_ANGLE : float
+        The maximum allowed elevation angle of lidar.
+        The angle is expressed in deg.
+        A default value is set to 5 deg.
+    
+    
+
+    Methods
+    --------
+
+    """
     LANDCOVER_DATA_PATH = ""
     GOOGLE_API_KEY = ""
     
     MESH_RES = 100 # in m
-    MAP_EXTENT = 5000 # in m
+    MESH_EXTENT = 5000 # in m
 
     
     REP_RADIUS = 500 # in m
@@ -56,7 +109,7 @@ class CPT():
                                     'viewshed':False, 'elevation_angle': False, 'range': False, 
                                     'intersecting_angle':False, 'measurements_optimized': False,
                                     'measurements_added': False,'lidar_1_pos':False,'lidar_2_pos':False,
-                                    'map_center_added': False,
+                                    'mesh_center_added': False,
                                     'utm':False, 'input_check_pass': False}        
 
 
@@ -67,10 +120,10 @@ class CPT():
         self.measurements_reachable = None
 
 
-        if not 'map_center' in kwargs:
-            self.map_center = None 
+        if not 'mesh_center' in kwargs:
+            self.mesh_center = None 
         else:
-            self.map_center = kwargs['map_center']
+            self.mesh_center = kwargs['mesh_center']
 
         if not 'utm_zone' in kwargs:
             self.utm_zone = None
@@ -94,8 +147,8 @@ class CPT():
 
         
         # GIS layers
-        self.map_center = None
-        self.map_corners = None
+        self.mesh_center = None
+        self.mesh_corners = None
         self.x = None
         self.y = None
         self.z = None
@@ -221,38 +274,38 @@ class CPT():
                 3D array containing data with `float` or `int` type
                 corresponding to Easting, Northing and Height coordinates of the mesh center.
                 3D array data are expressed in meters.
-        map_extent : int
-                map extent in Easting and Northing in meters.
+        mesh_extent : int
+                mesh extent in Easting and Northing in meters.
         mesh_res : int
                 mesh resolution for Easting and Northing in meters.
         """
 
-        if 'map_extent' in kwargs:
-            self.MAP_EXTENT = kwargs['map_extent']
-        if 'map_center' in kwargs:
-            self.map_center = kwargs['map_center']
-            self.flags['map_center_added'] = True
+        if 'mesh_extent' in kwargs:
+            self.MESH_EXTENT = kwargs['mesh_extent']
+        if 'mesh_center' in kwargs:
+            self.mesh_center = kwargs['mesh_center']
+            self.flags['mesh_center_added'] = True
         elif self.flags['measurements_added']:
-            self.map_center = np.int_(np.mean(self.measurements_initial,axis = 0))
-            self.flags['map_center_added'] = True
+            self.mesh_center = np.int_(np.mean(self.measurements_initial,axis = 0))
+            self.flags['mesh_center_added'] = True
         else:
-            print('Map center missing!')
+            print('Mesh center missing!')
             print('Mesh cannot be generated!')
-            self.flags['map_center_added'] = False
+            self.flags['mesh_center_added'] = False
 
-        if self.flags['map_center_added']:
+        if self.flags['mesh_center_added']:
             # securing that the input parameters are int 
-            self.map_center = np.int_(self.map_center)
-            self.MAP_EXTENT = int(int(self.MAP_EXTENT / self.MESH_RES) * self.MESH_RES)
-            self.map_corners = np.array([self.map_center[:2] - self.MAP_EXTENT, 
-                                            self.map_center[:2] + self.MAP_EXTENT])
+            self.mesh_center = np.int_(self.mesh_center)
+            self.MESH_EXTENT = int(int(self.MESH_EXTENT / self.MESH_RES) * self.MESH_RES)
+            self.mesh_corners = np.array([self.mesh_center[:2] - self.MESH_EXTENT, 
+                                            self.mesh_center[:2] + self.MESH_EXTENT])
 
             self.x, self.y = np.meshgrid(
-                    np.arange(self.map_corners[0][0], self.map_corners[1][0] + self.MAP_EXTENT, self.MESH_RES),
-                    np.arange(self.map_corners[0][1], self.map_corners[1][1] + self.MAP_EXTENT, self.MESH_RES)
+                    np.arange(self.mesh_corners[0][0], self.mesh_corners[1][0] + self.MESH_EXTENT, self.MESH_RES),
+                    np.arange(self.mesh_corners[0][1], self.mesh_corners[1][1] + self.MESH_EXTENT, self.MESH_RES)
                             )
             
-            self.z = np.full(self.x.shape, self.map_center[2])		
+            self.z = np.full(self.x.shape, self.mesh_center[2])		
             self.mesh = np.array([self.x, self.y, self.z]).T.reshape(-1, 3)
     @staticmethod
     def check_measurement_positions(points):
@@ -400,6 +453,7 @@ class CPT():
         """
         grid_codes = ['C','D','E','F','G','H','J','K','L','M','N','P','Q','R','S','T','U','V','W','X']
         grid_code = utm_zone[-1].upper() # in case users put lower case 
+
         if int(utm_zone[:-1]) >= 1 and int(utm_zone[:-1]) <= 60:
             if grid_code in grid_codes[10:]:
                 return '326' + utm_zone[:-1]
