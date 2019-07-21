@@ -93,31 +93,32 @@ class CPT():
         A default value is set to 100 deg/s^2.
     NO_LAYOUTS : int
         A number of layout instances generated.
+    ...need to add all the self.attributes!!!!
 
     Methods
     --------
     set_utm_zone(utm_zone)
-        Sets UTM zone and calculates EPSG code
+        Sets UTM grid zone and EPSG code to the CPT instance.
     check_utm_zone(utm_zone)
-        ...insert description
+        Checks whether UTM grid zone is valid or not.
     which_hemisphere(utm_zone)
-        ...insert description
+        Returns whether UTM grid zone belongs to the Northern or Southern hemisphere.
     utm2epsg(utm_zone)
-        ...insert description
+        Converts UTM grid zone to EPSG code.
     add_measurements(self, **kwargs)
-        ...insert description
+        Adds measurement positions to the CPT class instance.
     generate_disc_matrix(self)
-        ...insert description
+        Generates inputs for optimize_measurements() method
     optimize_measurements(self)
-        ...insert description
+        Optimizes measurement positions by solving disc covering problem.
     add_lidars(self, **kwargs)
-        ...insert description
+        Adds lidars positions to the CPT class instance.
     generate_mesh(self, **kwargs)
-        ...insert description
+        Generates a rectangular horizontal mesh containing equally spaced points.
     check_measurement_positions(points)
-        ...insert description
+        Validates input measurement points.
     check_lidar_position(lidar_position)
-        ...insert description
+        Validates input lidar positions.
     """
     INPUT_DATA_PATH = ""
     OUTPUT_DATA_PATH = ""
@@ -142,7 +143,7 @@ class CPT():
         self.flags = {'topography':False, 'landcover':False, 'exclusions': False,    
                                     'viewshed':False, 'elevation_angle': False, 'range': False, 
                                     'intersecting_angle':False, 'measurements_optimized': False,
-                                    'measurements_added': False,'lidar_1_pos':False,'lidar_2_pos':False,
+                                    'measurements_added': False,'lidar_pos_1':False,'lidar_pos_2':False,
                                     'mesh_center_added': False,
                                     'utm':False, 'input_check_pass': False}        
 
@@ -176,8 +177,8 @@ class CPT():
 
         
         # lidar positions
-        self.lidar_1_pos = None        
-        self.lidar_2_pos = None
+        self.lidar_pos_1 = None        
+        self.lidar_pos_2 = None
 
         
         # GIS layers
@@ -200,11 +201,35 @@ class CPT():
         CPT.NO_LAYOUTS += 1
     
     def set_utm_zone(self, utm_zone):
+        """
+        Sets UTM grid zone and EPSG code to the CPT instance. 
+        
+        Parameters
+        ----------
+        utm_zone : str, optional
+            A string representing an UTM grid zone, containing digits (from 1 to 60) 
+            indicating the longitudinal zone followed by a character ('C' to 'X' excluding 'O') 
+            corresponding to the latitudinal zone.
+
+        Returns
+        -------
+        self.long_zone : str
+            A string representing longitudinal zone of the UTM grid zone.
+        self.lat_zone : str
+            A character representing latitudinal zone of the UTM grid zone.
+        self.epsg_code : str
+            A string representing EPSG code.
+        self.flags['utm'] : bool
+            Sets the key 'utm' in the flag dictionary to True.                
+        """
         if self.check_utm_zone(utm_zone):
             self.long_zone = utm_zone[:-1]
             self.lat_zone = utm_zone[-1].upper() 
             self.epsg_code = self.utm2epsg(utm_zone) 
             self.flags['utm'] = True
+            return print('UTM zone set')
+        else:
+            return print('UTM zone not set')
         
     def add_measurements(self, **kwargs):
         """
@@ -260,6 +285,82 @@ class CPT():
             self.flags['measurements_added'] = True
 
     def generate_disc_matrix(self):
+        """
+        Generates mid points between any combination of two measurement points 
+        which act as disc centers. The mid points are tested which measurement
+        points they are covering producing so-called disc-covering matrix used
+        in the measuremen point optimization method.
+
+        Parameters
+        ----------
+        self.measurements_initial : ndarray
+            An initial set of measurement points provided as nD array.
+        self.REP_RADIUS : int
+            MEASNET's representativness radius of measurements.
+            The radius is expressed in meters.
+            A default value is set to 500 m.
+        Returns
+        -------
+        discs : ndarray
+            An array of mid points between all combinations of two measurement points.
+        matrix : ndarray
+            A binary matrix indicating which measurement points are covered by each disc.
+            The matrix shape is (len(discs), len(measurements_initial)).
+            The value 1 indicates that a measurement point is covered or by a disc.
+            The value 0 indicates that a measurement point is not covered or by a disc.
+            The matrix is sorted decending order, having a row with a maximum number of 1
+            positioned at the top.
+
+        See also
+        --------
+        optimize_measurements : implementation of disc covering problem
+
+        Notes
+        --------
+        generate_disc_matrix() method is used to generate necessary inputs for the
+        greedy implementation of the disc covering problem which optimizes the 
+        measurement points for the field campaign. It is required that measurement
+        points are added to the class instance before calling this method.
+
+        References
+        ----------
+        .. [1] Ahmad Biniaz, Paul Liu, Anil Maheshwari and Michiel Smid, 
+           Approximation algorithms for the unit disk cover problem in 2D and 3D,
+           Computational Geometry, Volume 60, Pages 8-18, 2017,
+           https://doi.org/10.1016/j.comgeo.2016.04.002.
+
+        Examples
+        --------
+        >>> layout = CPT()
+        >>> layout.set_utm_zone('31V')
+        Correct latitudinal zone!
+        Correct longitudinal zone!
+        UTM zone set        
+        >>> layout.REP_RADIUS = 2
+        >>> measurements_initial = np.array([[1,3,3],[2,1,4],[5,2,1],[0,7.4,1],[7.4,4,1]]) 
+        >>> layout.add_measurements(measurements = measurements_initial)
+        >>> layout.generate_disc_matrix()
+        (array([[1.5, 2. , 0. ],
+            [3.5, 1.5, 0. ],
+            [6.2, 3. , 0. ],
+            [1. , 4.2, 0. ],
+            [3. , 2.5, 0. ],
+            [4.2, 3.5, 0. ],
+            [4.7, 2.5, 0. ],
+            [0.5, 5.2, 0. ],
+            [2.5, 4.7, 0. ],
+            [3.7, 5.7, 0. ]]), array([[0, 1, 1, 0, 0],
+            [0, 0, 1, 1, 0],
+            [0, 0, 0, 1, 1],
+            [0, 1, 0, 0, 0],
+            [0, 0, 1, 0, 0],
+            [0, 0, 0, 1, 0],
+            [0, 0, 0, 1, 0],
+            [0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0]]))
+
+        """
         if self.flags['measurements_added']:
             points_combination = np.asarray(list(combinations(list(self.measurements_initial[:,(0,1)]), 2)))    
             discs = (points_combination[:,0] + points_combination[:,1]) / 2
@@ -279,9 +380,53 @@ class CPT():
 
             return discs, matrix
         else:
-            print("No measurement positions added, nothing to optimize!")
+            return print("No measurement positions added, nothing to optimize!")
 
     def optimize_measurements(self):
+        """
+        Optimizes measurement positions by solving disc covering problem.
+        
+        Parameters
+        ----------
+        
+        Returns
+        -------
+        self.measurements_optimized : ndarray
+            An nD array of optimized measurements positions.
+        
+        See also
+        --------
+        generate_disc_matrix : method which calculates inputs for optimize_measurements()
+
+        Notes
+        --------
+        A greedy implementation of the disc covering problem for a set of measurement points.
+
+        References
+        ----------
+        .. [1] Ahmad Biniaz, Paul Liu, Anil Maheshwari and Michiel Smid, 
+           Approximation algorithms for the unit disk cover problem in 2D and 3D,
+           Computational Geometry, Volume 60, Pages 8-18, 2017,
+           https://doi.org/10.1016/j.comgeo.2016.04.002.
+
+        Examples
+        --------
+        >>> layout = CPT()
+        >>> layout.set_utm_zone('31V')
+        Correct latitudinal zone!
+        Correct longitudinal zone!
+        UTM zone set
+        >>> layout.REP_RADIUS = 2
+        >>> measurements_initial = np.array([[1,3,3],[2,1,4],[5,2,1],[0,7.4,1],[7.4,4,1]]) 
+        >>> layout.add_measurements(measurements = measurements_initial)
+        >>> layout.optimize_measurements()
+        >>> layout.measurements_optimized
+        array([[1.5, 2. , 0. ],
+            [3.5, 1.5, 0. ],
+            [6.2, 3. , 0. ],
+            [0. , 7.4, 1. ]])
+
+        """
 
         if self.flags['measurements_added']:
             discs, matrix = self.generate_disc_matrix()
@@ -310,38 +455,133 @@ class CPT():
             
 
     def add_lidars(self, **kwargs):
+        """
+        Adds lidars positions, provided as 
+        UTM coordinate triplets, to the CPT class.
+        
+        Parameters
+        ----------
+            **kwargs : see below
+
+        Keyword Arguments
+        -----------------
+        lidar_pos_1 : ndarray, required
+            nD array containing data with `float` or `int` type corresponding 
+            to Northing, Easting and Height coordinates of the first lidar.
+            nD array data are expressed in meters.
+        lidar_pos_2 : ndarray, required
+            nD array containing data with `float` or `int` type corresponding 
+            to Northing, Easting and Height coordinates of the second lidar.
+            nD array data are expressed in meters.
+        utm_zone : str, optional
+            A string representing an UTM grid zone, containing digits (from 1 to 60) 
+            indicating the longitudinal zone followed by a character ('C' to 'X' excluding 'O') 
+            corresponding to the latitudinal zone.
+        
+        Returns
+        -------
+        self.lidar_pos_1 : ndarray 
+            nD array containing data with `float` or `int` type corresponding to 
+            Northing, Easting and Height coordinates of the first lidar.
+        self.lidar_pos_2 : ndarray 
+            nD array containing data with `float` or `int` type corresponding to 
+            Northing, Easting and Height coordinates of the second lidar.            
+        self.flags['lidar_pos_1'] : bool
+            Sets the key 'lidar_pos_1' in the flag dictionary to True.
+        self.flags['lidar_pos_2'] : bool
+            Sets the key 'lidar_pos_1' in the flag dictionary to True.
+        self.long_zone : str
+            A string representing longitudinal zone of the UTM grid zone.
+        self.lat_zone : str
+            A character representing latitudinal zone of the UTM grid zone.
+        self.epsg_code : str
+            A string representing EPSG code.
+        self.flags['utm'] : bool
+            Sets the key 'utm' in the flag dictionary to True.
+
+        Notes
+        --------
+        Lidar positions can be added one at time.
+
+        Examples
+        --------
+        >>> layout = CPT()
+        >>> layout.set_utm_zone('31V')
+        Correct latitudinal zone!
+        Correct longitudinal zone!
+        UTM zone set
+        >>> layout.add_lidars(lidar_pos_1 = np.array([1,20,200]))
+        Lidar 1 position added!
+
+        >>> layout.add_lidars(lidar_pos_1 = np.array([1,20,200]), lidar_pos_2 = np.array([-20,1, 200]))
+        Lidar 1 position added!
+        Lidar 2 position added!        
+        """
+
         if 'utm_zone' in kwargs:
             self.set_utm_zone(kwargs['utm_zone'])
 
-        if 'lidar_1_pos' in kwargs or 'lidar_2_pos' in kwargs:
+        if 'lidar_pos_1' in kwargs or 'lidar_pos_2' in kwargs:
             if self.flags['utm'] == False:
                 print('Cannot add lidar positions without specificing UTM zone!')
             else:        
-                if 'lidar_1_pos' in kwargs and self.check_lidar_position(kwargs['lidar_1_pos']):
-                    self.lidar_1_pos = kwargs['lidar_1_pos']
-                    self.flags['lidar_1_pos'] = True
+                if 'lidar_pos_1' in kwargs and self.check_lidar_position(kwargs['lidar_pos_1']):
+                    self.lidar_pos_1 = kwargs['lidar_pos_1']
+                    self.flags['lidar_pos_1'] = True
                     print('Lidar 1 position added!')
-                if 'lidar_2_pos' in kwargs and self.check_lidar_position(kwargs['lidar_2_pos']):
-                    self.lidar_2_pos = kwargs['lidar_2_pos']
-                    self.flags['lidar_2_pos'] = True
+                if 'lidar_pos_2' in kwargs and self.check_lidar_position(kwargs['lidar_pos_2']):
+                    self.lidar_pos_2 = kwargs['lidar_pos_2']
+                    self.flags['lidar_pos_2'] = True
                     print('Lidar 2 position added!')
         else:
             print('Lidar position(s) not specified!')        
 
     def generate_mesh(self, **kwargs):
         """
-        Generate equally spaced (measurement) points on a horizontal plane.
-
+        Generates a rectangular horizontal mesh containing equally spaced points.
+        
         Parameters
         ----------
-        center : ndarray
-                3D array containing data with `float` or `int` type
-                corresponding to Easting, Northing and Height coordinates of the mesh center.
-                3D array data are expressed in meters.
-        mesh_extent : int
-                mesh extent in Easting and Northing in meters.
-        mesh_res : int
-                mesh resolution for Easting and Northing in meters.
+            **kwargs : see below
+
+        Keyword Arguments
+        -----------------
+        mesh_center : ndarray, optional
+            3D array containing data with `float` or `int` type
+            corresponding to Easting, Northing and Height coordinates of the mesh center.
+            3D array data are expressed in meters.
+        mesh_extent : int, optional
+            mesh extent in Easting and Northing in meters.
+        
+        Returns
+        -------
+        self.mesh_corners : ndarray
+            ndarray containing lower left and upper right corner of the mesh
+        self.mesh : ndarray
+            ndarray of mesh points
+
+        Notes
+        --------
+        In case mesh center is not provided, but initial measurement points are
+        this method will find the barycenter of measurement points and consider it
+        as the mesh center. If mesh extent is not provided, a default value of 5000
+        meters will be considered. 
+
+        Examples
+        --------
+        >>> layout = CPT()
+        >>> layout.generate_mesh(mesh_center = np.array([0,0,0]), mesh_extent = 1000)
+        >>> layout.mesh
+        array([[-1000, -1000,     0],
+            [-1000,  -900,     0],
+            [-1000,  -800,     0],
+            ...,
+            [ 1900,  1700,     0],
+            [ 1900,  1800,     0],
+            [ 1900,  1900,     0]])
+        >>> layout.mesh_corners
+        array([[-1000, -1000],
+            [ 1000,  1000]])            
         """
 
         if 'mesh_extent' in kwargs:
@@ -374,6 +614,39 @@ class CPT():
 
     @staticmethod
     def check_measurement_positions(points):
+        """
+        Validates input points.
+        
+        Parameters
+        ----------
+        points : ndarray
+            nD array containing data with `float` or `int` type
+            corresponding to x, y and z coordinates of measurement points.
+            nD array data are expressed in meters.
+
+        
+        Returns
+        -------
+            True / False
+
+        See also
+        --------
+        add_measurements() : adding measurement points to the CPT class instance 
+
+        Examples
+        --------
+        >>> layout = CPT()        
+        >>> layout.check_measurement_positions(np.array([1,2]))
+        Wrong dimensions!
+        Measurement positions were not added
+        False      
+        >>> layout.check_measurement_positions(np.array([1,2,1]))
+        True              
+        >>> layout.check_measurement_positions([1,2,1])
+        Input is not numpy array!
+        Measurement positions were not added
+        False        
+        """
         if(type(points).__module__ == np.__name__):
                 if (len(points.shape) == 1 and points.shape[0] == 3) or (len(points.shape) == 2 and points.shape[1] == 3):
                     return True
@@ -388,6 +661,43 @@ class CPT():
 
     @staticmethod
     def check_lidar_position(lidar_position):
+        """
+        Validates a lidar position
+        
+        Parameters
+        ----------
+        lidar_position : ndarray
+            nD array containing data with `float` or `int` type
+            corresponding to x, y and z coordinates of a lidar.
+            nD array data are expressed in meters.
+
+        
+        Returns
+        -------
+            True / False
+
+        See also
+        --------
+        add_lidars() : adding lidar positions to the CPT class instance 
+
+        Examples
+        --------
+        >>> layout = CPT()
+        >>> layout.check_lidar_position(np.array([1,2,100]))
+        True
+        >>> layout.check_lidar_position(np.array([1,2]))
+        Wrong dimensions!
+        Lidar position is described by 3 parameters:
+        (1)Easting
+        (2)Northing
+        (3)Height
+        Lidar position was not added
+        False
+        >>> layout.check_lidar_position([1,2])
+        Input is not numpy array!
+        Lidar position was not added
+        False        
+        """        
         if(type(lidar_position).__module__ == np.__name__):
                 if (len(lidar_position.shape) == 1 and lidar_position.shape[0] == 3):
                     return True
