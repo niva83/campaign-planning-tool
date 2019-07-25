@@ -1,5 +1,11 @@
 import numpy as np
 from itertools import combinations, product
+from pyproj import Proj
+
+from osgeo import gdal, osr, ogr, gdal_array
+import rasterio
+import srtm
+import matplotlib.pyplot as plt
 
 def array_difference(A,B):
     """
@@ -121,9 +127,10 @@ class CPT():
         Validates input lidar positions.
     """
     INPUT_DATA_PATH = ""
-    OUTPUT_DATA_PATH = ""
     LANDCOVER_DATA_PATH = ""
+    OUTPUT_DATA_PATH = ""    
     GOOGLE_API_KEY = ""
+    RASTER_FORMAT = 'GTiff'
     
     MESH_RES = 100 # in m
     MESH_EXTENT = 5000 # in m
@@ -134,6 +141,15 @@ class CPT():
     MIN_INTERSECTING_ANGLE = 30 # in deg
     AVERAGE_RANGE = 3000 # in m
     MAX_ACCELERATION = 100 # deg / s^2
+    ACCUMULATION_TIME = 1000 # in ms
+    PULSE_LENGTH = 400 # in ns
+    FFT_SIZE = 128 # no points
+    MAX_RANGES = 100 # maximum number of range gates
+
+
+    MY_DPI = 96
+    FONT_SIZE = 12
+    NO_DATA_VALUE = 0
 
     NO_LAYOUTS = 0
 
@@ -141,19 +157,19 @@ class CPT():
         # flags
         # add missing flags as you code
         self.flags = {'topography':False, 'landcover':False, 'exclusions': False,    
-                                    'viewshed':False, 'elevation_angle': False, 'range': False, 
-                                    'intersecting_angle':False, 'measurements_optimized': False,
-                                    'measurements_added': False,'lidar_pos_1':False,'lidar_pos_2':False,
-                                    'mesh_center_added': False,
-                                    'utm':False, 'input_check_pass': False}        
-
+                      'viewshed':False, 'elevation_angle': False, 'range': False, 
+                      'intersecting_angle':False, 'measurements_optimized': False,
+                      'measurements_added': False,'lidar_pos_1':False,'lidar_pos_2':False,
+                      'mesh_center_added': False, 'mesh_generated' : False,
+                      'utm':False, 'input_check_pass': False,
+                      'landcover_layers_generated' : False,
+                      'orography_layer_generated' : False}        
 
         # measurement positions
         self.measurements_initial = None
         self.measurements_optimized = None
         self.measurements_identified = None
         self.measurements_reachable = None
-
 
         if not 'mesh_center' in kwargs:
             self.mesh_center = None 
@@ -169,11 +185,13 @@ class CPT():
                 self.long_zone = kwargs['utm_zone'][:-1]
                 self.lat_zone = kwargs['utm_zone'][-1].upper() 
                 self.epsg_code = self.utm2epsg(kwargs['utm_zone']) 
+                self.hemisphere = self.which_hemisphere(kwargs['utm_zone'])
                 self.flags['utm'] = True
             else:
                 self.long_zone = None
                 self.lat_zone = None
-                self.epsg_code = None                
+                self.epsg_code = None   
+                self.hemisphere = None             
 
         
         # lidar positions
@@ -182,16 +200,20 @@ class CPT():
 
         
         # GIS layers
-        self.mesh_corners = None
+        self.mesh_corners_utm = None
+        self.mesh_corners_geo = None
         self.x = None
         self.y = None
         self.z = None
-        self.mesh = None
+        self.mesh_utm = None
+        self.mesh_geo = None
+        self.orography_layer = None
+        self.canopy_height_layer = None
         self.topography_layer = None
         self.landcover_layer = None        
         self.exclusion_layer = None        
         self.elevation_angle_layer = None
-        self.los_layer = None
+        self.los_blck_layer = None
         self.range_layer = None
         self.combined_layer = None
         self.intersecting_angle_layer = None
@@ -199,10 +221,46 @@ class CPT():
 
 
         CPT.NO_LAYOUTS += 1
-    
+
+    def plot_values(self, values, **kwargs):
+
+        if 'levels' in kwargs:
+            levels = kwargs['levels']
+        else:
+            levels = np.linspace(np.min(values), np.max(values), 20)
+
+        fig, ax = plt.subplots(sharey = True, figsize=(600/self.MY_DPI, 600/self.MY_DPI), dpi=self.MY_DPI)
+        cmap = plt.cm.RdBu_r
+        cs = plt.contourf(self.x, self.y, values, levels=levels, cmap=cmap, alpha = 0.75)
+
+
+        cbar = plt.colorbar(cs,orientation='vertical',fraction=0.047, pad=0.01)
+        if 'legend_label' in kwargs:
+            cbar.set_label(kwargs['legend_label'], fontsize = self.FONT_SIZE)
+        
+        if self.lidar_pos_1 != None:
+            ax.scatter(self.lidar_pos_1[0], self.lidar_pos_1[1], marker = 'o', 
+                    color = 'black', s = 20, zorder = 1000, label = "WS1")
+        if self.lidar_pos_2 != None:
+            ax.scatter(self.lidar_pos_2[0], self.lidar_pos_2[1], marker = 'o', 
+                    color = 'red', s = 20, zorder = 1000, label = "WS2")
+
+        if self.lidar_pos_1 != None or self.lidar_pos_2 != None :
+            ax.legend(loc='lower right', fontsize = self.FONT_SIZE)    
+
+
+        plt.xlabel('Easting [m]', fontsize = self.FONT_SIZE)
+        plt.ylabel('Northing [m]', fontsize = self.FONT_SIZE)
+
+        if 'title' in kwargs:
+            plt.title(kwargs['title'], fontsize = self.FONT_SIZE)
+
+        ax.set_aspect(1.0)
+        plt.show()
+
     def set_utm_zone(self, utm_zone):
         """
-        Sets UTM grid zone and EPSG code to the CPT instance. 
+        Sets latitudinal and longitudinal zones and EPSG code to the CPT instance. 
         
         Parameters
         ----------
@@ -219,13 +277,16 @@ class CPT():
             A character representing latitudinal zone of the UTM grid zone.
         self.epsg_code : str
             A string representing EPSG code.
+        self.hemisphere : str
+            A string indicating north or south hemisphere.            
         self.flags['utm'] : bool
             Sets the key 'utm' in the flag dictionary to True.                
         """
         if self.check_utm_zone(utm_zone):
             self.long_zone = utm_zone[:-1]
             self.lat_zone = utm_zone[-1].upper() 
-            self.epsg_code = self.utm2epsg(utm_zone) 
+            self.epsg_code = self.utm2epsg(utm_zone)
+            self.hemisphere = self.which_hemisphere(utm_zone) 
             self.flags['utm'] = True
             return print('UTM zone set')
         else:
@@ -264,6 +325,8 @@ class CPT():
             A character representing latitudinal zone of the UTM grid zone.
         self.epsg_code : str
             A string representing EPSG code.
+        self.hemisphere : str
+            A string indicating north or south hemisphere.            
         self.flags['utm'] : bool
             Sets the key 'utm' in the flag dictionary to True.
         """
@@ -496,6 +559,8 @@ class CPT():
             A character representing latitudinal zone of the UTM grid zone.
         self.epsg_code : str
             A string representing EPSG code.
+        self.hemisphere : str
+            A string indicating north or south hemisphere.            
         self.flags['utm'] : bool
             Sets the key 'utm' in the flag dictionary to True.
 
@@ -601,16 +666,133 @@ class CPT():
             # securing that the input parameters are int 
             self.mesh_center = np.int_(self.mesh_center)
             self.MESH_EXTENT = int(int(self.MESH_EXTENT / self.MESH_RES) * self.MESH_RES)
-            self.mesh_corners = np.array([self.mesh_center[:2] - self.MESH_EXTENT, 
-                                            self.mesh_center[:2] + self.MESH_EXTENT])
+            # self.mesh_corners_utm = np.array([self.mesh_center[:2] - self.MESH_EXTENT, 
+            #                                 self.mesh_center[:2] + self.MESH_EXTENT])
+            self.mesh_corners_utm = np.array([self.mesh_center - self.MESH_EXTENT, 
+                                            self.mesh_center + self.MESH_EXTENT])
+            self.mesh_corners_geo = self.utm2geo(self.mesh_corners_utm, self.long_zone, self.hemisphere)                                 
 
             self.x, self.y = np.meshgrid(
-                    np.arange(self.mesh_corners[0][0], self.mesh_corners[1][0] + self.MESH_EXTENT, self.MESH_RES),
-                    np.arange(self.mesh_corners[0][1], self.mesh_corners[1][1] + self.MESH_EXTENT, self.MESH_RES)
+                    np.arange(self.mesh_corners_utm[0][0], self.mesh_corners_utm[1][0] + self.MESH_RES, self.MESH_RES),
+                    np.arange(self.mesh_corners_utm[0][1], self.mesh_corners_utm[1][1] + self.MESH_RES, self.MESH_RES)
                             )
             
             self.z = np.full(self.x.shape, self.mesh_center[2])		
-            self.mesh = np.array([self.x, self.y, self.z]).T.reshape(-1, 3)
+            self.mesh_utm = np.array([self.x, self.y, self.z]).T.reshape(-1, 3)
+            self.mesh_geo = self.utm2geo(self.mesh_utm, self.long_zone, self.hemisphere)            
+            self.flags['mesh_generated'] = True
+
+
+    def generate_topographic_layer(self):
+        self.generate_orography_layer()
+        self.generate_landcover_layer()
+        if self.flags['landcover_layers_generated'] == True and self.flags['orography_layer_generated'] == True:
+            self.topography_layer = self.canopy_height_layer + self.orography_layer
+        else:
+            print('Cannot generate topography layer following layers are missing:')
+            if self.flags['landcover_layers_generated'] == False:
+                print('Canopy height')
+            if self.flags['orography_layer_generated'] == False:
+                print('Orography height')
+
+    def generate_orography_layer(self):
+        nrows, ncols = self.x.shape
+        elevation_data = srtm.get_data()
+
+        self.mesh_utm[:,2] = np.asarray([elevation_data.get_elevation(x[0],x[1]) if elevation_data.get_elevation(x[0],x[1]) != None and elevation_data.get_elevation(x[0],x[1]) != np.nan else 0 for x in self.mesh_geo],dtype=np.float32)
+
+        # self.mesh_utm[:,2][np.isnan(self.mesh_utm[:,2])] = self.NO_DATA_VALUE
+
+        self.mesh_geo[:,2] = self.mesh_utm[:,2]
+        self.orography_layer = self.mesh_utm[:,2].reshape(nrows, ncols).T
+        self.flags['orography_layer_generated'] = True
+
+    def generate_landcover_layer(self):
+        """
+        Generates exclusion zones and canopy height 
+        layers based on landcover data.
+        
+        Parameters
+        ----------
+        
+        Returns
+        -------
+        landcover_layer : ndarray
+            nD array containing CLC code for landcover class.
+        restriction_zones_layer : ndarray
+            nD array containing zeros and ones...
+        canopy_height_layer : ndarray
+            nD array containing heights...
+
+        Notes
+        --------
+        It necessary that the path to the landcover data (CORINE)
+        is set to the corresponding class attributed. 
+        Otherwise this class method will not generate any output.
+
+        Examples
+        --------
+        ....
+        """
+        if len(self.LANDCOVER_DATA_PATH) > 0:
+            self.crop_landcover_data()
+            try:
+                self.landcover_layer = self.import_landcover_data()
+                self.generate_canopy_height()
+                self.generate_restriction_zones()
+                self.flags['landcover_layers_generated'] = True
+            except:
+                print('Seems that the path to the landcover data or landcover data is not valid!')
+                self.flags['landcover_layers_generated'] = False
+        else:
+            print('Path to landcover data not provided!')
+            self.flags['landcover_layers_generated'] = False
+
+    def generate_restriction_zones(self):
+        self.restriction_zones_layer = np.copy(self.landcover_layer)
+        self.restriction_zones_layer[np.where((self.restriction_zones_layer < 23))] = 1
+        self.restriction_zones_layer[np.where((self.restriction_zones_layer > 25) &
+                                              (self.restriction_zones_layer < 35))] = 1
+        self.restriction_zones_layer[np.where((self.restriction_zones_layer > 44))] = 1
+
+        self.restriction_zones_layer[np.where((self.restriction_zones_layer >= 23) & 
+                                              (self.restriction_zones_layer <= 25))] = 0
+
+        self.restriction_zones_layer[np.where((self.restriction_zones_layer >= 35) & 
+                                              (self.restriction_zones_layer <= 44))] = 0
+
+    def generate_canopy_height(self):
+        self.canopy_height_layer = np.copy(self.landcover_layer)
+        self.canopy_height_layer[np.where(self.canopy_height_layer < 23)] = 0
+        self.canopy_height_layer[np.where(self.canopy_height_layer == 23)] = 20
+        self.canopy_height_layer[np.where(self.canopy_height_layer == 24)] = 20
+        self.canopy_height_layer[np.where(self.canopy_height_layer == 25)] = 20
+        self.canopy_height_layer[np.where(self.canopy_height_layer >  25)] = 0
+
+    def import_landcover_data(self):
+        nrows, ncols = self.x.shape
+        with rasterio.open(self.OUTPUT_DATA_PATH + 'landcover_cropped_utm.tif') as src:
+            land_cover_array = src.read()
+            # header_information = src.profile
+        land_cover_array = np.flip(land_cover_array.reshape(nrows, ncols),axis=0)
+        # land_cover_array = np.flip(land_cover_array,axis=0)
+        return land_cover_array
+
+
+    def crop_landcover_data(self):
+        input_image = gdal.Open(self.LANDCOVER_DATA_PATH, gdal.GA_ReadOnly)
+        # projection = input_image.GetProjectionRef()
+        # print(projection)
+
+        clipped_map = gdal.Warp(self.OUTPUT_DATA_PATH + 'landcover_cropped_utm.tif', 
+                    input_image,format = self.RASTER_FORMAT,
+                    outputBounds=[self.mesh_corners_utm[0,0], self.mesh_corners_utm[0,1],
+                                  self.mesh_corners_utm[1,0], self.mesh_corners_utm[1,1]],
+                    dstSRS='EPSG:'+self.epsg_code, 
+                    width=int(1 + 2 * self.MESH_EXTENT / self.MESH_RES), 
+                    height=int(1 + 2 * self.MESH_EXTENT / self.MESH_RES))
+        clipped_map = None # Close dataset
+
 
     @staticmethod
     def check_measurement_positions(points):
@@ -787,20 +969,19 @@ class CPT():
 
         If UTM grid zone doesn't exist:
         >>> utm2epsg('61Z')
-        'Mars?'
         """
  
         lat_zones = ['C','D','E','F','G','H','J','K','L','M','N','P','Q','R','S','T','U','V','W','X']
         lat_zone = utm_zone[-1].upper() # in case users put lower case 
         if int(utm_zone[:-1]) >= 1 and int(utm_zone[:-1]) <= 60:
             if lat_zone in lat_zones[10:]:
-                return 'North'
+                return 'north'
             elif lat_zone in lat_zones[:10]:
-                return 'South'
+                return 'south'
             else:
-                return 'Mars?'
+                return None
         else:
-            return 'Mars?'
+            return None
 
     @staticmethod        
     def utm2epsg(utm_zone):
@@ -840,17 +1021,43 @@ class CPT():
         else:
             return 'Wrong longitudinal zone'
 
-    # def optimize_measurements(self):
-    #         """
-    #         Disc covering problem    applied on the set of measurement points.
-    #         """
-    #     pass
+    @staticmethod
+    def utm2geo(points_utm, long_zone, hemisphere):
+        """
+        Converts an array of points in the UTM coord system to
+        an array of point in the GEO coord system.
+        
+        Parameters
+        ----------
+        points_utm : ndarray
+            nD array containing data with `float` or `int` type corresponding 
+            to Northing, Easting and Height coordinates of points.
+            nD array data are expressed in meters.
+        long_zone : str
+            A string representing longitudinal zone of the UTM grid zone.
+        hemisphere : str
+            A string indicating north or south hemisphere.            
 
-    # def find_measurements(self):
-    #         """
-    #         Doc String
-    #         """
-    #     pass
+        Returns
+        -------
+        points_geo : ndarray
+            nD array containing data with `float` or `int` type corresponding 
+            to latitude, longitude and height coordinates of points.
+        
+        Examples
+        --------
+        >>> points_utm = np.array([[317733, 6175124, 100], [316516, 6175827, 100], [316968, 6174561, 100]])
+        >>> utm2geo(points_utm, '33', 'north')
+        array([[ 55.68761863,  12.10043705, 100.        ],
+            [ 55.69346874,  12.0806343 , 100.        ],
+            [ 55.68227857,  12.08866043, 100.        ]])        
+        """
+        geo_projection = Proj("+proj=utm +zone="+long_zone+",\+"+hemisphere+" +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
+
+        points_geo = np.array(list(reversed(geo_projection(points_utm[:,0], points_utm[:,1],inverse=True))))
+        points_geo = np.append(points_geo, np.array([points_utm[:,2]]),axis = 0).transpose()
+
+        return points_geo
 
     # def generate_topographic_layer(self):
     #         """
@@ -858,13 +1065,7 @@ class CPT():
     #         """
     #     pass
 
-    # def generate_landcover_layer(self):
-    #         """
-    #         Doc String
-    #         """
-    #     pass
-
-    # def generate_los_layer(self):
+    # def generate_los_blck_layer(self):
     #         """
     #         Doc String
     #         """
@@ -894,6 +1095,21 @@ class CPT():
     #         - Aerial image???
     #         """
     #     pass
+
+
+
+
+    # def find_measurements(self):
+    #         """
+    #         Doc String
+    #         """
+    #     pass
+
+
+
+
+
+
 
     # def generate_intersecting_layer(self):
     #         """
