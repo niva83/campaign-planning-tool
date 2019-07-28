@@ -1148,7 +1148,7 @@ class CPT():
             [ 55.69346874,  12.0806343 , 100.        ],
             [ 55.68227857,  12.08866043, 100.        ]])        
         """
-        geo_projection = Proj("+proj=utm +zone="+long_zone+" +"+hemisphere+" +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
+        geo_projection = Proj("+proj=utm +zone=" + long_zone + " +" + hemisphere + " +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
 
         points_geo = np.array(list(reversed(geo_projection(points_utm[:,0], points_utm[:,1],inverse=True))))
         points_geo = np.append(points_geo, np.array([points_utm[:,2]]),axis = 0).transpose()
