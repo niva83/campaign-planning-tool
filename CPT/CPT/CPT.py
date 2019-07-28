@@ -162,9 +162,15 @@ class CPT():
                       'measurements_added': False,'lidar_pos_1':False,'lidar_pos_2':False,
                       'mesh_center_added': False, 'mesh_generated' : False,
                       'utm':False, 'input_check_pass': False,
+                      'landcover_map_clipped' : False,
+                      'landcover_layer_generated': False,
+                      'canopy_height_generated' : False,
+                      'restriction_zones_generated' : False,
                       'landcover_layers_generated' : False,
-                      'orography_layer_generated' : False}        
+                      'orography_layer_generated' : False,
+                      'topography_layer_generated' : False}
 
+  
         # measurement positions
         self.measurements_initial = None
         self.measurements_optimized = None
@@ -238,14 +244,14 @@ class CPT():
         if 'legend_label' in kwargs:
             cbar.set_label(kwargs['legend_label'], fontsize = self.FONT_SIZE)
         
-        if self.lidar_pos_1 != None:
+        if self.lidar_pos_1 is not None:
             ax.scatter(self.lidar_pos_1[0], self.lidar_pos_1[1], marker = 'o', 
-                    color = 'black', s = 20, zorder = 1000, label = "WS1")
-        if self.lidar_pos_2 != None:
+                    color = 'black', s = 20, zorder = 1000, label = "lidar_1")
+        if self.lidar_pos_2 is not None:
             ax.scatter(self.lidar_pos_2[0], self.lidar_pos_2[1], marker = 'o', 
-                    color = 'red', s = 20, zorder = 1000, label = "WS2")
+                    color = 'red', s = 20, zorder = 1000, label = "lidar_2")
 
-        if self.lidar_pos_1 != None or self.lidar_pos_2 != None :
+        if self.lidar_pos_1 is not None or self.lidar_pos_2 is not None :
             ax.legend(loc='lower right', fontsize = self.FONT_SIZE)    
 
 
@@ -683,29 +689,90 @@ class CPT():
             self.flags['mesh_generated'] = True
 
 
-    def generate_topographic_layer(self):
-        self.generate_orography_layer()
-        self.generate_landcover_layer()
-        if self.flags['landcover_layers_generated'] == True and self.flags['orography_layer_generated'] == True:
-            self.topography_layer = self.canopy_height_layer + self.orography_layer
+    def generate_elevation_layer(self):
+        pass
+    
+    def generate_range_layer(self):
+        pass
+
+    def generate_beam_coords_mesh(self, str):
+        """
+        Generates beam steering coordinates in spherical coordinate system
+        from every mesh point to a single measurement point.
+
+        Parameters
+        ----------
+        lidar_pos : ndarray
+            3D array containing data with `float` or `int` type
+            corresponding to x, y and z coordinates of a lidar.
+            3D array data are expressed in meters.
+        meas_pt_pos : ndarray
+            3D array containing data with `float` or `int` type
+            corresponding to x, y and z coordinates of a measurement point.
+            3D array data are expressed in meters.
+        """
+        # measurement point selector:
+        measurement_pts = self.measurement_type_selector(str)
+
+        if measurement_pts is not None:
+            try:
+                array_shape = (measurement_pts.shape[0], )  + self.mesh_utm.shape
+                self.beam_coords = np.empty(array_shape, dtype=float)
+
+                for i, pts in enumerate(measurement_pts):
+                    self.beam_coords[i] = self.generate_beam_coords(self.mesh_utm, pts)
+            except:
+                print('Something went wrong! Check measurement points')
         else:
-            print('Cannot generate topography layer following layers are missing:')
-            if self.flags['landcover_layers_generated'] == False:
-                print('Canopy height')
-            if self.flags['orography_layer_generated'] == False:
-                print('Orography height')
+            print('No measurement points -> no beam steering coordinates!')
+
+    def measurement_type_selector(self, str):
+        if str == 'initial':
+            return self.measurements_initial
+        elif str == 'optimized':
+            return self.measurements_optimized
+        elif str == 'reachable':
+            return self.measurements_reachable
+        elif str == 'identified':
+            return self.measurements_reachable
+        else:
+            return None
+
+    def generate_topographic_layer(self):
+        if self.flags['mesh_generated']:
+            self.generate_orography_layer()
+            self.generate_landcover_layer()
+            if self.flags['orography_layer_generated'] == True:
+                self.topography_layer = self.canopy_height_layer + self.orography_layer
+
+                if self.flags['landcover_layers_generated'] == False:
+                    print('Topography layer only generated using orography height since canopy height is not provided!')
+                else:
+                    print('Topography layer generated using orography and canopy height.')
+                self.flags['topography_layer_generated'] = True
+            else:
+                print('Cannot generate topography layer following layers are missing:')
+                if self.flags['landcover_layers_generated'] == False:
+                    print('Canopy height')
+                if self.flags['orography_layer_generated'] == False:
+                    print('Orography height')
+        else:
+            print('Mesh not generated -> topographic layer cannot be generated ')
 
     def generate_orography_layer(self):
-        nrows, ncols = self.x.shape
-        elevation_data = srtm.get_data()
+        if self.flags['mesh_generated']:        
+            nrows, ncols = self.x.shape
+            elevation_data = srtm.get_data()
 
-        self.mesh_utm[:,2] = np.asarray([elevation_data.get_elevation(x[0],x[1]) if elevation_data.get_elevation(x[0],x[1]) != None and elevation_data.get_elevation(x[0],x[1]) != np.nan else 0 for x in self.mesh_geo],dtype=np.float32)
+            self.mesh_utm[:,2] = np.asarray([elevation_data.get_elevation(x[0],x[1]) if elevation_data.get_elevation(x[0],x[1]) != None and elevation_data.get_elevation(x[0],x[1]) != np.nan else 0 for x in self.mesh_geo],dtype=np.float32)
 
-        # self.mesh_utm[:,2][np.isnan(self.mesh_utm[:,2])] = self.NO_DATA_VALUE
+            # self.mesh_utm[:,2][np.isnan(self.mesh_utm[:,2])] = self.NO_DATA_VALUE
 
-        self.mesh_geo[:,2] = self.mesh_utm[:,2]
-        self.orography_layer = self.mesh_utm[:,2].reshape(nrows, ncols).T
-        self.flags['orography_layer_generated'] = True
+            self.mesh_geo[:,2] = self.mesh_utm[:,2]
+            self.orography_layer = self.mesh_utm[:,2].reshape(nrows, ncols).T
+            self.flags['orography_layer_generated'] = True
+        else:
+            print('Mesh not generated -> orography layer cannot be generated ')
 
     def generate_landcover_layer(self):
         """
@@ -733,14 +800,13 @@ class CPT():
         Examples
         --------
         ....
-        """
+        """   
         if len(self.LANDCOVER_DATA_PATH) > 0:
-            self.crop_landcover_data()
             try:
-                self.landcover_layer = self.import_landcover_data()
+                self.crop_landcover_data()
+                self.import_landcover_data()
                 self.generate_canopy_height()
                 self.generate_restriction_zones()
-                self.flags['landcover_layers_generated'] = True
             except:
                 print('Seems that the path to the landcover data or landcover data is not valid!')
                 self.flags['landcover_layers_generated'] = False
@@ -748,50 +814,80 @@ class CPT():
             print('Path to landcover data not provided!')
             self.flags['landcover_layers_generated'] = False
 
+
+
+
+
     def generate_restriction_zones(self):
-        self.restriction_zones_layer = np.copy(self.landcover_layer)
-        self.restriction_zones_layer[np.where((self.restriction_zones_layer < 23))] = 1
-        self.restriction_zones_layer[np.where((self.restriction_zones_layer > 25) &
-                                              (self.restriction_zones_layer < 35))] = 1
-        self.restriction_zones_layer[np.where((self.restriction_zones_layer > 44))] = 1
+        if self.flags['landcover_layer_generated']:        
+            self.restriction_zones_layer = np.copy(self.landcover_layer)
+            self.restriction_zones_layer[np.where((self.restriction_zones_layer < 23))] = 1
+            self.restriction_zones_layer[np.where((self.restriction_zones_layer > 25) &
+                                                (self.restriction_zones_layer < 35))] = 1
+            self.restriction_zones_layer[np.where((self.restriction_zones_layer > 44))] = 1
 
-        self.restriction_zones_layer[np.where((self.restriction_zones_layer >= 23) & 
-                                              (self.restriction_zones_layer <= 25))] = 0
+            self.restriction_zones_layer[np.where((self.restriction_zones_layer >= 23) & 
+                                                (self.restriction_zones_layer <= 25))] = 0
 
-        self.restriction_zones_layer[np.where((self.restriction_zones_layer >= 35) & 
-                                              (self.restriction_zones_layer <= 44))] = 0
+            self.restriction_zones_layer[np.where((self.restriction_zones_layer >= 35) & 
+                                                (self.restriction_zones_layer <= 44))] = 0
+            self.flags['restriction_zones_generated'] = True
+        else:
+            print('No landcover layer generated -> exclusion zones layer not generated!')
 
     def generate_canopy_height(self):
-        self.canopy_height_layer = np.copy(self.landcover_layer)
-        self.canopy_height_layer[np.where(self.canopy_height_layer < 23)] = 0
-        self.canopy_height_layer[np.where(self.canopy_height_layer == 23)] = 20
-        self.canopy_height_layer[np.where(self.canopy_height_layer == 24)] = 20
-        self.canopy_height_layer[np.where(self.canopy_height_layer == 25)] = 20
-        self.canopy_height_layer[np.where(self.canopy_height_layer >  25)] = 0
+        if self.flags['landcover_layer_generated']:
+            self.canopy_height_layer = np.copy(self.landcover_layer)
+            self.canopy_height_layer[np.where(self.canopy_height_layer < 23)] = 0
+            self.canopy_height_layer[np.where(self.canopy_height_layer == 23)] = 20
+            self.canopy_height_layer[np.where(self.canopy_height_layer == 24)] = 20
+            self.canopy_height_layer[np.where(self.canopy_height_layer == 25)] = 20
+            self.canopy_height_layer[np.where(self.canopy_height_layer >  25)] = 0
+            self.flags['canopy_height_generated'] = True
+        else:
+            print('No landcover layer generated -> canopy height layer not generated!')
+
 
     def import_landcover_data(self):
-        nrows, ncols = self.x.shape
-        with rasterio.open(self.OUTPUT_DATA_PATH + 'landcover_cropped_utm.tif') as src:
-            land_cover_array = src.read()
-            # header_information = src.profile
-        land_cover_array = np.flip(land_cover_array.reshape(nrows, ncols),axis=0)
-        # land_cover_array = np.flip(land_cover_array,axis=0)
-        return land_cover_array
+        if self.flags['landcover_map_clipped']:
+            nrows, ncols = self.x.shape
+            with rasterio.open(self.OUTPUT_DATA_PATH + 'landcover_cropped_utm.tif') as src:
+                land_cover_array = src.read()
+                # header_information = src.profile
+            land_cover_array = np.flip(land_cover_array.reshape(nrows, ncols),axis=0)
+            # land_cover_array = np.flip(land_cover_array,axis=0)
+            self.landcover_layer = land_cover_array
+            self.flags['landcover_layer_generated'] = True
+        else:
+            print('Landcover map not clipped!')
+
+        
 
 
     def crop_landcover_data(self):
-        input_image = gdal.Open(self.LANDCOVER_DATA_PATH, gdal.GA_ReadOnly)
-        # projection = input_image.GetProjectionRef()
-        # print(projection)
+        if self.flags['mesh_generated']:  
+            if len(self.LANDCOVER_DATA_PATH) > 0:
+                if len(self.OUTPUT_DATA_PATH)> 0:               
+                    input_image = gdal.Open(self.LANDCOVER_DATA_PATH, gdal.GA_ReadOnly)
+                    # projection = input_image.GetProjectionRef()
+                    # print(projection)
 
-        clipped_map = gdal.Warp(self.OUTPUT_DATA_PATH + 'landcover_cropped_utm.tif', 
-                    input_image,format = self.RASTER_FORMAT,
-                    outputBounds=[self.mesh_corners_utm[0,0], self.mesh_corners_utm[0,1],
-                                  self.mesh_corners_utm[1,0], self.mesh_corners_utm[1,1]],
-                    dstSRS='EPSG:'+self.epsg_code, 
-                    width=int(1 + 2 * self.MESH_EXTENT / self.MESH_RES), 
-                    height=int(1 + 2 * self.MESH_EXTENT / self.MESH_RES))
-        clipped_map = None # Close dataset
+                    clipped_map = gdal.Warp(self.OUTPUT_DATA_PATH + 'landcover_cropped_utm.tif', 
+                                input_image,format = self.RASTER_FORMAT,
+                                outputBounds=[self.mesh_corners_utm[0,0], self.mesh_corners_utm[0,1],
+                                            self.mesh_corners_utm[1,0], self.mesh_corners_utm[1,1]],
+                                dstSRS='EPSG:'+self.epsg_code, 
+                                width=int(1 + 2 * self.MESH_EXTENT / self.MESH_RES), 
+                                height=int(1 + 2 * self.MESH_EXTENT / self.MESH_RES))
+                    clipped_map = None # Close dataset
+                    self.flags['landcover_map_clipped'] = True
+                else:
+                    print('No output data folder provided!')
+            else:
+                print('No landcover data provided!')
+        else:
+            print('Mesh not generated -> landcover map cannot be clipped!')            
+
 
 
     @staticmethod
@@ -1052,13 +1148,61 @@ class CPT():
             [ 55.69346874,  12.0806343 , 100.        ],
             [ 55.68227857,  12.08866043, 100.        ]])        
         """
-        geo_projection = Proj("+proj=utm +zone="+long_zone+",\+"+hemisphere+" +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
+        geo_projection = Proj("+proj=utm +zone="+long_zone+" +"+hemisphere+" +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
 
         points_geo = np.array(list(reversed(geo_projection(points_utm[:,0], points_utm[:,1],inverse=True))))
         points_geo = np.append(points_geo, np.array([points_utm[:,2]]),axis = 0).transpose()
 
         return points_geo
 
+    @staticmethod
+    def generate_beam_coords(mesh_utm, measurement_pt):
+        """
+        Generates beam steering coordinates in spherical coordinate system
+        from multiple lidar positions and single measurement point. 
+
+        Parameters
+        ----------
+        mesh_utm : ndarray
+            nD array containing data with `float` or `int` type
+            corresponding to x, y and z coordinates of multiple lidar positions.
+            nD array data are expressed in meters.
+        meas_pt_pos : ndarray
+            3D array containing data with `float` or `int` type
+            corresponding to x, y and z coordinates of a measurement point.
+            3D array data are expressed in meters.
+        """
+        # testing if  meas_pt has single or multiple measurement points
+        if len(mesh_utm.shape) == 2:
+            x_array = mesh_utm[:, 0]
+            y_array = mesh_utm[:, 1]
+            z_array = mesh_utm[:, 2]
+        else:
+            x_array = np.array([mesh_utm[0]])
+            y_array = np.array([mesh_utm[1]])
+            z_array = np.array([mesh_utm[2]])
+
+
+        # calculating difference between lidar_pos and meas_pt_pos coordiantes
+        dif_xyz = np.array([x_array - measurement_pt[0], y_array - measurement_pt[1], z_array - measurement_pt[2]])    
+
+        # distance between lidar and measurement point in space
+        distance_3D = np.sum(dif_xyz**2,axis=0)**(1./2)
+
+        # distance between lidar and measurement point in a horizontal plane
+        distance_2D = np.sum(np.abs([dif_xyz[0],dif_xyz[1]])**2,axis=0)**(1./2)
+
+        # in radians
+        azimuth = np.arctan2(measurement_pt[0] - x_array, measurement_pt[1] - y_array)
+        # conversion to metrological convention
+        azimuth = (360 + azimuth * (180 / np.pi)) % 360
+
+        # in radians
+        elevation = np.arccos(distance_2D / distance_3D)
+        # conversion to metrological convention
+        elevation = np.sign(measurement_pt[2] - z_array) * (elevation * (180 / np.pi))
+
+        return np.transpose(np.array([azimuth, elevation, distance_3D]))  
     # def generate_topographic_layer(self):
     #         """
     #         Doc String
