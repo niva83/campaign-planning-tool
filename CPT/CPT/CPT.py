@@ -185,7 +185,7 @@ class CPT():
                       'topography_exported': False,
                       'viewshed_performed' : False,
                       'viewshed_analyzed' : False,
-                      'los_blck_layer_generated' : False
+                      'los_blck_layer_generated' : False,
                       'combined_layer_generated' : False}
 
   
