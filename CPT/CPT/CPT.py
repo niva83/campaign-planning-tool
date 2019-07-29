@@ -728,22 +728,19 @@ class CPT():
             self.mesh_geo = self.utm2geo(self.mesh_utm, self.long_zone, self.hemisphere)            
             self.flags['mesh_generated'] = True
 
-
     def generate_combined_layer(self):
         self.generate_mesh()
         self.generate_topographic_layer()
+        self.generate_landcover_layer()
         self.generate_beam_coords_mesh()
         self.generate_range_layer()
         self.generate_elevation_layer()
         self.generate_los_blck_layer()
 
+        nrows, ncols = self.x.shape
         self.combined_layer = self.elevation_angle_layer * self.range_layer * self.los_blck_layer
-
+        self.combined_layer = self.combined_layer * self.restriction_zones_layer.reshape((nrows,ncols,1))
         self.flags['combined_layer_generated'] = True
-
-
-
-
 
     def generate_los_blck_layer(self):
         self.export_measurements()
@@ -751,7 +748,6 @@ class CPT():
         self.viewshed_processing()
         self.viewshed_analysis()
         self.flags['los_blck_layer_generated'] = True
-
 
     def export_measurements(self):
 
@@ -769,9 +765,6 @@ class CPT():
 
                 pts_dict=[]
             self.flags['measurements_exported'] = True
-
-
-
 
     def export_topography(self):
         if path.exists(self.OUTPUT_DATA_PATH) and self.flags['topography_layer_generated']:
@@ -1378,57 +1371,12 @@ class CPT():
         elevation = np.sign(measurement_pt[2] - z_array) * (elevation * (180 / np.pi))
 
         return np.transpose(np.array([azimuth, elevation, distance_3D]))  
-    # def generate_topographic_layer(self):
-    #         """
-    #         Doc String
-    #         """
-    #     pass
-
-    # def generate_los_blck_layer(self):
-    #         """
-    #         Doc String
-    #         """
-    #     pass
-
-    # def generate_range_layer(self):
-    #         """
-    #         Doc String
-    #         """
-    #     pass
-
-    # def generate_elevation_layer(self):
-    #         """
-    #         Doc String
-    #         """
-    #     pass
-
-    # def generate_combined_layer(self):
-    #         """
-    #         Check flags for calculating other layers:
-    #         - DEM layer
-    #         - Landcover layer
-    #         - Exclusion zone layer
-    #         - LOS blockage layer
-    #         - Elevation angle layer
-    #         - Range layer
-    #         - Aerial image???
-    #         """
-    #     pass
-
-
-
 
     # def find_measurements(self):
     #         """
     #         Doc String
     #         """
     #     pass
-
-
-
-
-
-
 
     # def generate_intersecting_layer(self):
     #         """
