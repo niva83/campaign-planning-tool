@@ -12,7 +12,8 @@ build/
 develop-eggs/
 dist/
 downloads/
-data/input/landcover/
+data/input/
+data/output/
 eggs/
 .eggs/
 lib/
