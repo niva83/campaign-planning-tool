@@ -5,7 +5,18 @@ from pyproj import Proj
 from osgeo import gdal, osr, ogr, gdal_array
 import rasterio
 import srtm
+
+import pandas as pd
+import geopandas
+from shapely.geometry import Point
+import whitebox
+
+
 import matplotlib.pyplot as plt
+
+# to check if path/file exist
+import os.path
+from os import path
 
 def array_difference(A,B):
     """
@@ -168,7 +179,14 @@ class CPT():
                       'restriction_zones_generated' : False,
                       'landcover_layers_generated' : False,
                       'orography_layer_generated' : False,
-                      'topography_layer_generated' : False}
+                      'topography_layer_generated' : False,
+                      'beam_coords_generated' : False,
+                      'measurements_exported' : False,
+                      'topography_exported': False,
+                      'viewshed_performed' : False,
+                      'viewshed_analyzed' : False,
+                      'los_blck_layer_generated' : False
+                      'combined_layer_generated' : False}
 
   
         # measurement positions
@@ -176,6 +194,10 @@ class CPT():
         self.measurements_optimized = None
         self.measurements_identified = None
         self.measurements_reachable = None
+        self.measurements_selector = None
+        
+
+        self.beam_coords = None
 
         if not 'mesh_center' in kwargs:
             self.mesh_center = None 
@@ -230,6 +252,11 @@ class CPT():
 
     def plot_values(self, values, **kwargs):
 
+        # This is for printing all other layers except 
+        # landcover, orography and topography layer
+        if len(values.shape) > 2:
+            values = np.sum(values, axis = 2)
+
         if 'levels' in kwargs:
             levels = kwargs['levels']
         else:
@@ -245,11 +272,24 @@ class CPT():
             cbar.set_label(kwargs['legend_label'], fontsize = self.FONT_SIZE)
         
         if self.lidar_pos_1 is not None:
-            ax.scatter(self.lidar_pos_1[0], self.lidar_pos_1[1], marker = 'o', 
-                    color = 'black', s = 20, zorder = 1000, label = "lidar_1")
+            ax.scatter(self.lidar_pos_1[0], self.lidar_pos_1[1], marker='o', 
+            facecolors='black', edgecolors='white', s=30, zorder=2000, label = "lidar_1")
         if self.lidar_pos_2 is not None:
             ax.scatter(self.lidar_pos_2[0], self.lidar_pos_2[1], marker = 'o', 
-                    color = 'red', s = 20, zorder = 1000, label = "lidar_2")
+            facecolors='white', edgecolors='black',s=30,zorder=2000, label = "lidar_2")
+
+
+        if self.measurements_selector is not None:
+            measurement_pts = self.measurement_type_selector(self.measurements_selector)
+
+            for i, pts in enumerate(measurement_pts):
+                if i == 0:
+                    ax.scatter(pts[0], pts[1], marker='o', 
+                    color='red', s=30,zorder=1500, label = 'measurements_' + self.measurements_selector)                    
+                else:
+                    ax.scatter(pts[0], pts[1], marker='o', 
+                    color='red', s=30,zorder=1500)
+
 
         if self.lidar_pos_1 is not None or self.lidar_pos_2 is not None :
             ax.legend(loc='lower right', fontsize = self.FONT_SIZE)    
@@ -689,13 +729,130 @@ class CPT():
             self.flags['mesh_generated'] = True
 
 
-    def generate_elevation_layer(self):
-        pass
-    
-    def generate_range_layer(self):
-        pass
+    def generate_combined_layer(self):
+        self.generate_mesh()
+        self.generate_topographic_layer()
+        self.generate_beam_coords_mesh()
+        self.generate_range_layer()
+        self.generate_elevation_layer()
+        self.generate_los_blck_layer()
 
-    def generate_beam_coords_mesh(self, str):
+        self.combined_layer = self.elevation_angle_layer * self.range_layer * self.los_blck_layer
+
+        self.flags['combined_layer_generated'] = True
+
+
+
+
+
+    def generate_los_blck_layer(self):
+        self.export_measurements()
+        self.export_topography()
+        self.viewshed_processing()
+        self.viewshed_analysis()
+        self.flags['los_blck_layer_generated'] = True
+
+
+    def export_measurements(self):
+
+        if path.exists(self.OUTPUT_DATA_PATH) and self.flags['measurements_added']: 
+            pts = self.measurement_type_selector(self.measurements_selector)
+
+            pts_dict=[]
+            for i,pt in enumerate(pts)  :
+                pts_dict.append({'Name': "MP_" + str(i), 'E': pt[0], 'N': pt[1]})
+                pts_df = pd.DataFrame(pts_dict)
+                pts_df['geometry'] = pts_df.apply(lambda x: Point((float(x.E), float(x.N))), axis=1)
+                pts_df = geopandas.GeoDataFrame(pts_df, geometry='geometry')
+                pts_df.crs= "+init=epsg:" + self.epsg_code
+                pts_df.to_file(self.OUTPUT_DATA_PATH + 'measurement_pt_' + str(i + 1) + '.shp', driver='ESRI Shapefile')
+
+                pts_dict=[]
+            self.flags['measurements_exported'] = True
+
+
+
+
+    def export_topography(self):
+        if path.exists(self.OUTPUT_DATA_PATH) and self.flags['topography_layer_generated']:
+            topography_array = np.flip(self.topography_layer,axis=0)
+            f = open(self.OUTPUT_DATA_PATH + 'topography.asc', 'w')
+            f.write("ncols " + str(topography_array.shape[0]) + "\n")
+            f.write("nrows " + str(topography_array.shape[1]) + "\n")
+            f.write("xllcorner " + str(self.mesh_corners_utm[0][0]) + "\n")
+            f.write("yllcorner " + str(self.mesh_corners_utm[0][1]) + "\n")
+            f.write("cellsize " + str(self.MESH_RES) + "\n")
+            f.write("NODATA_value " + str(self.NO_DATA_VALUE) + "\n")
+            np.savetxt(f, topography_array, fmt='%.1f')
+            f.close()
+            self.flags['topography_exported'] = True
+        else:
+            print('The output data path does not exist!')
+
+    def viewshed_processing(self):
+        if path.exists(self.OUTPUT_DATA_PATH + 'topography.asc') and self.flags['topography_exported'] and self.flags['measurements_exported'] and self.flags['measurements_added'] and self.measurement_type_selector(self.measurements_selector) is not None:
+            measurement_pts = self.measurement_type_selector(self.measurements_selector)
+
+            terrain_height = self.get_elevation(self.long_zone + self.lat_zone, measurement_pts)
+            measurement_height = measurement_pts[:,2]
+            height_diff = measurement_height - terrain_height
+
+            for i in range(0,len(measurement_pts)):
+                wbt = whitebox.WhiteboxTools()
+                wbt.set_working_dir(self.OUTPUT_DATA_PATH)
+                wbt.verbose = False
+                wbt.viewshed('topography.asc',"measurement_pt_" +str(i+1)+".shp","los_blockage_" +str(i+1)+".asc",height_diff[i])
+            self.flags['viewshed_performed'] = True
+
+    def viewshed_analysis(self):
+        if self.flags['viewshed_performed']:
+            measurement_pts = self.measurement_type_selector(self.measurements_selector)
+            nrows, ncols = self.x.shape
+            no_pts = len(measurement_pts)
+
+            self.los_blck_layer = np.empty((nrows, ncols, no_pts), dtype=float)
+
+
+            for i in range(0,len(measurement_pts)):
+                los_blck_tmp  = np.loadtxt(self.OUTPUT_DATA_PATH + "los_blockage_" +str(i+1)+".asc", skiprows=6)
+                los_blck_tmp  = np.flip(los_blck_tmp, axis = 0)
+                self.los_blck_layer[:,:,i] = los_blck_tmp
+            
+            self.flags['viewshed_analyzed'] = True
+
+    def generate_range_layer(self):
+        if self.flags['beam_coords_generated'] == True:
+            nrows, ncols = self.x.shape
+            tmp = self.beam_coords.shape[:2]
+            array_shape = tmp[-1:] + tmp[:-1]
+
+            self.elevation_angle_layer = np.copy(self.beam_coords[:,:,1])
+
+            self.elevation_angle_layer[np.where((self.elevation_angle_layer <= self.MAX_ELEVATION_ANGLE))] = 1
+            self.elevation_angle_layer[np.where((self.elevation_angle_layer > self.MAX_ELEVATION_ANGLE))] = 0
+            self.elevation_angle_layer = self.elevation_angle_layer.T
+            self.elevation_angle_layer = self.elevation_angle_layer.reshape(nrows,ncols,array_shape[1])
+            
+        else:
+            print('No beams coordinated generated, run self.gerate_beam_coords_mesh(str) first!')    
+
+    def generate_elevation_layer(self):
+        if self.flags['beam_coords_generated'] == True:
+            nrows, ncols = self.x.shape
+            tmp = self.beam_coords.shape[:2]
+            array_shape = tmp[-1:] + tmp[:-1]
+
+            self.range_layer = np.copy(self.beam_coords[:,:,2])
+
+            self.range_layer[np.where((self.range_layer <= self.AVERAGE_RANGE))] = 1
+            self.range_layer[np.where((self.range_layer > self.AVERAGE_RANGE))] = 0
+            self.range_layer = self.range_layer.T
+            self.range_layer = self.range_layer.reshape(nrows,ncols,array_shape[1])
+            
+        else:
+            print('No beams coordinated generated, run self.gerate_beam_coords_mesh(str) first!')
+
+    def generate_beam_coords_mesh(self, input_type = 'initial'):
         """
         Generates beam steering coordinates in spherical coordinate system
         from every mesh point to a single measurement point.
@@ -712,7 +869,9 @@ class CPT():
             3D array data are expressed in meters.
         """
         # measurement point selector:
-        measurement_pts = self.measurement_type_selector(str)
+        measurement_pts = self.measurement_type_selector(input_type)
+        self.measurements_selector = input_type
+
 
         if measurement_pts is not None:
             try:
@@ -721,19 +880,21 @@ class CPT():
 
                 for i, pts in enumerate(measurement_pts):
                     self.beam_coords[i] = self.generate_beam_coords(self.mesh_utm, pts)
+                self.flags['beam_coords_generated'] = True
+                self.measurements_selector = input_type
             except:
                 print('Something went wrong! Check measurement points')
         else:
             print('No measurement points -> no beam steering coordinates!')
 
-    def measurement_type_selector(self, str):
-        if str == 'initial':
+    def measurement_type_selector(self, input_type):
+        if input_type == 'initial':
             return self.measurements_initial
-        elif str == 'optimized':
+        elif input_type == 'optimized':
             return self.measurements_optimized
-        elif str == 'reachable':
+        elif input_type == 'reachable':
             return self.measurements_reachable
-        elif str == 'identified':
+        elif input_type == 'identified':
             return self.measurements_reachable
         else:
             return None
@@ -764,7 +925,7 @@ class CPT():
             nrows, ncols = self.x.shape
             elevation_data = srtm.get_data()
 
-            self.mesh_utm[:,2] = np.asarray([elevation_data.get_elevation(x[0],x[1]) if elevation_data.get_elevation(x[0],x[1]) != None and elevation_data.get_elevation(x[0],x[1]) != np.nan else 0 for x in self.mesh_geo],dtype=np.float32)
+            self.mesh_utm[:,2] = np.asarray([elevation_data.get_elevation(x[0],x[1]) if elevation_data.get_elevation(x[0],x[1]) != None and elevation_data.get_elevation(x[0],x[1]) != np.nan else 0 for x in self.mesh_geo])
 
             # self.mesh_utm[:,2][np.isnan(self.mesh_utm[:,2])] = self.NO_DATA_VALUE
 
@@ -888,6 +1049,20 @@ class CPT():
         else:
             print('Mesh not generated -> landcover map cannot be clipped!')            
 
+
+    @classmethod
+    def get_elevation(cls, utm_zone, pts_utm):
+        if cls.check_utm_zone(utm_zone):
+            hemisphere = cls.which_hemisphere(utm_zone)
+            long_zone = utm_zone[:-1]
+            pts_geo = cls.utm2geo(pts_utm, long_zone, hemisphere)
+            elevation_data = srtm.get_data()
+
+            elevation = np.asarray([elevation_data.get_elevation(pt[0],pt[1]) if elevation_data.get_elevation(pt[0],pt[1]) != None and elevation_data.get_elevation(pt[0],pt[1]) != np.nan else 0 for pt in pts_geo])
+            elevation[np.isnan(elevation)] = cls.NO_DATA_VALUE
+            return elevation
+        else:
+           return None
 
 
     @staticmethod
