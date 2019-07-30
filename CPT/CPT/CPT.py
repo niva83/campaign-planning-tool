@@ -815,32 +815,41 @@ class CPT():
 
     def generate_range_layer(self):
         if self.flags['beam_coords_generated'] == True:
-            nrows, ncols = self.x.shape
-            tmp = self.beam_coords.shape[:2]
-            array_shape = tmp[-1:] + tmp[:-1]
+            # nrows, ncols = self.x.shape
+            # tmp = self.beam_coords.shape[:2]
+            # array_shape = tmp[-1:] + tmp[:-1]
 
-            self.elevation_angle_layer = np.copy(self.beam_coords[:,:,1])
+            # self.elevation_angle_layer = np.copy(self.beam_coords[:,:,1])
 
+            # self.elevation_angle_layer[np.where((self.elevation_angle_layer <= self.MAX_ELEVATION_ANGLE))] = 1
+            # self.elevation_angle_layer[np.where((self.elevation_angle_layer > self.MAX_ELEVATION_ANGLE))] = 0
+            # self.elevation_angle_layer = self.elevation_angle_layer.T      
+            # self.elevation_angle_layer = self.elevation_angle_layer.reshape(nrows,ncols,array_shape[1], order='F')
+
+            self.elevation_angle_layer = np.copy(self.elevation_angle_array)
             self.elevation_angle_layer[np.where((self.elevation_angle_layer <= self.MAX_ELEVATION_ANGLE))] = 1
             self.elevation_angle_layer[np.where((self.elevation_angle_layer > self.MAX_ELEVATION_ANGLE))] = 0
-            self.elevation_angle_layer = self.elevation_angle_layer.T
-            self.elevation_angle_layer = self.elevation_angle_layer.reshape(nrows,ncols,array_shape[1])
+
             
         else:
             print('No beams coordinated generated, run self.gerate_beam_coords_mesh(str) first!')    
 
     def generate_elevation_layer(self):
         if self.flags['beam_coords_generated'] == True:
-            nrows, ncols = self.x.shape
-            tmp = self.beam_coords.shape[:2]
-            array_shape = tmp[-1:] + tmp[:-1]
+            # nrows, ncols = self.x.shape
+            # tmp = self.beam_coords.shape[:2]
+            # array_shape = tmp[-1:] + tmp[:-1]
 
-            self.range_layer = np.copy(self.beam_coords[:,:,2])
+            # self.range_layer = np.copy(self.beam_coords[:,:,2])
 
+            # self.range_layer[np.where((self.range_layer <= self.AVERAGE_RANGE))] = 1
+            # self.range_layer[np.where((self.range_layer > self.AVERAGE_RANGE))] = 0
+            # self.range_layer = self.range_layer.T
+            # self.range_layer = self.range_layer.reshape(nrows,ncols,array_shape[1], order='F')
+            self.range_layer = np.copy(self.range_array)
             self.range_layer[np.where((self.range_layer <= self.AVERAGE_RANGE))] = 1
-            self.range_layer[np.where((self.range_layer > self.AVERAGE_RANGE))] = 0
-            self.range_layer = self.range_layer.T
-            self.range_layer = self.range_layer.reshape(nrows,ncols,array_shape[1])
+            self.range_layer[np.where((self.range_layer > self.AVERAGE_RANGE))] = 0            
+
             
         else:
             print('No beams coordinated generated, run self.gerate_beam_coords_mesh(str) first!')
@@ -868,6 +877,7 @@ class CPT():
 
         if measurement_pts is not None:
             try:
+
                 array_shape = (measurement_pts.shape[0], )  + self.mesh_utm.shape
                 self.beam_coords = np.empty(array_shape, dtype=float)
 
@@ -875,6 +885,13 @@ class CPT():
                     self.beam_coords[i] = self.generate_beam_coords(self.mesh_utm, pts)
                 self.flags['beam_coords_generated'] = True
                 self.measurements_selector = input_type
+
+                # splitting beam coords to three arrays 
+                nrows, ncols = self.x.shape
+                self.azimuth_angle_array = self.beam_coords[:,:,0].T.reshape(nrows,ncols,len(measurement_pts), order='F')                
+                self.elevation_angle_array = self.beam_coords[:,:,1].T.reshape(nrows,ncols,len(measurement_pts), order='F')
+                self.range_array = self.beam_coords[:,:,2].T.reshape(nrows,ncols,len(measurement_pts), order='F')                
+
             except:
                 print('Something went wrong! Check measurement points')
         else:
