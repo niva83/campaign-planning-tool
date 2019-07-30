@@ -11,12 +11,36 @@ import geopandas
 from shapely.geometry import Point
 import whitebox
 
-
 import matplotlib.pyplot as plt
+import os, shutil
 
-# to check if path/file exist
-import os.path
-from os import path
+
+def del_folder_content(folder, exclude_file_extensions = None):
+    """
+    Deletes all files in a folder except specific file extensions.
+    
+    Parameters
+    ----------
+    folder : str
+        A path to the folder which files will be deleted.
+    exclude_file_extensions : array
+        A array containing strings representing file extensions
+        which will not be deleted.
+    """
+    for file in os.listdir(folder):
+        file_path = os.path.join(folder, file)
+        _, file_extension = os.path.splitext(file)
+        try:
+            if exclude_file_extensions is not None:
+                if os.path.isfile(file_path) and file_extension not in exclude_file_extensions:
+                    os.unlink(file_path)
+                #elif os.path.isdir(file_path): shutil.rmtree(file_path)                    
+            else:
+                if os.path.isfile(file_path):
+                    os.unlink(file_path)
+                #elif os.path.isdir(file_path): shutil.rmtree(file_path)
+        except Exception as e:
+            print(e)
 
 def array_difference(A,B):
     """
@@ -142,6 +166,7 @@ class CPT():
     OUTPUT_DATA_PATH = ""    
     GOOGLE_API_KEY = ""
     RASTER_FORMAT = 'GTiff'
+    EXTENSIONS = np.array(['.tif', '.pdf', '.kml', '.png'])
     
     MESH_RES = 100 # in m
     MESH_EXTENT = 5000 # in m
@@ -250,21 +275,49 @@ class CPT():
 
         CPT.NO_LAYOUTS += 1
 
-    def plot_values(self, values, **kwargs):
+    def plot_GIS_layer(self, layer, **kwargs):
+        """
+        Plots individual GIS layers.
+        
+        Parameters
+        ----------
+        layer : ndarray
+            nD array containing data with `float` or `int` type 
+            corresponding to a specific GIS layer.
+        **kwargs : see below
 
-        # This is for printing all other layers except 
-        # landcover, orography and topography layer
-        if len(values.shape) > 2:
-            values = np.sum(values, axis = 2)
+        Keyword Arguments
+        -----------------
+        title : str
+            The plot title.
+        legend_label : str
+            The legend label indicating what parameter is plotted.
+        levels : ndarray
+            Predetermined levels for the plotted parameter.
+        save_plot : bool
+            Indicating whether to save the plot as PDF.
+        
+        Returns
+        -------
+        plot : matplotlib
+        
+        Examples
+        --------
+        >>> layout.plot_GIS_layer(layout.orography_layer, levels = np.array(range(0,510,10)), title = 'Orography', legend_label = 'Height asl [m]' , save_plot = True)
 
+        """
         if 'levels' in kwargs:
             levels = kwargs['levels']
         else:
-            levels = np.linspace(np.min(values), np.max(values), 20)
+            levels = np.linspace(np.min(layer), np.max(layer), 20)
+
+        if len(layer.shape) > 2:
+            levels = np.array(range(0,layer.shape[-1] + 1, 1))
+            layer = np.sum(layer, axis = 2)
 
         fig, ax = plt.subplots(sharey = True, figsize=(600/self.MY_DPI, 600/self.MY_DPI), dpi=self.MY_DPI)
         cmap = plt.cm.RdBu_r
-        cs = plt.contourf(self.x, self.y, values, levels=levels, cmap=cmap, alpha = 0.75)
+        cs = plt.contourf(self.x, self.y, layer, levels=levels, cmap=cmap, alpha = 0.75)
 
 
         cbar = plt.colorbar(cs,orientation='vertical',fraction=0.047, pad=0.01)
@@ -285,13 +338,15 @@ class CPT():
             for i, pts in enumerate(measurement_pts):
                 if i == 0:
                     ax.scatter(pts[0], pts[1], marker='o', 
-                    color='red', s=30,zorder=1500, label = 'measurements_' + self.measurements_selector)                    
+                    facecolors='red', edgecolors='black', 
+                    s=30,zorder=1500, label = 'measurements_' + self.measurements_selector)                    
                 else:
-                    ax.scatter(pts[0], pts[1], marker='o', 
-                    color='red', s=30,zorder=1500)
+                    ax.scatter(pts[0], pts[1], marker='o',
+                    facecolors='red', edgecolors='black', 
+                    s=30,zorder=1500)
 
 
-        if self.lidar_pos_1 is not None or self.lidar_pos_2 is not None :
+        if self.lidar_pos_1 is not None or self.lidar_pos_2 is not None or self.measurements_selector is not None:
             ax.legend(loc='lower right', fontsize = self.FONT_SIZE)    
 
 
@@ -303,6 +358,88 @@ class CPT():
 
         ax.set_aspect(1.0)
         plt.show()
+
+        if 'title' in kwargs and 'save_plot' in kwargs and kwargs['save_plot']:
+                fig.savefig(self.OUTPUT_DATA_PATH + kwargs['title'] + '.pdf', bbox_inches='tight')
+
+
+    def plot_optimization(self, **kwargs):
+        """
+        Plots measurement point optimization result.
+        
+        Parameters
+        ----------
+        **kwargs : see below
+
+        Keyword Arguments
+        -----------------
+        save_plot : bool
+            Indicating whether to save the plot as PDF.
+
+        See also
+        --------
+        optimize_measurements : implementation of disc covering problem
+        add_measurements : method for adding initial measurement points
+
+        Notes
+        -----
+        To generate the plot it is required that 
+        the measurement optimization was performed.
+
+        Returns
+        -------
+        plot : matplotlib
+        
+        """
+        if self.measurements_initial is not None and self.measurements_optimized is not None:
+            fig, ax = plt.subplots(sharey = True, figsize=(600/self.MY_DPI, 600/self.MY_DPI), dpi=self.MY_DPI)
+
+            for i,pt in enumerate(self.measurements_initial):
+                if i == 0:
+                    ax.scatter(pt[0], pt[1],marker='o', 
+                        facecolors='red', edgecolors='black', 
+                        s=30,zorder=1500, label = "measurements_initial")
+                else:
+                    ax.scatter(pt[0], pt[1],marker='o', 
+                                        facecolors='red', edgecolors='black', 
+                                        s=30,zorder=1500,)            
+
+
+            for i,pt in enumerate(self.measurements_optimized):
+                if i == 0:
+                    ax.scatter(pt[0], pt[1],marker='o', 
+                        facecolors='white', edgecolors='black', 
+                        s=30,zorder=1500, label = "measurements_optimized")
+                    ax.add_artist(plt.Circle((pt[0], pt[1]), 
+                                            self.REP_RADIUS,                               
+                                            facecolor='grey', edgecolor='black', 
+                                            zorder=500,  alpha = 0.5))                 
+                else:
+                    ax.scatter(pt[0], pt[1],marker='o', 
+                        facecolors='white', edgecolors='black', 
+                        s=30,zorder=1500)
+                    ax.add_artist(plt.Circle((pt[0], pt[1]), 
+                                            self.REP_RADIUS,                               
+                                            facecolor='grey', edgecolor='black', 
+                                            zorder=500,  alpha = 0.5))                 
+    
+                    
+
+            plt.xlabel('Easting [m]', fontsize = self.FONT_SIZE)
+            plt.ylabel('Northing [m]', fontsize = self.FONT_SIZE)
+            ax.legend(loc='lower right', fontsize = self.FONT_SIZE)
+
+
+            ax.set_xlim(np.min(self.x),np.max(self.x))
+            ax.set_ylim(np.min(self.y),np.max(self.y))
+
+            ax.set_aspect(1.0)
+            plt.show()
+            if 'save_plot' in kwargs and kwargs['save_plot']:
+                fig.savefig(self.OUTPUT_DATA_PATH + 'measurements_optimized.pdf', bbox_inches='tight')
+
+
+
 
     def set_utm_zone(self, utm_zone):
         """
@@ -540,7 +677,7 @@ class CPT():
         if self.flags['measurements_added']:
             discs, matrix = self.generate_disc_matrix()
             points_uncovered = self.measurements_initial
-            points_covered_total = np.zeros((0,3))
+            points_covered_total = np.zeros((0,3), self.measurements_initial.dtype)
             discs_selected = np.zeros((0,3))
             i = 0
             j = len(points_uncovered)
@@ -559,6 +696,8 @@ class CPT():
                 self.measurements_optimized = np.append(discs_selected, points_uncovered, axis = 0)
             else:
                 self.measurements_optimized = discs_selected
+            if len(self.measurements_optimized) == len(self.measurements_initial):
+                self.measurements_optimized = self.measurements_initial
         else:
             print("No measurement positions added, nothing to optimize!")
             
@@ -729,9 +868,24 @@ class CPT():
             self.flags['mesh_generated'] = True
 
     def generate_combined_layer(self):
+        """
+        Generates the combined layer which is used
+        for the positioning of lidars.
+        
+        Notes
+        --------
+        Initial measurement positions must be added before
+        calling this method. The method calls sequentially
+        generation of mesh, topographic layer,
+        beam steering coordinates, range restriction layer, 
+        elevation restriction layer and los blockage layer.
+
+        See also
+        --------
+        add_measurements() : adding measurement points to the CPT class instance 
+        """
         self.generate_mesh()
         self.generate_topographic_layer()
-        self.generate_landcover_layer()
         self.generate_beam_coords_mesh()
         self.generate_range_layer()
         self.generate_elevation_layer()
@@ -743,31 +897,119 @@ class CPT():
         self.flags['combined_layer_generated'] = True
 
     def generate_los_blck_layer(self):
+        """
+        Generates the los blockage layer by performing 
+        view shed analysis for the selected site.
+        
+        Notes
+        --------
+        Initial measurement positions must be added, output data
+        folder set and mesh and topography layer generated before 
+        calling this method.
+        
+        The method makes sequential calls to methods that exports
+        measurement points and topography layer as shape files. 
+        This files are temporary and are removed once the viewshed
+        analysis and processing are executed.
+
+        See also
+        --------
+        add_measurements() : adding measurement points to the CPT class instance 
+        """
         self.export_measurements()
         self.export_topography()
-        self.viewshed_processing()
         self.viewshed_analysis()
+        self.viewshed_processing()
         self.flags['los_blck_layer_generated'] = True
+        del_folder_content(self.OUTPUT_DATA_PATH, self.EXTENSIONS)
 
-    def export_measurements(self):
+    def viewshed_processing(self):
+        """
+        Performs the viewshed data processing for the given site.
+        
+        Notes
+        --------
+        The method which performs viewshed analysis for the given 
+        site must be called first before calling this method.
+        
+        The method loads the shapefiles corresponding to the viewshed
+        analysis of the site for each individual measurement point.
+        The loaded data are converted into the los blockage GIS layer.
 
-        if path.exists(self.OUTPUT_DATA_PATH) and self.flags['measurements_added']: 
-            pts = self.measurement_type_selector(self.measurements_selector)
+        See also
+        --------
+        viewshed_analysis() : viewshed analysis of the site
+        """        
 
-            pts_dict=[]
-            for i,pt in enumerate(pts)  :
-                pts_dict.append({'Name': "MP_" + str(i), 'E': pt[0], 'N': pt[1]})
-                pts_df = pd.DataFrame(pts_dict)
-                pts_df['geometry'] = pts_df.apply(lambda x: Point((float(x.E), float(x.N))), axis=1)
-                pts_df = geopandas.GeoDataFrame(pts_df, geometry='geometry')
-                pts_df.crs= "+init=epsg:" + self.epsg_code
-                pts_df.to_file(self.OUTPUT_DATA_PATH + 'measurement_pt_' + str(i + 1) + '.shp', driver='ESRI Shapefile')
+        if self.flags['viewshed_analyzed']:
+            measurement_pts = self.measurement_type_selector(self.measurements_selector)
+            nrows, ncols = self.x.shape
+            no_pts = len(measurement_pts)
 
-                pts_dict=[]
-            self.flags['measurements_exported'] = True
+            self.los_blck_layer = np.empty((nrows, ncols, no_pts), dtype=float)
+
+
+            for i in range(0,len(measurement_pts)):
+                los_blck_tmp  = np.loadtxt(self.OUTPUT_DATA_PATH + "los_blockage_" +str(i+1)+".asc", skiprows=6)
+                los_blck_tmp  = np.flip(los_blck_tmp, axis = 0)
+                self.los_blck_layer[:,:,i] = los_blck_tmp
+            
+            self.flags['viewshed_performed'] = True
+
+    def viewshed_analysis(self):
+        """
+        Performs the viewshed analysis for the given site.
+        
+        Notes
+        --------
+        The shapefiles corresponding to the topography layer and
+        measurement points must be generated before calling this method.
+        
+        The method loads the shapefiles and calls a method of the 
+        whitebox library[1] which performs the viewshed analysis.
+
+        References
+        ----------
+        .. [1] Missing reference ...        
+
+        See also
+        --------
+        export_topography() : topography layer shapefile exporter
+        export_measurements() : measurement points shapefile exporter
+        """
+
+        if os.path.exists(self.OUTPUT_DATA_PATH + 'topography.asc') and self.flags['topography_exported'] and self.flags['measurements_exported'] and self.flags['measurements_added'] and self.measurement_type_selector(self.measurements_selector) is not None:
+            measurement_pts = self.measurement_type_selector(self.measurements_selector)
+
+            terrain_height = self.get_elevation(self.long_zone + self.lat_zone, measurement_pts)
+            measurement_height = measurement_pts[:,2]
+            height_diff = measurement_height - terrain_height
+
+            for i in range(0,len(measurement_pts)):
+                wbt = whitebox.WhiteboxTools()
+                wbt.set_working_dir(self.OUTPUT_DATA_PATH)
+                wbt.verbose = False
+                wbt.viewshed('topography.asc',"measurement_pt_" +str(i+1)+".shp","los_blockage_" +str(i+1)+".asc",height_diff[i])
+            self.flags['viewshed_analyzed'] = True
 
     def export_topography(self):
-        if path.exists(self.OUTPUT_DATA_PATH) and self.flags['topography_layer_generated']:
+        """
+        Exports the topography layer a ASCI shapefile.
+        
+        Notes
+        --------
+        The topography layer must be generated and output data
+        folder set before calling this method.
+        
+        The method writes out a ASCI shape file. The shapefile is 
+        used in the site viewshed analysis.
+
+        See also
+        --------
+        add_measurements() : adding measurement points to the CPT class instance 
+        viewshed_analysis() : the site viewshed analysis
+        """        
+        if os.path.exists(self.OUTPUT_DATA_PATH) and self.flags['topography_layer_generated']:
             topography_array = np.flip(self.topography_layer,axis=0)
             f = open(self.OUTPUT_DATA_PATH + 'topography.asc', 'w')
             f.write("ncols " + str(topography_array.shape[0]) + "\n")
@@ -782,93 +1024,73 @@ class CPT():
         else:
             print('The output data path does not exist!')
 
-    def viewshed_processing(self):
-        if path.exists(self.OUTPUT_DATA_PATH + 'topography.asc') and self.flags['topography_exported'] and self.flags['measurements_exported'] and self.flags['measurements_added'] and self.measurement_type_selector(self.measurements_selector) is not None:
-            measurement_pts = self.measurement_type_selector(self.measurements_selector)
+    def export_measurements(self):
+        """
+        Exports the measurement points as ESRI shapefile.
+        
+        Notes
+        --------
+        Initial measurement positions must be added and output data
+        folder set before calling this method.
+        
+        The method creates Geopanda dataframe which is then exported
+        as a ESRI shapefile. The shapefile is used in the site viewshed analysis.
 
-            terrain_height = self.get_elevation(self.long_zone + self.lat_zone, measurement_pts)
-            measurement_height = measurement_pts[:,2]
-            height_diff = measurement_height - terrain_height
+        See also
+        --------
+        add_measurements() : adding measurement points to the CPT class instance 
+        viewshed_analysis() : the site viewshed analysis
+        """
 
-            for i in range(0,len(measurement_pts)):
-                wbt = whitebox.WhiteboxTools()
-                wbt.set_working_dir(self.OUTPUT_DATA_PATH)
-                wbt.verbose = False
-                wbt.viewshed('topography.asc',"measurement_pt_" +str(i+1)+".shp","los_blockage_" +str(i+1)+".asc",height_diff[i])
-            self.flags['viewshed_performed'] = True
+        if os.path.exists(self.OUTPUT_DATA_PATH) and self.flags['measurements_added']: 
+            pts = self.measurement_type_selector(self.measurements_selector)
 
-    def viewshed_analysis(self):
-        if self.flags['viewshed_performed']:
-            measurement_pts = self.measurement_type_selector(self.measurements_selector)
-            nrows, ncols = self.x.shape
-            no_pts = len(measurement_pts)
+            pts_dict=[]
+            for i,pt in enumerate(pts)  :
+                pts_dict.append({'Name': "MP_" + str(i), 'E': pt[0], 'N': pt[1]})
+                pts_df = pd.DataFrame(pts_dict)
+                pts_df['geometry'] = pts_df.apply(lambda x: Point((float(x.E), float(x.N))), axis=1)
+                pts_df = geopandas.GeoDataFrame(pts_df, geometry='geometry')
+                pts_df.crs= "+init=epsg:" + self.epsg_code
+                pts_df.to_file(self.OUTPUT_DATA_PATH + 'measurement_pt_' + str(i + 1) + '.shp', driver='ESRI Shapefile')
 
-            self.los_blck_layer = np.empty((nrows, ncols, no_pts), dtype=float)
+                pts_dict=[]
+            self.flags['measurements_exported'] = True
 
-
-            for i in range(0,len(measurement_pts)):
-                los_blck_tmp  = np.loadtxt(self.OUTPUT_DATA_PATH + "los_blockage_" +str(i+1)+".asc", skiprows=6)
-                los_blck_tmp  = np.flip(los_blck_tmp, axis = 0)
-                self.los_blck_layer[:,:,i] = los_blck_tmp
-            
-            self.flags['viewshed_analyzed'] = True
 
     def generate_range_layer(self):
         if self.flags['beam_coords_generated'] == True:
-            # nrows, ncols = self.x.shape
-            # tmp = self.beam_coords.shape[:2]
-            # array_shape = tmp[-1:] + tmp[:-1]
-
-            # self.elevation_angle_layer = np.copy(self.beam_coords[:,:,1])
-
-            # self.elevation_angle_layer[np.where((self.elevation_angle_layer <= self.MAX_ELEVATION_ANGLE))] = 1
-            # self.elevation_angle_layer[np.where((self.elevation_angle_layer > self.MAX_ELEVATION_ANGLE))] = 0
-            # self.elevation_angle_layer = self.elevation_angle_layer.T      
-            # self.elevation_angle_layer = self.elevation_angle_layer.reshape(nrows,ncols,array_shape[1], order='F')
-
             self.elevation_angle_layer = np.copy(self.elevation_angle_array)
             self.elevation_angle_layer[np.where((self.elevation_angle_layer <= self.MAX_ELEVATION_ANGLE))] = 1
             self.elevation_angle_layer[np.where((self.elevation_angle_layer > self.MAX_ELEVATION_ANGLE))] = 0
-
-            
         else:
             print('No beams coordinated generated, run self.gerate_beam_coords_mesh(str) first!')    
 
     def generate_elevation_layer(self):
         if self.flags['beam_coords_generated'] == True:
-            # nrows, ncols = self.x.shape
-            # tmp = self.beam_coords.shape[:2]
-            # array_shape = tmp[-1:] + tmp[:-1]
-
-            # self.range_layer = np.copy(self.beam_coords[:,:,2])
-
-            # self.range_layer[np.where((self.range_layer <= self.AVERAGE_RANGE))] = 1
-            # self.range_layer[np.where((self.range_layer > self.AVERAGE_RANGE))] = 0
-            # self.range_layer = self.range_layer.T
-            # self.range_layer = self.range_layer.reshape(nrows,ncols,array_shape[1], order='F')
             self.range_layer = np.copy(self.range_array)
             self.range_layer[np.where((self.range_layer <= self.AVERAGE_RANGE))] = 1
-            self.range_layer[np.where((self.range_layer > self.AVERAGE_RANGE))] = 0            
-
-            
+            self.range_layer[np.where((self.range_layer > self.AVERAGE_RANGE))] = 0          
         else:
-            print('No beams coordinated generated, run self.gerate_beam_coords_mesh(str) first!')
+            print('No beams coordinated generated!\n Run self.gerate_beam_coords_mesh(input_type) first!')
 
     def generate_beam_coords_mesh(self, input_type = 'initial'):
         """
-        Generates beam steering coordinates in spherical coordinate system
-        from every mesh point to a single measurement point.
+        Generates beam steering coordinates from every mesh point 
+        to every measurement point.
 
         Parameters
         ----------
-        lidar_pos : ndarray
-            3D array containing data with `float` or `int` type
-            corresponding to x, y and z coordinates of a lidar.
-            3D array data are expressed in meters.
-        meas_pt_pos : ndarray
-            3D array containing data with `float` or `int` type
-            corresponding to x, y and z coordinates of a measurement point.
-            3D array data are expressed in meters.
+        input_type : str
+            A string indicating which measurement points to be
+            used for the beam steering coordinates calculation.
+            A default value is set to 'initial'.
+
+        Notes
+        --------
+        The measurement points must exists and mesh generated 
+        before calling this method.
+
         """
         # measurement point selector:
         measurement_pts = self.measurement_type_selector(input_type)
@@ -898,6 +1120,27 @@ class CPT():
             print('No measurement points -> no beam steering coordinates!')
 
     def measurement_type_selector(self, input_type):
+        """
+        Selects measurement type.
+
+        Parameters
+        ----------
+        input_type : str
+            A string indicating which measurement points to be returned
+
+        Returns
+        -------
+        measurement_points : ndarray
+            Depending on the input type this method returns one
+            of the following measurement points:(1) initial, 
+            (2) optimized, (3) reachable, (4) identified or 
+            (5) None .
+
+        Notes
+        -----
+        This method is used during the generation of the beam steering coordinates.
+        """        
+
         if input_type == 'initial':
             return self.measurements_initial
         elif input_type == 'optimized':
@@ -910,6 +1153,26 @@ class CPT():
             return None
 
     def generate_topographic_layer(self):
+        """
+        Generates topographic layer.
+
+        Notes
+        -----
+        It is required that the landcover data are provided 
+        and that computer running this code has an access to
+        the Internet in order to obtain SRTM DEM data.
+
+        The method itself sequentially calls generation of the
+        landcover and orography layers, which is followed with 
+        the summation of the orography and canopy heights for 
+        each individual mesh point.
+
+        See also
+        --------
+        self.generate_orography_layer() : orography layer generation
+        self.generate_landcover_layer() : landcover layer generation
+        """        
+
         if self.flags['mesh_generated']:
             self.generate_orography_layer()
             self.generate_landcover_layer()
@@ -931,13 +1194,33 @@ class CPT():
             print('Mesh not generated -> topographic layer cannot be generated ')
 
     def generate_orography_layer(self):
+        """
+        Generates orography layer.
+
+        Notes
+        -----
+        It is required that the computer running this method 
+        has an access to the Internet since the terrain height
+        information are obtained from the SRTM DEM database.
+
+        The mesh must be generated before running this method.
+
+        The method builds on top of the existing SRTM library [1].
+
+        References
+        ----------
+        .. [1] Missing reference ...
+
+        See also
+        --------
+        self.generate_mesh() : mesh generation
+        """        
+                
         if self.flags['mesh_generated']:        
             nrows, ncols = self.x.shape
             elevation_data = srtm.get_data()
 
             self.mesh_utm[:,2] = np.asarray([elevation_data.get_elevation(x[0],x[1]) if elevation_data.get_elevation(x[0],x[1]) != None and elevation_data.get_elevation(x[0],x[1]) != np.nan else 0 for x in self.mesh_geo])
-
-            # self.mesh_utm[:,2][np.isnan(self.mesh_utm[:,2])] = self.NO_DATA_VALUE
 
             self.mesh_geo[:,2] = self.mesh_utm[:,2]
             self.orography_layer = self.mesh_utm[:,2].reshape(nrows, ncols).T
@@ -947,30 +1230,34 @@ class CPT():
 
     def generate_landcover_layer(self):
         """
-        Generates exclusion zones and canopy height 
-        layers based on landcover data.
-        
-        Parameters
-        ----------
-        
-        Returns
-        -------
-        landcover_layer : ndarray
-            nD array containing CLC code for landcover class.
-        restriction_zones_layer : ndarray
-            nD array containing zeros and ones...
-        canopy_height_layer : ndarray
-            nD array containing heights...
+        Generates restriction zones and canopy height 
+        layers based on the CORINE landcover data.
 
         Notes
         --------
-        It necessary that the path to the landcover data (CORINE)
-        is set to the corresponding class attributed. 
-        Otherwise this class method will not generate any output.
+        It is necessary that the path to the landcover data 
+        is set to the corresponding class attributed.
 
-        Examples
+        Currently the method only works with the CORINE data [1].
+
+        It is necessary that the mesh has been generated before 
+        calling this method.
+
+        The method crops the landcover data according to the mesh 
+        corners, saves the cropped data, and based on the cropped
+        data generates canopy height and restriction zone layers.
+
+        References
+        ----------
+        .. [1] Missing reference ....
+
+        See also
         --------
-        ....
+        self.generate_mesh() : mesh generation
+        self.crop_landcover_data() : cropping landcover data
+        self.import_landcover_data() : importing cropped landcover data
+        self.generate_canopy_height() : canopy height generation
+        self.generate_restriction_zones() : restriction zone generation
         """   
         if len(self.LANDCOVER_DATA_PATH) > 0:
             try:
@@ -985,11 +1272,31 @@ class CPT():
             print('Path to landcover data not provided!')
             self.flags['landcover_layers_generated'] = False
 
-
-
-
-
     def generate_restriction_zones(self):
+        """
+        Converts specific CORINE landcover CLC codes
+        to the restriction zones layer.
+
+        Notes
+        --------
+        It is necessary that the base landcover layer is generated.
+
+        Currently the method only works with the CORINE data [1].
+
+        The method converts specific CLC codes[2], corresponding to specific 
+        landcover types such as for example water body, to the zones which
+        are restricted for the lidar installation. 
+
+        References
+        ----------
+        .. [1] Missing reference ....
+        .. [2] Missing reference ....
+
+        See also
+        --------
+        self.crop_landcover_data() : cropping landcover data
+        self.import_landcover_data() : importing cropped landcover data
+        """           
         if self.flags['landcover_layer_generated']:        
             self.restriction_zones_layer = np.copy(self.landcover_layer)
             self.restriction_zones_layer[np.where((self.restriction_zones_layer < 23))] = 1
@@ -1007,6 +1314,32 @@ class CPT():
             print('No landcover layer generated -> exclusion zones layer not generated!')
 
     def generate_canopy_height(self):
+        """
+        Converts specific CORINE landcover CLC codes
+        to the canopy height layer.
+
+        Notes
+        --------
+        It is necessary that the base landcover layer is generated.
+
+        Currently the method only works with the CORINE data [1].
+
+        The method converts specific CLC codes[2], corresponding to forest, 
+        to the canopy height. 
+        
+        It simply adds 20 m for CLC codes correspoding to forest.
+
+        References
+        ----------
+        .. [1] Missing reference ....
+        .. [2] Missing reference ....
+
+        See also
+        --------
+        self.crop_landcover_data() : cropping landcover data
+        self.import_landcover_data() : importing cropped landcover data
+        """              
+
         if self.flags['landcover_layer_generated']:
             self.canopy_height_layer = np.copy(self.landcover_layer)
             self.canopy_height_layer[np.where(self.canopy_height_layer < 23)] = 0
@@ -1020,6 +1353,25 @@ class CPT():
 
 
     def import_landcover_data(self):
+        """
+        Generates landcover layer based on the CORINE landcover data.
+
+        Notes
+        --------
+        It is necessary that the CORINE landcover data are cropped
+        to the area correspoding to the previously generated mesh.
+
+        Currently the method only works with the CORINE data [1].
+
+        References
+        ----------
+        .. [1] Missing reference ....
+
+        See also
+        --------
+        self.crop_landcover_data() : cropping landcover data
+        self.generate_mesh() : mesh generation
+        """         
         if self.flags['landcover_map_clipped']:
             nrows, ncols = self.x.shape
             with rasterio.open(self.OUTPUT_DATA_PATH + 'landcover_cropped_utm.tif') as src:
@@ -1032,10 +1384,25 @@ class CPT():
         else:
             print('Landcover map not clipped!')
 
-        
-
-
     def crop_landcover_data(self):
+        """
+        Crops the CORINE landcover data to the mesh area.
+
+        Notes
+        --------
+        It is necessary that the CORINE landcover data path is provided
+        and that the mesh is generated before calling this method.
+
+        Currently the method only works with the CORINE data [1].
+
+        References
+        ----------
+        .. [1] Missing reference ....
+
+        See also
+        --------
+        self.generate_mesh() : mesh generation
+        """               
         if self.flags['mesh_generated']:  
             if len(self.LANDCOVER_DATA_PATH) > 0:
                 if len(self.OUTPUT_DATA_PATH)> 0:               
@@ -1059,9 +1426,43 @@ class CPT():
         else:
             print('Mesh not generated -> landcover map cannot be clipped!')            
 
-
     @classmethod
     def get_elevation(cls, utm_zone, pts_utm):
+        """
+        Fetch elevation from the SRTM database for 
+        a number of points described by in the UTM coordinates.
+
+        Parameters
+        ----------
+        utm_zone : str
+            A string representing an UTM grid zone, containing digits (from 1 to 60) 
+            indicating the longitudinal zone followed by a character ('C' to 'X' excluding 'O') corresponding to the latitudinal zone.
+        pts_utm : ndarray
+            nD array containing data with `float` or `int` type corresponding 
+            to Easting and Northing coordinates of points.
+            nD array data are expressed in meters.            
+
+        Returns
+        -------
+        elevation : ndarray
+            nD array containing elevations for each point in pts_utm array
+
+        Notes
+        --------
+        It is required that the computer running this method 
+        has an access to the Internet since the terrain height
+        information are obtained from the SRTM DEM database [1, 2].
+
+        References
+        ----------
+        .. [1] Missing reference ....
+
+        See also
+        --------
+        self.which_hemisphere(utm_zone) : returns hemisphere
+        self.utm2geo(pts_utm, long_zone, hemisphere) : converts utm to geo
+        srtm : library for simple access to the SRTM DEM database
+        """             
         if cls.check_utm_zone(utm_zone):
             hemisphere = cls.which_hemisphere(utm_zone)
             long_zone = utm_zone[:-1]
@@ -1181,7 +1582,8 @@ class CPT():
         Parameters
         ----------
         utm_zone : str
-            A string containing UTM grid zone with grid code.
+            A string representing an UTM grid zone, containing digits (from 1 to 60) 
+            indicating the longitudinal zone followed by a character ('C' to 'X' excluding 'O') corresponding to the latitudinal zone.
         
         Returns
         -------
