@@ -167,6 +167,7 @@ class CPT():
     GOOGLE_API_KEY = ""
     RASTER_FORMAT = 'GTiff'
     EXTENSIONS = np.array(['.tif', '.pdf', '.kml', '.png'])
+    POINTS_TYPE = np.array(['initial', 'optimized', 'reachable', 'identified', 'misc'])
     
     MESH_RES = 100 # in m
     MESH_EXTENT = 5000 # in m
@@ -219,7 +220,8 @@ class CPT():
         self.measurements_optimized = None
         self.measurements_identified = None
         self.measurements_reachable = None
-        self.measurements_selector = None
+        self.measurements_misc = None
+        self.measurements_selector = 'initial'
         
 
         self.beam_coords = None
@@ -296,6 +298,8 @@ class CPT():
             Predetermined levels for the plotted parameter.
         save_plot : bool
             Indicating whether to save the plot as PDF.
+        input_type : str
+
         
         Returns
         -------
@@ -332,9 +336,12 @@ class CPT():
             facecolors='white', edgecolors='black',s=30,zorder=2000, label = "lidar_2")
 
 
-        if self.measurements_selector is not None:
-            measurement_pts = self.measurement_type_selector(self.measurements_selector)
+        if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
+            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
+        else:
+            measurement_pts = self.measurement_type_selector(self.measurements_selector)        
 
+        if measurement_pts is not None:
             for i, pts in enumerate(measurement_pts):
                 if i == 0:
                     ax.scatter(pts[0], pts[1], marker='o', 
@@ -345,10 +352,8 @@ class CPT():
                     facecolors='red', edgecolors='black', 
                     s=30,zorder=1500)
 
-
-        if self.lidar_pos_1 is not None or self.lidar_pos_2 is not None or self.measurements_selector is not None:
+        if self.lidar_pos_1 is not None or self.lidar_pos_2 is not None or measurement_pts is not None:
             ax.legend(loc='lower right', fontsize = self.FONT_SIZE)    
-
 
         plt.xlabel('Easting [m]', fontsize = self.FONT_SIZE)
         plt.ylabel('Northing [m]', fontsize = self.FONT_SIZE)
@@ -391,14 +396,21 @@ class CPT():
         plot : matplotlib
         
         """
-        if self.measurements_initial is not None and self.measurements_optimized is not None:
+        if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
+            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
+            self.measurements_selector = kwargs['points_type']
+        else:
+            measurement_pts = self.measurement_type_selector(self.measurements_selector)  
+
+
+        if measurement_pts is not None and self.measurements_optimized is not None:
             fig, ax = plt.subplots(sharey = True, figsize=(600/self.MY_DPI, 600/self.MY_DPI), dpi=self.MY_DPI)
 
-            for i,pt in enumerate(self.measurements_initial):
+            for i,pt in enumerate(measurement_pts):
                 if i == 0:
                     ax.scatter(pt[0], pt[1],marker='o', 
                         facecolors='red', edgecolors='black', 
-                        s=30,zorder=1500, label = "measurements_initial")
+                        s=30,zorder=1500, label = "original")
                 else:
                     ax.scatter(pt[0], pt[1],marker='o', 
                                         facecolors='red', edgecolors='black', 
@@ -409,7 +421,7 @@ class CPT():
                 if i == 0:
                     ax.scatter(pt[0], pt[1],marker='o', 
                         facecolors='white', edgecolors='black', 
-                        s=30,zorder=1500, label = "measurements_optimized")
+                        s=30,zorder=1500, label = "optimized")
                     ax.add_artist(plt.Circle((pt[0], pt[1]), 
                                             self.REP_RADIUS,                               
                                             facecolor='grey', edgecolor='black', 
@@ -486,6 +498,10 @@ class CPT():
 
         Keyword Arguments
         -----------------
+        points_type : str
+            A string indicating to what variable 
+            measurement points should be added.
+            A default value is set to 'initial'.
         measurements : ndarray, required
             nD array containing data with `float` or `int` type
             corresponding to x, y and z coordinates of measurement points.
@@ -497,9 +513,6 @@ class CPT():
         
         Returns
         -------
-        self.measurements_initial : ndarray 
-            nD array containing data with `float` or `int` type corresponding to 
-            Northing, Easting and Height coordinates of measurement points.
         self.flags['measurements_added'] : bool
             Sets the key 'measurements_added' in the flag dictionary to True.
         self.long_zone : str
@@ -513,9 +526,6 @@ class CPT():
         self.flags['utm'] : bool
             Sets the key 'utm' in the flag dictionary to True.
         """
-        if self.flags['measurements_added']:
-            print('Existing measurement points will be overwritten!')
-
         if 'utm_zone' in kwargs:
             self.set_utm_zone(kwargs['utm_zone'])
 
@@ -523,14 +533,20 @@ class CPT():
             print('Cannot add measurement points without specificing UTM zone!')
 
         if self.flags['utm'] and self.check_measurement_positions(kwargs['measurements']):
+            if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
+                self.measurements_selector = kwargs['points_type']
+            print('Adding ' + self.measurements_selector + ' measurement points!')
+
             if len(kwargs['measurements'].shape) == 2:
-                    self.measurements_initial = np.unique(kwargs['measurements'], axis=0)
+                self.store_points(self.measurements_selector, 
+                                  np.unique(kwargs['measurements'], axis=0))
             else:
-                    self.measurements_initial = np.array([kwargs['measurements']])
-                    self.measurements_initial = np.unique(self.measurements_initial, axis=0)
+                self.store_points(self.measurements_selector, 
+                                  np.unique(np.array([kwargs['measurements']]), axis=0))
             self.flags['measurements_added'] = True
 
-    def generate_disc_matrix(self):
+
+    def generate_disc_matrix(self, **kwargs):
         """
         Generates mid points between any combination of two measurement points 
         which act as disc centers. The mid points are tested which measurement
@@ -545,6 +561,12 @@ class CPT():
             MEASNET's representativness radius of measurements.
             The radius is expressed in meters.
             A default value is set to 500 m.
+
+        Keyword arguments
+        -----------------
+        points_type : str
+            ...
+
         Returns
         -------
         discs : ndarray
@@ -607,11 +629,17 @@ class CPT():
             [0, 0, 0, 0, 0]]))
 
         """
-        if self.flags['measurements_added']:
-            points_combination = np.asarray(list(combinations(list(self.measurements_initial[:,(0,1)]), 2)))    
+        if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
+            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
+            self.measurements_selector = kwargs['points_type']
+        else:
+            measurement_pts = self.measurement_type_selector(self.measurements_selector)        
+
+        if measurement_pts is not None:
+            points_combination = np.asarray(list(combinations(list(measurement_pts[:,(0,1)]), 2)))    
             discs = (points_combination[:,0] + points_combination[:,1]) / 2
 
-            temp = np.asarray(list(product(list(discs), list(self.measurements_initial[:,(0,1)]))))
+            temp = np.asarray(list(product(list(discs), list(measurement_pts[:,(0,1)]))))
             distances =  np.linalg.norm(temp[:,0] - temp[:,1], axis = 1)
             distances = np.where(distances <= self.REP_RADIUS, 1, 0)
             
@@ -626,9 +654,9 @@ class CPT():
 
             return discs, matrix
         else:
-            return print("No measurement positions added, nothing to optimize!")
+            return print("No measurement points -> nothing to optimize!")
 
-    def optimize_measurements(self):
+    def optimize_measurements(self, **kwargs):
         """
         Optimizes measurement positions by solving disc covering problem.
         
@@ -673,18 +701,24 @@ class CPT():
             [0. , 7.4, 1. ]])
 
         """
+        if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
+            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
+            self.measurements_selector = kwargs['points_type']
+        else:
+            measurement_pts = self.measurement_type_selector(self.measurements_selector)        
 
-        if self.flags['measurements_added']:
+        if measurement_pts is not None:
+            print('Optimizing ' + self.measurements_selector + ' measurement points!')
             discs, matrix = self.generate_disc_matrix()
-            points_uncovered = self.measurements_initial
-            points_covered_total = np.zeros((0,3), self.measurements_initial.dtype)
+            points_uncovered = measurement_pts
+            points_covered_total = np.zeros((0,3), measurement_pts.dtype)
             discs_selected = np.zeros((0,3))
             i = 0
             j = len(points_uncovered)
 
             while i <= (len(discs) - 1) and j > 0 :
                 indexes = np.where(matrix[i] == 1 )
-                points_covered = self.measurements_initial[indexes]
+                points_covered = measurement_pts[indexes]
                 points_new = array_difference(points_covered, points_covered_total)
                 if len(points_new) > 0:
                     points_covered_total = np.append(points_covered_total, points_new,axis=0)
@@ -696,8 +730,8 @@ class CPT():
                 self.measurements_optimized = np.append(discs_selected, points_uncovered, axis = 0)
             else:
                 self.measurements_optimized = discs_selected
-            if len(self.measurements_optimized) == len(self.measurements_initial):
-                self.measurements_optimized = self.measurements_initial
+            if len(self.measurements_optimized) == len(measurement_pts):
+                self.measurements_optimized = measurement_pts
         else:
             print("No measurement positions added, nothing to optimize!")
             
@@ -802,6 +836,8 @@ class CPT():
             3D array data are expressed in meters.
         mesh_extent : int, optional
             mesh extent in Easting and Northing in meters.
+        points_type : str, optional
+
         
         Returns
         -------
@@ -833,6 +869,11 @@ class CPT():
         array([[-1000, -1000],
             [ 1000,  1000]])            
         """
+        if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
+            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
+            self.measurements_selector = kwargs['points_type']
+        else:
+            measurement_pts = self.measurement_type_selector(self.measurements_selector)
 
         if 'mesh_extent' in kwargs:
             self.MESH_EXTENT = kwargs['mesh_extent']
@@ -840,7 +881,7 @@ class CPT():
             self.mesh_center = kwargs['mesh_center']
             self.flags['mesh_center_added'] = True
         elif self.flags['measurements_added']:
-            self.mesh_center = np.int_(np.mean(self.measurements_initial,axis = 0))
+            self.mesh_center = np.int_(np.mean(measurement_pts,axis = 0))
             self.flags['mesh_center_added'] = True
         else:
             print('Mesh center missing!')
@@ -867,7 +908,7 @@ class CPT():
             self.mesh_geo = self.utm2geo(self.mesh_utm, self.long_zone, self.hemisphere)            
             self.flags['mesh_generated'] = True
 
-    def generate_combined_layer(self):
+    def generate_combined_layer(self, **kwargs):
         """
         Generates the combined layer which is used
         for the positioning of lidars.
@@ -884,19 +925,30 @@ class CPT():
         --------
         add_measurements() : adding measurement points to the CPT class instance 
         """
-        self.generate_mesh()
-        self.generate_topographic_layer()
-        self.generate_beam_coords_mesh()
-        self.generate_range_layer()
-        self.generate_elevation_layer()
-        self.generate_los_blck_layer()
 
-        nrows, ncols = self.x.shape
-        self.combined_layer = self.elevation_angle_layer * self.range_layer * self.los_blck_layer
-        self.combined_layer = self.combined_layer * self.restriction_zones_layer.reshape((nrows,ncols,1))
-        self.flags['combined_layer_generated'] = True
+        if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
+            self.measurements_selector = kwargs['points_type']
+        else:
+            self.measurements_selector = 'initial'
 
-    def generate_los_blck_layer(self):
+        if self.measurement_type_selector(self.measurements_selector) is not None:
+            print('Generating combined layer for ' + self.measurements_selector + ' measurement points!')
+            self.generate_mesh()
+            self.generate_topographic_layer()
+            self.generate_beam_coords_mesh()
+            self.generate_range_layer()
+            self.generate_elevation_layer()
+            self.generate_los_blck_layer()
+
+            nrows, ncols = self.x.shape
+            self.combined_layer = self.elevation_angle_layer * self.range_layer * self.los_blck_layer
+            self.combined_layer = self.combined_layer * self.restriction_zones_layer.reshape((nrows,ncols,1))
+            self.flags['combined_layer_generated'] = True
+        else:
+            print('Variable self.measurements_'+ self.measurements_selector + ' is empty!')
+            print('Combined layer was not generated!')
+
+    def generate_los_blck_layer(self, **kwargs):
         """
         Generates the los blockage layer by performing 
         view shed analysis for the selected site.
@@ -916,12 +968,19 @@ class CPT():
         --------
         add_measurements() : adding measurement points to the CPT class instance 
         """
-        self.export_measurements()
-        self.export_topography()
-        self.viewshed_analysis()
-        self.viewshed_processing()
-        self.flags['los_blck_layer_generated'] = True
-        del_folder_content(self.OUTPUT_DATA_PATH, self.EXTENSIONS)
+        if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
+            self.measurements_selector = kwargs['points_type']
+
+        if self.measurement_type_selector(self.measurements_selector) is not None:        
+            self.export_measurements()
+            self.export_topography()
+            self.viewshed_analysis()
+            self.viewshed_processing()
+            self.flags['los_blck_layer_generated'] = True
+            del_folder_content(self.OUTPUT_DATA_PATH, self.EXTENSIONS)
+        else:
+            print('Variable self.measurements_'+ self.measurements_selector + ' is empty!')
+            print('LOS blockage layer was not generated!')
 
     def viewshed_processing(self):
         """
@@ -1072,16 +1131,20 @@ class CPT():
             self.range_layer[np.where((self.range_layer <= self.AVERAGE_RANGE))] = 1
             self.range_layer[np.where((self.range_layer > self.AVERAGE_RANGE))] = 0          
         else:
-            print('No beams coordinated generated!\n Run self.gerate_beam_coords_mesh(input_type) first!')
+            print('No beams coordinated generated!\n Run self.gerate_beam_coords_mesh() first!')
 
-    def generate_beam_coords_mesh(self, input_type = 'initial'):
+    def generate_beam_coords_mesh(self, **kwargs):
         """
         Generates beam steering coordinates from every mesh point 
         to every measurement point.
 
         Parameters
         ----------
-        input_type : str
+        **kwargs : see below
+
+        Keyword Arguments
+        -----------------
+        points_type : str
             A string indicating which measurement points to be
             used for the beam steering coordinates calculation.
             A default value is set to 'initial'.
@@ -1093,9 +1156,12 @@ class CPT():
 
         """
         # measurement point selector:
-        measurement_pts = self.measurement_type_selector(input_type)
-        self.measurements_selector = input_type
-
+        
+        if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
+            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
+            self.measurements_selector = kwargs['points_type']
+        else:
+            measurement_pts = self.measurement_type_selector(self.measurements_selector)        
 
         if measurement_pts is not None:
             try:
@@ -1106,7 +1172,6 @@ class CPT():
                 for i, pts in enumerate(measurement_pts):
                     self.beam_coords[i] = self.generate_beam_coords(self.mesh_utm, pts)
                 self.flags['beam_coords_generated'] = True
-                self.measurements_selector = input_type
 
                 # splitting beam coords to three arrays 
                 nrows, ncols = self.x.shape
@@ -1117,15 +1182,16 @@ class CPT():
             except:
                 print('Something went wrong! Check measurement points')
         else:
-            print('No measurement points -> no beam steering coordinates!')
+            print('Variable self.measurements_'+ self.measurements_selector + ' is empty!')
+            print('Beam steering coordinates not generated!')
 
-    def measurement_type_selector(self, input_type):
+    def measurement_type_selector(self, points_type):
         """
         Selects measurement type.
 
         Parameters
         ----------
-        input_type : str
+        points_type : str
             A string indicating which measurement points to be returned
 
         Returns
@@ -1141,16 +1207,47 @@ class CPT():
         This method is used during the generation of the beam steering coordinates.
         """        
 
-        if input_type == 'initial':
+        if points_type == 'initial':
             return self.measurements_initial
-        elif input_type == 'optimized':
+        elif points_type == 'optimized':
             return self.measurements_optimized
-        elif input_type == 'reachable':
+        elif points_type == 'reachable':
             return self.measurements_reachable
-        elif input_type == 'identified':
+        elif points_type == 'identified':
             return self.measurements_reachable
+        elif points_type == 'misc':
+            return self.measurements_misc            
         else:
             return None
+
+
+    def store_points(self, points_type, points):
+        """
+        Store measurement points to the measurement point
+        variable specified by the type.
+
+        Parameters
+        ----------
+        points_type : str
+            A string indicating measurement points type
+        points : ndarray
+            nD array containing measurement points
+
+        Notes
+        -----
+        ...
+        """        
+
+        if points_type == 'initial':
+            self.measurements_initial = points
+        elif points_type == 'optimized':
+            self.measurements_optimized = points
+        elif points_type == 'reachable':
+            self.measurements_reachable = points
+        elif points_type == 'identified':
+            self.measurements_reachable = points
+        else:
+            self.measurements_misc = points
 
     def generate_topographic_layer(self):
         """
@@ -1176,6 +1273,7 @@ class CPT():
         if self.flags['mesh_generated']:
             self.generate_orography_layer()
             self.generate_landcover_layer()
+            print(self.flags['landcover_layers_generated'])
             if self.flags['orography_layer_generated'] == True:
                 self.topography_layer = self.canopy_height_layer + self.orography_layer
 
@@ -1265,6 +1363,7 @@ class CPT():
                 self.import_landcover_data()
                 self.generate_canopy_height()
                 self.generate_restriction_zones()
+                self.flags['landcover_layers_generated'] = True
             except:
                 print('Seems that the path to the landcover data or landcover data is not valid!')
                 self.flags['landcover_layers_generated'] = False
