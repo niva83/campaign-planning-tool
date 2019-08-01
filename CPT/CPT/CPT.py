@@ -44,8 +44,7 @@ def del_folder_content(folder, exclude_file_extensions = None):
 
 def array_difference(A,B):
     """
-    Finding which elements in array A are not present in
-    array B. 
+    Finding which elements in array A are not present in array B. 
 
     Parameters
     ----------
@@ -94,16 +93,23 @@ class CPT():
     """
     A class for designing scanning lidar measurement campaigns.
 
-    ...
-
     Attributes
     ----------
+    NO_LAYOUTS : int
+        A number of layout instances generated.
+    NO_DATA_VALUE : int
+        A default value in case of missing data.
+        Currently the default value is set to 0.
     LANDCOVER_DATA_PATH : str
         The path to a CORINE landcover dataset.
         A default value set to an empty string.
+    OUTPUT_DATA_PATH : str
+        The path to an existing folder where results will be saved.
     GOOGLE_API_KEY : str
         An API key to access Google Maps database.
         A default value is set to an empty string.
+    FILE_EXTENSIONS : ndarray
+        nD array of strings containing none-temporary file exentions.
     MESH_RES : int
         The resolution of the mesh used for GIS layers creation.
         The resolution is expressed in meters. 
@@ -116,144 +122,132 @@ class CPT():
         MEASNET's representativness radius of measurements.
         The radius is expressed in meters.
         A default value is set to 500 m.
+    POINTS_TYPE : ndarray
+        nD array of strings indicating measurement point type.
+        Five different types are preset and used in CPT.
+    ACCUMULATION_TIME : int
+        The laser pulse backscatter accumulation time.
+        A value is given in ms.
+        A default value is set to 1000 ms.
+    AVERAGE_RANGE : int
+        The average range of lidars.
+        The range is expressed in m.
+        A default value is set to 3000 m.  
+    MAX_ACCELERATION : int
+        The maximum acceleration of a scanner head.
+        The acceleration is expressed in deg/s^2.
+        A default value is set to 100 deg/s^2.
+        Update the value according to the lidar specifications.
     MAX_ELEVATION_ANGLE : float
         The maximum allowed elevation angle for a beam steering.
         The angle is expressed in deg.
         A default value is set to 5 deg.
+    MAX_NO_OF_RANGES : int
+        The maximum number of range gates along each LOS.
+        A default value is set to 100.
+        Update the value according to the lidar specifications.
     MIN_INTERSECTING_ANGLE : float
         The minimum intersecting angle between two beams.
         The angle is expressed in deg.
         A default value is set to 30 deg.
-    AVERAGE_RANGE : int
-        The average range of lidars.
-        The range is expressed in m.
-        A default value is set to 3000 m.    
-    MAX_ACCELERATION : int
-        The maximum acceleration of scanner head.
-        The acceleration is expressed in deg/s^2.
-        A default value is set to 100 deg/s^2.
-    NO_LAYOUTS : int
-        A number of layout instances generated.
-    ...need to add all the self.attributes!!!!
+    PULSE_LENGTH : int
+        The pulse length expressed in ms.
+        A default value is set to 200 ms.
+        Update the value according to the lidar configuration.
+    FFT_SIZE :int
+        A number of FFT points used to perform spectral analysis.
+        A default value is set to 128 points.
+        Update the value according to the lidar confguration.
+    MY_DPI : int
+        DPI for plots.
+    FONT_SIZE : int
+        Font size for plot labels.
 
     Methods
     --------
+    add_lidars(self, **kwargs)
+        Adds lidars positions to the CPT class instance.   
+    add_measurements(self, **kwargs)
+        Adds measurement positions to the CPT class instance.
+    optimize_measurements(self)
+        Optimizes measurement positions by solving disc covering problem.
     set_utm_zone(utm_zone)
-        Sets UTM grid zone and EPSG code to the CPT instance.
-    check_utm_zone(utm_zone)
-        Checks whether UTM grid zone is valid or not.
+        Sets UTM grid zone and corresponding EPSG code to the CPT instance.
     which_hemisphere(utm_zone)
         Returns whether UTM grid zone belongs to the Northern or Southern hemisphere.
     utm2epsg(utm_zone)
         Converts UTM grid zone to EPSG code.
-    add_measurements(self, **kwargs)
-        Adds measurement positions to the CPT class instance.
-    generate_disc_matrix(self)
-        Generates inputs for optimize_measurements() method
-    optimize_measurements(self)
-        Optimizes measurement positions by solving disc covering problem.
-    add_lidars(self, **kwargs)
-        Adds lidars positions to the CPT class instance.
+    utm2geo(points_utm, long_zone, hemisphere)
+        Converts UTM to GEO coordinates.                
     generate_mesh(self, **kwargs)
         Generates a rectangular horizontal mesh containing equally spaced points.
-    check_measurement_positions(points)
-        Validates input measurement points.
-    check_lidar_position(lidar_position)
-        Validates input lidar positions.
+    generate_beam_coords_mesh(self, **kwargs):
+        Generates beam steering coordinates from every mesh point to every measurement point.
+    generate_combined_layer(self, **kwargs):
+        Generates the combined GIS layer which used for the lidar positioning.
+    generate_elevation_restriction_layer
+        Generates elevation restricted GIS layer.
+    generate_range_restriction_layer
+        Generates range restricted GIS layer.
+    generate_los_blck_layer(self, **kwargs):
+        Generates the los blockage GIS layer.
+    generate_topographic_layer(self)
+        Generates topographic GIS layer (i.e., canopy + orography height).
+    generate_orography_layer(self)
+        Generates orography GIS layer.
+    generate_landcover_layer(self):
+        Generates restriction zones and canopy height 
+        GIS layers based on the CORINE landcover data.
+    plot_layer(self, layer, **kwargs)
+        Plots an individual GIS layer.
+    plot_optimization(self, **kwargs)
+        Plots results of measurement point optimization.
     """
-    INPUT_DATA_PATH = ""
-    LANDCOVER_DATA_PATH = ""
-    OUTPUT_DATA_PATH = ""    
-    GOOGLE_API_KEY = ""
-    RASTER_FORMAT = 'GTiff'
-    EXTENSIONS = np.array(['.tif', '.pdf', '.kml', '.png'])
-    POINTS_TYPE = np.array(['initial', 'optimized', 'reachable', 'identified', 'misc'])
-    
-    MESH_RES = 100 # in m
-    MESH_EXTENT = 5000 # in m
-
-    
-    REP_RADIUS = 500 # in m
-    MAX_ELEVATION_ANGLE = 5 # in deg
-    MIN_INTERSECTING_ANGLE = 30 # in deg
-    AVERAGE_RANGE = 3000 # in m
-    MAX_ACCELERATION = 100 # deg / s^2
-    ACCUMULATION_TIME = 1000 # in ms
-    PULSE_LENGTH = 400 # in ns
-    FFT_SIZE = 128 # no points
-    MAX_RANGES = 100 # maximum number of range gates
-
-
-    MY_DPI = 96
-    FONT_SIZE = 12
-    NO_DATA_VALUE = 0
 
     NO_LAYOUTS = 0
 
-    def __init__(self, **kwargs):
-        # flags
-        # add missing flags as you code
-        self.flags = {'topography':False, 'landcover':False, 'exclusions': False,    
-                      'viewshed':False, 'elevation_angle': False, 'range': False, 
-                      'intersecting_angle':False, 'measurements_optimized': False,
-                      'measurements_added': False,'lidar_pos_1':False,'lidar_pos_2':False,
-                      'mesh_center_added': False, 'mesh_generated' : False,
-                      'utm':False, 'input_check_pass': False,
-                      'landcover_map_clipped' : False,
-                      'landcover_layer_generated': False,
-                      'canopy_height_generated' : False,
-                      'restriction_zones_generated' : False,
-                      'landcover_layers_generated' : False,
-                      'orography_layer_generated' : False,
-                      'topography_layer_generated' : False,
-                      'beam_coords_generated' : False,
-                      'measurements_exported' : False,
-                      'topography_exported': False,
-                      'viewshed_performed' : False,
-                      'viewshed_analyzed' : False,
-                      'los_blck_layer_generated' : False,
-                      'combined_layer_generated' : False}
+    NO_DATA_VALUE = 0
+    LANDCOVER_DATA_PATH = ""
+    OUTPUT_DATA_PATH = ""    
+    GOOGLE_API_KEY = ""
+    FILE_EXTENSIONS = np.array(['.tif', '.tiff', '.pdf', '.kml', '.png'])
 
-  
-        # measurement positions
+    MESH_RES = 100 # in m
+    MESH_EXTENT = 5000 # in m
+    REP_RADIUS = 500 # in m
+    POINTS_TYPE = np.array(['initial', 'optimized', 'reachable', 'identified', 'misc'])
+    
+    ACCUMULATION_TIME = 1000 # in ms
+    AVERAGE_RANGE = 3000 # in m
+    MAX_ACCELERATION = 100 # deg / s^2
+    MAX_ELEVATION_ANGLE = 5 # in deg
+    MAX_NO_OF_RANGES = 100 # maximum number of range gates
+    MIN_INTERSECTING_ANGLE = 30 # in deg
+    PULSE_LENGTH = 400 # in ns
+    FFT_SIZE = 128 # no points
+
+    MY_DPI = 96
+    FONT_SIZE = 12
+
+    def __init__(self):
+        # measurement positions / mesh / beam coords
+        self.long_zone = None
+        self.lat_zone = None
+        self.epsg_code = None 
+        self.hemisphere = None 
         self.measurements_initial = None
         self.measurements_optimized = None
         self.measurements_identified = None
         self.measurements_reachable = None
         self.measurements_misc = None
         self.measurements_selector = 'initial'
-        
-
         self.beam_coords = None
-
-        if not 'mesh_center' in kwargs:
-            self.mesh_center = None 
-        else:
-            self.mesh_center = kwargs['mesh_center']
-
-        if not 'utm_zone' in kwargs:
-            self.long_zone = None
-            self.lat_zone = None
-            self.epsg_code = None 
-        else:
-            if self.check_utm_zone(kwargs['utm_zone']):
-                self.long_zone = kwargs['utm_zone'][:-1]
-                self.lat_zone = kwargs['utm_zone'][-1].upper() 
-                self.epsg_code = self.utm2epsg(kwargs['utm_zone']) 
-                self.hemisphere = self.which_hemisphere(kwargs['utm_zone'])
-                self.flags['utm'] = True
-            else:
-                self.long_zone = None
-                self.lat_zone = None
-                self.epsg_code = None   
-                self.hemisphere = None             
-
+        self.mesh_center = None 
         
         # lidar positions
         self.lidar_pos_1 = None        
         self.lidar_pos_2 = None
 
-        
         # GIS layers
         self.mesh_corners_utm = None
         self.mesh_corners_geo = None
@@ -272,12 +266,38 @@ class CPT():
         self.range_layer = None
         self.combined_layer = None
         self.intersecting_angle_layer = None
+        self.second_lidar_layer = None
         self.aerial_layer = None
 
-
+        # Flags as you code
+        self.flags = {
+                      'measurements_added' : False,
+                      'measurements_optimized': False,
+                      'lidar_pos_1' : False,
+                      'lidar_pos_2' : False,
+                      'mesh_center_added' : False, 
+                      'mesh_generated' : False,
+                      'utm_set' : False, 
+                      'input_check_pass' : False,
+                      'landcover_map_clipped' : False,
+                      'landcover_layer_generated' : False,
+                      'canopy_height_generated' : False,
+                      'restriction_zones_generated' : False,
+                      'landcover_layers_generated' : False,
+                      'orography_layer_generated' : False,
+                      'topography_layer_generated' : False,
+                      'beam_coords_generated' : False,
+                      'measurements_exported' : False,
+                      'topography_exported': False,
+                      'viewshed_performed' : False,
+                      'viewshed_analyzed' : False,
+                      'los_blck_layer_generated' : False,
+                      'combined_layer_generated' : False
+                     }
+  
         CPT.NO_LAYOUTS += 1
 
-    def plot_GIS_layer(self, layer, **kwargs):
+    def plot_layer(self, layer, **kwargs):
         """
         Plots individual GIS layers.
         
@@ -316,7 +336,7 @@ class CPT():
             levels = np.linspace(np.min(layer), np.max(layer), 20)
 
         if len(layer.shape) > 2:
-            levels = np.array(range(0,layer.shape[-1] + 1, 1))
+            levels = np.array(range(-1,layer.shape[-1] + 1, 1))
             layer = np.sum(layer, axis = 2)
 
         fig, ax = plt.subplots(sharey = True, figsize=(600/self.MY_DPI, 600/self.MY_DPI), dpi=self.MY_DPI)
@@ -334,7 +354,6 @@ class CPT():
         if self.lidar_pos_2 is not None:
             ax.scatter(self.lidar_pos_2[0], self.lidar_pos_2[1], marker = 'o', 
             facecolors='white', edgecolors='black',s=30,zorder=2000, label = "lidar_2")
-
 
         if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
             measurement_pts = self.measurement_type_selector(kwargs['points_type'])
@@ -474,7 +493,7 @@ class CPT():
             A string representing EPSG code.
         self.hemisphere : str
             A string indicating north or south hemisphere.            
-        self.flags['utm'] : bool
+        self.flags['utm_set'] : bool
             Sets the key 'utm' in the flag dictionary to True.                
         """
         if self.check_utm_zone(utm_zone):
@@ -482,7 +501,7 @@ class CPT():
             self.lat_zone = utm_zone[-1].upper() 
             self.epsg_code = self.utm2epsg(utm_zone)
             self.hemisphere = self.which_hemisphere(utm_zone) 
-            self.flags['utm'] = True
+            self.flags['utm_set'] = True
             return print('UTM zone set')
         else:
             return print('UTM zone not set')
@@ -523,35 +542,51 @@ class CPT():
             A string representing EPSG code.
         self.hemisphere : str
             A string indicating north or south hemisphere.            
-        self.flags['utm'] : bool
+        self.flags['utm_set'] : bool
             Sets the key 'utm' in the flag dictionary to True.
         """
         if 'utm_zone' in kwargs:
             self.set_utm_zone(kwargs['utm_zone'])
 
-        if self.flags['utm'] == False:
-            print('Cannot add measurement points without specificing UTM zone!')
+        if self.flags['utm_set'] == False:
+            print('Cannot add measurement points without specificing UTM zone first!')
 
-        if self.flags['utm'] and self.check_measurement_positions(kwargs['measurements']):
+        if self.flags['utm_set'] and self.check_measurement_positions(kwargs['measurements']):
             if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
                 self.measurements_selector = kwargs['points_type']
             print('Adding ' + self.measurements_selector + ' measurement points!')
 
             if len(kwargs['measurements'].shape) == 2:
-                self.store_points(self.measurements_selector, 
-                                  np.unique(kwargs['measurements'], axis=0))
+                if self.measurements_selector == 'initial':
+                    self.measurements_initial = np.unique(kwargs['measurements'], axis=0)
+                elif self.measurements_selector == 'optimized':
+                    self.measurements_optimized = np.unique(kwargs['measurements'], axis=0)
+                elif self.measurements_selector == 'reachable':
+                    self.measurements_reachable = np.unique(kwargs['measurements'], axis=0)
+                elif self.measurements_selector == 'identified':
+                    self.measurements_reachable = np.unique(kwargs['measurements'], axis=0)
+                else:
+                    self.measurements_misc = np.unique(kwargs['measurements'], axis=0)
             else:
-                self.store_points(self.measurements_selector, 
-                                  np.unique(np.array([kwargs['measurements']]), axis=0))
-            self.flags['measurements_added'] = True
+                if self.measurements_selector == 'initial':
+                    self.measurements_initial = np.unique(np.array([kwargs['measurements']]), axis=0)
+                elif self.measurements_selector == 'optimized':
+                    self.measurements_optimized = np.unique(np.array([kwargs['measurements']]), axis=0)
+                elif self.measurements_selector == 'reachable':
+                    self.measurements_reachable = np.unique(np.array([kwargs['measurements']]), axis=0)
+                elif self.measurements_selector == 'identified':
+                    self.measurements_reachable = np.unique(np.array([kwargs['measurements']]), axis=0)
+                else:
+                    self.measurements_misc = np.unique(np.array([kwargs['measurements']]), axis=0)
 
+            self.flags['measurements_added'] = True
 
     def generate_disc_matrix(self, **kwargs):
         """
         Generates mid points between any combination of two measurement points 
         which act as disc centers. The mid points are tested which measurement
         points they are covering producing so-called disc-covering matrix used
-        in the measuremen point optimization method.
+        in the measurement point optimization method.
 
         Parameters
         ----------
@@ -780,7 +815,7 @@ class CPT():
             A string representing EPSG code.
         self.hemisphere : str
             A string indicating north or south hemisphere.            
-        self.flags['utm'] : bool
+        self.flags['utm_set'] : bool
             Sets the key 'utm' in the flag dictionary to True.
 
         Notes
@@ -806,7 +841,7 @@ class CPT():
             self.set_utm_zone(kwargs['utm_zone'])
 
         if 'lidar_pos_1' in kwargs or 'lidar_pos_2' in kwargs:
-            if self.flags['utm'] == False:
+            if self.flags['utm_set'] == False:
                 print('Cannot add lidar positions without specificing UTM zone!')
             else:        
                 if 'lidar_pos_1' in kwargs and self.check_lidar_position(kwargs['lidar_pos_1']):
@@ -936,8 +971,8 @@ class CPT():
             self.generate_mesh()
             self.generate_topographic_layer()
             self.generate_beam_coords_mesh()
-            self.generate_range_layer()
-            self.generate_elevation_layer()
+            self.generate_range_restriction_layer()
+            self.generate_elevation_restriction_layer()
             self.generate_los_blck_layer()
 
             nrows, ncols = self.x.shape
@@ -951,7 +986,7 @@ class CPT():
     def generate_los_blck_layer(self, **kwargs):
         """
         Generates the los blockage layer by performing 
-        view shed analysis for the selected site.
+        viewshed analysis for the selected site.
         
         Notes
         --------
@@ -977,7 +1012,7 @@ class CPT():
             self.viewshed_analysis()
             self.viewshed_processing()
             self.flags['los_blck_layer_generated'] = True
-            del_folder_content(self.OUTPUT_DATA_PATH, self.EXTENSIONS)
+            del_folder_content(self.OUTPUT_DATA_PATH, self.FILE_EXTENSIONS)
         else:
             print('Variable self.measurements_'+ self.measurements_selector + ' is empty!')
             print('LOS blockage layer was not generated!')
@@ -1117,7 +1152,16 @@ class CPT():
             self.flags['measurements_exported'] = True
 
 
-    def generate_range_layer(self):
+    def generate_range_restriction_layer(self):
+        """
+        Generates range restricted GIS layer.
+
+        Notes
+        -----
+        The beams coordinates for every mesh point must be
+        generated (self.generate_beam_coords_mesh()) before
+        calling this method.
+        """        
         if self.flags['beam_coords_generated'] == True:
             self.elevation_angle_layer = np.copy(self.elevation_angle_array)
             self.elevation_angle_layer[np.where((self.elevation_angle_layer <= self.MAX_ELEVATION_ANGLE))] = 1
@@ -1125,7 +1169,16 @@ class CPT():
         else:
             print('No beams coordinated generated, run self.gerate_beam_coords_mesh(str) first!')    
 
-    def generate_elevation_layer(self):
+    def generate_elevation_restriction_layer(self):
+        """
+        Generates elevation restricted GIS layer.
+
+        Notes
+        -----
+        The beams coordinates for every mesh point must be
+        generated (self.generate_beam_coords_mesh()) before
+        calling this method.
+        """
         if self.flags['beam_coords_generated'] == True:
             self.range_layer = np.copy(self.range_array)
             self.range_layer[np.where((self.range_layer <= self.AVERAGE_RANGE))] = 1
@@ -1510,7 +1563,7 @@ class CPT():
                     # print(projection)
 
                     clipped_map = gdal.Warp(self.OUTPUT_DATA_PATH + 'landcover_cropped_utm.tif', 
-                                input_image,format = self.RASTER_FORMAT,
+                                input_image,format = 'GTiff',
                                 outputBounds=[self.mesh_corners_utm[0,0], self.mesh_corners_utm[0,1],
                                             self.mesh_corners_utm[1,0], self.mesh_corners_utm[1,1]],
                                 dstSRS='EPSG:'+self.epsg_code, 
