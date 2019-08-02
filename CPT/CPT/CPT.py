@@ -290,7 +290,8 @@ class CPT():
         self.measurements_misc = None
         self.measurements_selector = 'initial'
         self.beam_coords = None
-        self.mesh_center = None 
+        self.mesh_center = None
+        self.flat_index_array = None 
         
         # lidar positions
         self.lidar_pos_1 = None        
@@ -985,11 +986,28 @@ class CPT():
                     np.arange(self.mesh_corners_utm[0][0], self.mesh_corners_utm[1][0] + self.MESH_RES, self.MESH_RES),
                     np.arange(self.mesh_corners_utm[0][1], self.mesh_corners_utm[1][1] + self.MESH_RES, self.MESH_RES)
                             )
-            
             self.z = np.full(self.x.shape, self.mesh_center[2])		
-            self.mesh_utm = np.array([self.x, self.y, self.z]).T.reshape(-1, 3)
-            self.mesh_geo = self.utm2geo(self.mesh_utm, self.long_zone, self.hemisphere)            
+
+            nrows, ncols = self.x.shape
+
+            self.mesh_utm = np.array([self.x.T, self.y.T, self.z.T]).T.reshape(-1, 3)
+            self.mesh_geo = self.utm2geo(self.mesh_utm, self.long_zone, self.hemisphere)
+            self.mesh_indexes = np.array(range(0,len(self.mesh_utm),1)).reshape(nrows,ncols).T          
             self.flags['mesh_generated'] = True
+
+
+    def find_mesh_point_index(self, point):
+        """
+        Finds index of the closest point in a set
+        to the test point
+        """
+        dist_2D = np.sum((self.mesh_utm - point)**2, axis=1)
+        index = np.argmin(dist_2D)
+
+        indexes = np.array(np.where(self.mesh_indexes == index)).flatten()
+        
+        return indexes
+
 
     def generate_intersecting_angle_layer(self):
         if self.flags['lidar_pos_1'] :
@@ -1443,7 +1461,7 @@ class CPT():
             self.mesh_utm[:,2] = np.asarray([elevation_data.get_elevation(x[0],x[1]) if elevation_data.get_elevation(x[0],x[1]) != None and elevation_data.get_elevation(x[0],x[1]) != np.nan else 0 for x in self.mesh_geo])
 
             self.mesh_geo[:,2] = self.mesh_utm[:,2]
-            self.orography_layer = self.mesh_utm[:,2].reshape(nrows, ncols).T
+            self.orography_layer = self.mesh_utm[:,2].reshape(nrows, ncols)
             self.flags['orography_layer_generated'] = True
         else:
             print('Mesh not generated -> orography layer cannot be generated ')
