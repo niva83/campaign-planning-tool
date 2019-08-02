@@ -89,6 +89,54 @@ def array_difference(A,B):
     D = D.view(A.dtype).reshape(-1, ncols)
     return D
 
+
+def azimuth2vector(azimuth):
+    '''
+    Converts azimuth angle to Cartesian angle.
+    
+    Parameters
+    ----------
+    azimuth : int, float, or ndarray
+        Azimuth angle(s) given in degrees from North.
+        
+    Returns
+    ------
+    vector_angle : int, float or ndarray 
+        Corresponding Cartesian angle(s) in degrees.
+    
+    '''
+    y = np.cos(azimuth * (np.pi / 180))
+    x = np.sin(azimuth * (np.pi / 180))
+    vector_angle = np.arctan2(y, x) * (180 / np.pi)
+    
+    return vector_angle
+
+
+def between_beams_angle(azimuth_1, azimuth_2):
+    '''
+    Find an intersecting angle between two laser beams which
+    beam direction is described by azimuth angles.
+    
+    Parameters
+    ----------
+    azimuth_1 : int, float, or ndarray
+        Azimuth angle(s) given in degrees from North for the first laser beam.
+
+    azimuth_1 : int, float, or ndarray
+        Azimuth angle(s) given in degrees from North for the second laser bea,.
+
+
+    Returns
+    ------
+    bba : int, float or ndarray 
+        Corresponding between beam angle in degrees.
+    
+    '''
+    bba = abs(azimuth2vector(azimuth_1) - azimuth2vector(azimuth_2)) % 180
+    
+    return bba
+
+
 class CPT():
     """
     A class for designing scanning lidar measurement campaigns.
@@ -340,7 +388,7 @@ class CPT():
             layer = np.sum(layer, axis = 2)
 
         fig, ax = plt.subplots(sharey = True, figsize=(600/self.MY_DPI, 600/self.MY_DPI), dpi=self.MY_DPI)
-        cmap = plt.cm.RdBu_r
+        cmap = plt.cm.RdBu
         cs = plt.contourf(self.x, self.y, layer, levels=levels, cmap=cmap, alpha = 0.75)
 
 
@@ -943,6 +991,28 @@ class CPT():
             self.mesh_geo = self.utm2geo(self.mesh_utm, self.long_zone, self.hemisphere)            
             self.flags['mesh_generated'] = True
 
+    def generate_intersecting_angle_layer(self):
+        if self.flags['lidar_pos_1'] :
+            measurement_pts = self.measurement_type_selector(self.measurements_selector)
+            nrows, ncols = self.x.shape
+            no_pts = len(measurement_pts)
+
+            azimuths_1 = (self.generate_beam_coords(measurement_pts, self.lidar_pos_1)[:,0] - 180) % 360
+            azimuths_2 = self.azimuth_angle_array
+
+            self.intersecting_angle_layer = np.empty((nrows, ncols, no_pts), dtype=float)
+
+            for i in range(0,no_pts):
+                azimuth_1 =  azimuths_1[i]
+                azimuth_2 =  azimuths_2[:,:, i]
+                tmp =  between_beams_angle(azimuth_1, azimuth_2)
+                tmp[np.where(tmp >= 90)] = 180 - tmp[np.where(tmp >= 90)]
+                tmp[np.where(tmp < 30)] = 0
+                tmp[np.where(tmp >= 30)] = 1
+                self.intersecting_angle_layer[:,:,i] = tmp            
+        else:
+            print('Lidar 1 position not set!')
+
     def generate_combined_layer(self, **kwargs):
         """
         Generates the combined layer which is used
@@ -1326,7 +1396,6 @@ class CPT():
         if self.flags['mesh_generated']:
             self.generate_orography_layer()
             self.generate_landcover_layer()
-            print(self.flags['landcover_layers_generated'])
             if self.flags['orography_layer_generated'] == True:
                 self.topography_layer = self.canopy_height_layer + self.orography_layer
 
@@ -1621,6 +1690,7 @@ class CPT():
             pts_geo = cls.utm2geo(pts_utm, long_zone, hemisphere)
             elevation_data = srtm.get_data()
 
+            # this works if multiple points are provided but fails if single one is given
             elevation = np.asarray([elevation_data.get_elevation(pt[0],pt[1]) if elevation_data.get_elevation(pt[0],pt[1]) != None and elevation_data.get_elevation(pt[0],pt[1]) != np.nan else 0 for pt in pts_geo])
             elevation[np.isnan(elevation)] = cls.NO_DATA_VALUE
             return elevation
@@ -1942,6 +2012,7 @@ class CPT():
         elevation = np.sign(measurement_pt[2] - z_array) * (elevation * (180 / np.pi))
 
         return np.transpose(np.array([azimuth, elevation, distance_3D]))  
+
 
     # def find_measurements(self):
     #         """
