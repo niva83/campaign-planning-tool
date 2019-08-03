@@ -14,6 +14,7 @@ import whitebox
 import matplotlib.pyplot as plt
 import os, shutil
 
+from random import shuffle
 
 def del_folder_content(folder, exclude_file_extensions = None):
     """
@@ -292,6 +293,8 @@ class CPT():
         self.beam_coords = None
         self.mesh_center = None
         self.flat_index_array = None 
+        self.reachable_points = None
+        self.trajectory = None
         
         # lidar positions
         self.lidar_pos_1 = None        
@@ -317,6 +320,7 @@ class CPT():
         self.intersecting_angle_layer = None
         self.second_lidar_layer = None
         self.aerial_layer = None
+        
 
         # Flags as you code
         self.flags = {
@@ -341,7 +345,9 @@ class CPT():
                       'viewshed_performed' : False,
                       'viewshed_analyzed' : False,
                       'los_blck_layer_generated' : False,
-                      'combined_layer_generated' : False
+                      'combined_layer_generated' : False,
+                      'intersecting_angle_layer_generated' : False,
+                      'second_lidar_layer' : False
                      }
   
         CPT.NO_LAYOUTS += 1
@@ -419,6 +425,16 @@ class CPT():
                     ax.scatter(pts[0], pts[1], marker='o',
                     facecolors='red', edgecolors='black', 
                     s=30,zorder=1500)
+
+        if self.reachable_points is not None:
+            visible_points = measurement_pts[np.where(self.reachable_points>0)]
+            for i in range(0,len(visible_points)):
+                if i == 0:
+                    ax.scatter(visible_points[i][0], visible_points[i][1], 
+                            marker='x', color='green', s=20,zorder=2000, label = "reachable")
+                else:
+                    ax.scatter(visible_points[i][0], visible_points[i][1], 
+                            marker='x', color='green', s=20,zorder=2000)
 
         if self.lidar_pos_1 is not None or self.lidar_pos_2 is not None or measurement_pts is not None:
             ax.legend(loc='lower right', fontsize = self.FONT_SIZE)    
@@ -789,7 +805,9 @@ class CPT():
             measurement_pts = self.measurement_type_selector(kwargs['points_type'])
             self.measurements_selector = kwargs['points_type']
         else:
-            measurement_pts = self.measurement_type_selector(self.measurements_selector)        
+            measurement_pts = self.measurement_type_selector(self.measurements_selector)
+        measure_pt_height = abs(measurement_pts[:,2] -  self.get_elevation(self.long_zone + self.lat_zone, measurement_pts))
+
 
         if measurement_pts is not None:
             print('Optimizing ' + self.measurements_selector + ' measurement points!')
@@ -812,13 +830,118 @@ class CPT():
                 j = len(points_uncovered)
             if len(points_uncovered) > 0:
                 self.measurements_optimized = np.append(discs_selected, points_uncovered, axis = 0)
+                terrain_height = self.get_elevation(self.long_zone + self.lat_zone, self.measurements_optimized)
+                self.measurements_optimized[:, 2] = terrain_height + np.average(measure_pt_height)
+
             else:
                 self.measurements_optimized = discs_selected
+                terrain_height = self.get_elevation(self.long_zone + self.lat_zone, self.measurements_optimized)
+                self.measurements_optimized[:, 2] = terrain_height + np.average(measure_pt_height)
+
             if len(self.measurements_optimized) == len(measurement_pts):
                 self.measurements_optimized = measurement_pts
         else:
             print("No measurement positions added, nothing to optimize!")
-            
+
+
+    def optimize_trajectory(self, start=None, shuffle_pts=False, **kwargs):
+        """
+        As solving the problem in the brute force way is too slow,
+        this function implements a simple heuristic: always
+        go to the nearest city.
+
+        Even if this algorithm is extremely simple, it works pretty well
+        giving a solution only about 25% longer than the optimal one (cit. Wikipedia),
+        and runs very fast in O(N^2) time complexity.
+
+        """
+
+
+        if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
+            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
+        else:
+            measurement_pts = self.measurement_type_selector(self.measurements_selector)
+
+        if len(measurement_pts) > 0 and self.flags['lidar_pos_1'] and self.flags['lidar_pos_2']:
+            if self.reachable_points is not None:
+                points = measurement_pts[np.where(self.reachable_points>0)].tolist()
+            else:
+                points = measurement_pts.tolist()
+
+
+            if shuffle_pts:
+                shuffle(points)
+
+            if start is None:
+                start = points[0]
+            unvisited_points = points
+            path = [start]
+            unvisited_points.remove(start)
+            while unvisited_points:
+
+                max_traveling_angle = list(map(lambda x: self.distance_windscanner(path[-1], x, [self.lidar_pos_1, self.lidar_pos_2]), unvisited_points))
+                shortest_path = min(max_traveling_angle)
+                element_index = max_traveling_angle.index(shortest_path)
+
+                next_visiting_point = unvisited_points[element_index]
+                path.append(next_visiting_point)
+                unvisited_points.remove(next_visiting_point)
+        self.trajectory = np.asarray(path)
+        angles_1 =  self.generate_beam_coords(self.lidar_pos_1, self.trajectory, 0)
+        angles_2 =  self.generate_beam_coords(self.lidar_pos_2, self.trajectory, 0)
+
+        return angles_1, angles_2
+
+    @classmethod
+    def distance_windscanner(cls, point1, point2, windscanners):
+        azimuth_max = max(map(lambda x: abs(cls.min_displacement(point1, point2, x)[0]), windscanners))
+        elevation_max = max(map(lambda x: abs(cls.min_displacement(point1, point2, x)[1]), windscanners))
+
+        return max(azimuth_max,elevation_max)
+
+    @classmethod
+    def min_displacement(cls, point1, point2, windscanner):
+        angles_1 = cls.generate_beam_coords(windscanner, point1)[0]
+        angles_2 = cls.generate_beam_coords(windscanner, point2)[0]
+
+        if abs(angles_1[0] - angles_2[0]) > 180:
+            if abs(360 - angles_1[0] + angles_2[0]) < 180:
+                azimuth_displacement = 360 - angles_1[0] + angles_2[0]
+            else:
+                azimuth_displacement = 360 + angles_1[0] - angles_2[0]
+        else:
+            azimuth_displacement =  angles_1[0] - angles_2[0]
+
+        if abs(angles_1[1] - angles_2[1]) > 180:
+            if abs(360 - angles_1[1] + angles_2[1]) < 180:
+                elevation_displacement = 360 - angles_1[1] + angles_2[1]
+            else:
+                elevation_displacement = 360 + angles_1[1] - angles_2[1]
+        else:
+            elevation_displacement =  angles_1[1] - angles_2[1]
+
+
+        return np.array([azimuth_displacement,elevation_displacement])
+
+    @staticmethod
+    def angles2displacement(angles):
+        angles_rolled = np.roll(angles, -1, axis = 0)
+        angular_displacement = []
+
+        for i in range(0,len(angles)):
+            if abs(angles[i,0] - angles_rolled[i,0]) > 180:
+                if abs(360 - angles[i,0] + angles_rolled[i,0]) < 180:
+                    angular_displacement = angular_displacement + [[360 - angles[i,0] + angles_rolled[i,0],
+                                                                angles[i,1] - angles_rolled[i,1]]]
+                else:
+                    angular_displacement = angular_displacement + [[angles[i,0] + 360 - angles_rolled[i,0],
+                                                                angles[i,1] - angles_rolled[i,1]]]
+            else:
+                angular_displacement = angular_displacement + [[angles[i,0] - angles_rolled[i,0],
+                                                            angles[i,1] - angles_rolled[i,1]]]
+
+        return np.asarray(angular_displacement)
+
 
     def add_lidars(self, **kwargs):
         """
@@ -992,7 +1115,7 @@ class CPT():
 
             self.mesh_utm = np.array([self.x.T, self.y.T, self.z.T]).T.reshape(-1, 3)
             self.mesh_geo = self.utm2geo(self.mesh_utm, self.long_zone, self.hemisphere)
-            self.mesh_indexes = np.array(range(0,len(self.mesh_utm),1)).reshape(nrows,ncols).T          
+            self.mesh_indexes = np.array(range(0,len(self.mesh_utm),1)).reshape(nrows,ncols)         
             self.flags['mesh_generated'] = True
 
 
@@ -1004,30 +1127,57 @@ class CPT():
         dist_2D = np.sum((self.mesh_utm - point)**2, axis=1)
         index = np.argmin(dist_2D)
 
-        indexes = np.array(np.where(self.mesh_indexes == index)).flatten()
+        i, j = np.array(np.where(self.mesh_indexes == index)).flatten()
         
-        return indexes
+        return i, j
+
+    def generate_campaign_layout(self):
+        if self.flags['lidar_pos_2'] and self.flags['second_lidar_layer']:
+            i, j = self.find_mesh_point_index(self.lidar_pos_2)
+            self.reachable_points = self.second_lidar_layer[i,j,:]
+            # call for trajectory optimization
+            # call for trajectory generation
+        else:
+            print('Previous steps are not completed!!!')
 
 
+
+
+    def generate_second_lidar_layer(self):
+        if self.flags['lidar_pos_1']:
+            self.generate_intersecting_angle_layer()
+            i, j = self.find_mesh_point_index(self.lidar_pos_1)
+            self.reachable_points = self.combined_layer[i,j,:]
+            self.second_lidar_layer = self.combined_layer * self.intersecting_angle_layer * self.reachable_points
+            self.flags['second_lidar_layer'] = True
+        else:
+            print('The first lidar not placed! -> halting operation!')
+
+    
     def generate_intersecting_angle_layer(self):
         if self.flags['lidar_pos_1'] :
             measurement_pts = self.measurement_type_selector(self.measurements_selector)
-            nrows, ncols = self.x.shape
-            no_pts = len(measurement_pts)
+            if len(measurement_pts) > 0:
+                nrows, ncols = self.x.shape
+                no_pts = len(measurement_pts)
 
-            azimuths_1 = (self.generate_beam_coords(measurement_pts, self.lidar_pos_1)[:,0] - 180) % 360
-            azimuths_2 = self.azimuth_angle_array
+                azimuths_1 = self.generate_beam_coords(self.lidar_pos_1,measurement_pts,0)[:,0]
+                azimuths_2 = self.azimuth_angle_array
 
-            self.intersecting_angle_layer = np.empty((nrows, ncols, no_pts), dtype=float)
+                self.intersecting_angle_layer = np.empty((nrows, ncols, no_pts), dtype=float)
 
-            for i in range(0,no_pts):
-                azimuth_1 =  azimuths_1[i]
-                azimuth_2 =  azimuths_2[:,:, i]
-                tmp =  between_beams_angle(azimuth_1, azimuth_2)
-                tmp[np.where(tmp >= 90)] = 180 - tmp[np.where(tmp >= 90)]
-                tmp[np.where(tmp < 30)] = 0
-                tmp[np.where(tmp >= 30)] = 1
-                self.intersecting_angle_layer[:,:,i] = tmp            
+                for i in range(0,no_pts):
+                    azimuth_1 =  azimuths_1[i]
+                    azimuth_2 =  azimuths_2[:,:, i]
+                    tmp =  between_beams_angle(azimuth_1, azimuth_2)
+                    tmp[np.where(tmp >= 90)] = 180 - tmp[np.where(tmp >= 90)]
+                    tmp[np.where(tmp < 30)] = 0
+                    tmp[np.where(tmp >= 30)] = 1
+                    self.intersecting_angle_layer[:,:,i] = tmp
+                self.flags['intersecting_angle_layer_generated'] = True
+            else:
+                print('No measurement points -> layer not generated!')
+                            
         else:
             print('Lidar 1 position not set!')
 
@@ -1240,9 +1390,9 @@ class CPT():
             self.flags['measurements_exported'] = True
 
 
-    def generate_range_restriction_layer(self):
+    def generate_elevation_restriction_layer(self):
         """
-        Generates range restricted GIS layer.
+        Generates elevation restricted GIS layer.
 
         Notes
         -----
@@ -1257,9 +1407,9 @@ class CPT():
         else:
             print('No beams coordinated generated, run self.gerate_beam_coords_mesh(str) first!')    
 
-    def generate_elevation_restriction_layer(self):
+    def generate_range_restriction_layer(self):
         """
-        Generates elevation restricted GIS layer.
+        Generates range restricted GIS layer.
 
         Notes
         -----
@@ -1316,9 +1466,9 @@ class CPT():
 
                 # splitting beam coords to three arrays 
                 nrows, ncols = self.x.shape
-                self.azimuth_angle_array = self.beam_coords[:,:,0].T.reshape(nrows,ncols,len(measurement_pts), order='F')                
-                self.elevation_angle_array = self.beam_coords[:,:,1].T.reshape(nrows,ncols,len(measurement_pts), order='F')
-                self.range_array = self.beam_coords[:,:,2].T.reshape(nrows,ncols,len(measurement_pts), order='F')                
+                self.azimuth_angle_array = self.beam_coords[:,:,0].T.reshape(nrows,ncols,len(measurement_pts))   
+                self.elevation_angle_array = self.beam_coords[:,:,1].T.reshape(nrows,ncols,len(measurement_pts))
+                self.range_array = self.beam_coords[:,:,2].T.reshape(nrows,ncols,len(measurement_pts))                
 
             except:
                 print('Something went wrong! Check measurement points')
@@ -1983,14 +2133,16 @@ class CPT():
         return points_geo
 
     @staticmethod
-    def generate_beam_coords(mesh_utm, measurement_pt):
+    def generate_beam_coords(lidar_pos, meas_pt_pos, opt=1):
         """
-        Generates beam steering coordinates in spherical coordinate system
-        from multiple lidar positions and single measurement point. 
+        Generates beam steering coordinates in spherical coordinate system from multiple lidar positions to a single measurement point and vice verse.
 
         Parameters
         ----------
-        mesh_utm : ndarray
+        opt : int
+            opt = 0 -> from single lidar pos to multi points
+            opt = 1 -> from multiple lidar pos to single point
+        lidar_pos : ndarray
             nD array containing data with `float` or `int` type
             corresponding to x, y and z coordinates of multiple lidar positions.
             nD array data are expressed in meters.
@@ -1999,37 +2151,69 @@ class CPT():
             corresponding to x, y and z coordinates of a measurement point.
             3D array data are expressed in meters.
         """
-        # testing if  meas_pt has single or multiple measurement points
-        if len(mesh_utm.shape) == 2:
-            x_array = mesh_utm[:, 0]
-            y_array = mesh_utm[:, 1]
-            z_array = mesh_utm[:, 2]
+        if opt == 1:
+            # testing if  lidar pos has single or multiple positions
+            if len(lidar_pos.shape) == 2:
+                x_array = lidar_pos[:, 0]
+                y_array = lidar_pos[:, 1]
+                z_array = lidar_pos[:, 2]
+            else:
+                x_array = np.array([lidar_pos[0]])
+                y_array = np.array([lidar_pos[1]])
+                z_array = np.array([lidar_pos[2]])
+
+
+            # calculating difference between lidar_pos and meas_pt_pos coordiantes
+            dif_xyz = np.array([x_array - meas_pt_pos[0], y_array - meas_pt_pos[1], z_array - meas_pt_pos[2]])    
+
+            # distance between lidar and measurement point in space
+            distance_3D = np.sum(dif_xyz**2,axis=0)**(1./2)
+
+            # distance between lidar and measurement point in a horizontal plane
+            distance_2D = np.sum(np.abs([dif_xyz[0],dif_xyz[1]])**2,axis=0)**(1./2)
+
+            # in radians
+            azimuth = np.arctan2(meas_pt_pos[0] - x_array, meas_pt_pos[1] - y_array)
+            # conversion to metrological convention
+            azimuth = (360 + azimuth * (180 / np.pi)) % 360
+
+            # in radians
+            elevation = np.arccos(distance_2D / distance_3D)
+            # conversion to metrological convention
+            elevation = np.sign(meas_pt_pos[2] - z_array) * (elevation * (180 / np.pi))
+
+            return np.transpose(np.array([azimuth, elevation, distance_3D]))
         else:
-            x_array = np.array([mesh_utm[0]])
-            y_array = np.array([mesh_utm[1]])
-            z_array = np.array([mesh_utm[2]])
+            if len(meas_pt_pos.shape) == 2:
+                x_array = meas_pt_pos[:, 0]
+                y_array = meas_pt_pos[:, 1]
+                z_array = meas_pt_pos[:, 2]
+            else:
+                x_array = np.array([meas_pt_pos[0]])
+                y_array = np.array([meas_pt_pos[1]])
+                z_array = np.array([meas_pt_pos[2]])
 
 
-        # calculating difference between lidar_pos and meas_pt_pos coordiantes
-        dif_xyz = np.array([x_array - measurement_pt[0], y_array - measurement_pt[1], z_array - measurement_pt[2]])    
+            # calculating difference between lidar_pos and meas_pt_pos coordiantes
+            dif_xyz = np.array([lidar_pos[0] - x_array, lidar_pos[1] - y_array, lidar_pos[2] - z_array])    
 
-        # distance between lidar and measurement point in space
-        distance_3D = np.sum(dif_xyz**2,axis=0)**(1./2)
+            # distance between lidar and measurement point in space
+            distance_3D = np.sum(dif_xyz**2,axis=0)**(1./2)
 
-        # distance between lidar and measurement point in a horizontal plane
-        distance_2D = np.sum(np.abs([dif_xyz[0],dif_xyz[1]])**2,axis=0)**(1./2)
+            # distance between lidar and measurement point in a horizontal plane
+            distance_2D = np.sum(np.abs([dif_xyz[0],dif_xyz[1]])**2,axis=0)**(1./2)
 
-        # in radians
-        azimuth = np.arctan2(measurement_pt[0] - x_array, measurement_pt[1] - y_array)
-        # conversion to metrological convention
-        azimuth = (360 + azimuth * (180 / np.pi)) % 360
+            # in radians
+            azimuth = np.arctan2(x_array-lidar_pos[0], y_array-lidar_pos[1])
+            # conversion to metrological convention
+            azimuth = (360 + azimuth * (180 / np.pi)) % 360
 
-        # in radians
-        elevation = np.arccos(distance_2D / distance_3D)
-        # conversion to metrological convention
-        elevation = np.sign(measurement_pt[2] - z_array) * (elevation * (180 / np.pi))
+            # in radians
+            elevation = np.arccos(distance_2D / distance_3D)
+            # conversion to metrological convention
+            elevation = np.sign(z_array - lidar_pos[2]) * (elevation * (180 / np.pi))
 
-        return np.transpose(np.array([azimuth, elevation, distance_3D]))  
+            return np.transpose(np.array([azimuth, elevation, distance_3D]))        
 
 
     # def find_measurements(self):
