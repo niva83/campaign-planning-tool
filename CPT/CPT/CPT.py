@@ -901,8 +901,8 @@ class CPT():
 
     @classmethod
     def min_displacement(cls, point1, point2, windscanner):
-        angles_1 = cls.generate_beam_coords(windscanner, point1)[0]
-        angles_2 = cls.generate_beam_coords(windscanner, point2)[0]
+        angles_1 = cls.generate_beam_coords(windscanner, point1, 1)[0]
+        angles_2 = cls.generate_beam_coords(windscanner, point2, 1)[0]
 
         if abs(angles_1[0] - angles_2[0]) > 180:
             if abs(360 - angles_1[0] + angles_2[0]) < 180:
