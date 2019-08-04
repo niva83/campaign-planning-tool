@@ -326,6 +326,7 @@ class CPT():
         self.flags = {
                       'measurements_added' : False,
                       'measurements_optimized': False,
+                      'measurements_reachable' : False,
                       'lidar_pos_1' : False,
                       'lidar_pos_2' : False,
                       'mesh_center_added' : False, 
@@ -405,10 +406,10 @@ class CPT():
         
         if self.lidar_pos_1 is not None:
             ax.scatter(self.lidar_pos_1[0], self.lidar_pos_1[1], marker='o', 
-            facecolors='black', edgecolors='white', s=30, zorder=2000, label = "lidar_1")
+            facecolors='black', edgecolors='white', s=60, zorder=2000, label = "lidar_1")
         if self.lidar_pos_2 is not None:
             ax.scatter(self.lidar_pos_2[0], self.lidar_pos_2[1], marker = 'o', 
-            facecolors='white', edgecolors='black',s=30,zorder=2000, label = "lidar_2")
+            facecolors='white', edgecolors='black',s=60,zorder=2000, label = "lidar_2")
 
         if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
             measurement_pts = self.measurement_type_selector(kwargs['points_type'])
@@ -420,21 +421,21 @@ class CPT():
                 if i == 0:
                     ax.scatter(pts[0], pts[1], marker='o', 
                     facecolors='red', edgecolors='black', 
-                    s=30,zorder=1500, label = 'measurements_' + self.measurements_selector)                    
+                    s=60,zorder=1500, label = 'measurements_' + self.measurements_selector)                    
                 else:
                     ax.scatter(pts[0], pts[1], marker='o',
                     facecolors='red', edgecolors='black', 
-                    s=30,zorder=1500)
+                    s=60,zorder=1500)
 
         if self.reachable_points is not None:
             visible_points = measurement_pts[np.where(self.reachable_points>0)]
             for i in range(0,len(visible_points)):
                 if i == 0:
                     ax.scatter(visible_points[i][0], visible_points[i][1], 
-                            marker='x', color='green', s=20,zorder=2000, label = "reachable")
+                            marker='x', color='green', s=60,zorder=2000, label = "reachable")
                 else:
                     ax.scatter(visible_points[i][0], visible_points[i][1], 
-                            marker='x', color='green', s=20,zorder=2000)
+                            marker='x', color='green', s=60,zorder=2000)
 
         if self.lidar_pos_1 is not None or self.lidar_pos_2 is not None or measurement_pts is not None:
             ax.legend(loc='lower right', fontsize = self.FONT_SIZE)    
@@ -494,18 +495,18 @@ class CPT():
                 if i == 0:
                     ax.scatter(pt[0], pt[1],marker='o', 
                         facecolors='red', edgecolors='black', 
-                        s=30,zorder=1500, label = "original")
+                        s=60,zorder=1500, label = "original")
                 else:
                     ax.scatter(pt[0], pt[1],marker='o', 
                                         facecolors='red', edgecolors='black', 
-                                        s=30,zorder=1500,)            
+                                        s=60,zorder=1500,)            
 
 
             for i,pt in enumerate(self.measurements_optimized):
                 if i == 0:
                     ax.scatter(pt[0], pt[1],marker='o', 
                         facecolors='white', edgecolors='black', 
-                        s=30,zorder=1500, label = "optimized")
+                        s=60,zorder=1500, label = "optimized")
                     ax.add_artist(plt.Circle((pt[0], pt[1]), 
                                             self.REP_RADIUS,                               
                                             facecolor='grey', edgecolor='black', 
@@ -513,7 +514,7 @@ class CPT():
                 else:
                     ax.scatter(pt[0], pt[1],marker='o', 
                         facecolors='white', edgecolors='black', 
-                        s=30,zorder=1500)
+                        s=60,zorder=1500)
                     ax.add_artist(plt.Circle((pt[0], pt[1]), 
                                             self.REP_RADIUS,                               
                                             facecolor='grey', edgecolor='black', 
@@ -535,7 +536,185 @@ class CPT():
                 fig.savefig(self.OUTPUT_DATA_PATH + 'measurements_optimized.pdf', bbox_inches='tight')
 
 
+    def plot_layout(self, **kwargs):
+        """
+        Plots campaign layout.
+        
+        Parameters
+        ----------
+        layer : ndarray
+            nD array containing data with `float` or `int` type 
+            corresponding to a specific GIS layer.
+        **kwargs : see below
 
+        Keyword Arguments
+        -----------------
+        title : str
+            The plot title.
+        legend_label : str
+            The legend label indicating what parameter is plotted.
+        save_plot : bool
+            Indicating whether to save the plot as PDF.
+        input_type : str
+
+        
+        Returns
+        -------
+        plot : matplotlib
+        
+        Examples
+        --------
+        >>> layout.plot_GIS_layer(layout.orography_layer, levels = np.array(range(0,510,10)), title = 'Orography', legend_label = 'Height asl [m]' , save_plot = True)
+
+        """
+        if self.flags['measurements_reachable']:
+
+            levels = np.array(range(-1,self.second_lidar_layer.shape[-1] + 1, 1))
+            layer = np.sum(self.second_lidar_layer, axis = 2)
+
+            fig, ax = plt.subplots(sharey = True, figsize=(600/self.MY_DPI, 600/self.MY_DPI), dpi=self.MY_DPI)
+            cmap = plt.cm.RdBu
+            cs = plt.contourf(self.x, self.y, layer, levels=levels, cmap=cmap, alpha = 0.5)
+
+
+            cbar = plt.colorbar(cs,orientation='vertical',fraction=0.047, pad=0.01)
+            cbar.set_label('Reachable points', fontsize = self.FONT_SIZE)
+            
+            ax.scatter(self.lidar_pos_1[0], self.lidar_pos_1[1], marker='o', 
+            facecolors='black', edgecolors='white', s=60, zorder=2000, label = "lidar_1")
+
+            ax.scatter(self.lidar_pos_2[0], self.lidar_pos_2[1], marker = 'o', 
+            facecolors='white', edgecolors='black',s=60,zorder=2000, label = "lidar_2")
+
+            if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
+                measurement_pts = self.measurement_type_selector(kwargs['points_type'])
+            else:
+                measurement_pts = self.measurement_type_selector(self.measurements_selector)        
+
+            if measurement_pts is not None:
+                for i, pts in enumerate(measurement_pts):
+                    if i == 0:
+                        ax.scatter(pts[0], pts[1], marker='o', 
+                        facecolors='red', edgecolors='black', 
+                        s=60,zorder=1500, label = 'measurements_' + self.measurements_selector)                    
+                    else:
+                        ax.scatter(pts[0], pts[1], marker='o',
+                        facecolors='red', edgecolors='black', 
+                        s=60,zorder=1500)
+
+            if self.measurements_reachable is not None:
+                for i in range(0,len(self.measurements_reachable)):
+                    if i == 0:
+                        ax.scatter(self.measurements_reachable[i][0], self.measurements_reachable[i][1], 
+                                marker='+', 
+                                color='yellow', 
+                                s=40,zorder=2000, label = "measurements_reachable")
+                    else:
+                        ax.scatter(self.measurements_reachable[i][0], self.measurements_reachable[i][1], 
+                                marker='+', 
+                                facecolors='yellow', 
+                                s=40,zorder=2000)
+
+                ax.plot(self.trajectory[:,0],self.trajectory[:,1],
+                        color='black', linestyle='--',linewidth=1, zorder=3000,label='trajectory')
+
+
+
+            ax.legend(loc='lower right', fontsize = self.FONT_SIZE)    
+
+            plt.xlabel('Easting [m]', fontsize = self.FONT_SIZE)
+            plt.ylabel('Northing [m]', fontsize = self.FONT_SIZE)
+
+
+            plt.title('Campaign layout', fontsize = self.FONT_SIZE)
+
+            ax.set_aspect(1.0)
+            plt.show()
+
+            if 'save_plot' in kwargs and kwargs['save_plot']:
+                    fig.savefig(self.OUTPUT_DATA_PATH + 'campaign_layout' + '.pdf', bbox_inches='tight')
+
+    def plot_optimization(self, **kwargs):
+        """
+        Plots measurement point optimization result.
+        
+        Parameters
+        ----------
+        **kwargs : see below
+
+        Keyword Arguments
+        -----------------
+        save_plot : bool
+            Indicating whether to save the plot as PDF.
+
+        See also
+        --------
+        optimize_measurements : implementation of disc covering problem
+        add_measurements : method for adding initial measurement points
+
+        Notes
+        -----
+        To generate the plot it is required that 
+        the measurement optimization was performed.
+
+        Returns
+        -------
+        plot : matplotlib
+        
+        """
+        if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
+            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
+            self.measurements_selector = kwargs['points_type']
+        else:
+            measurement_pts = self.measurement_type_selector(self.measurements_selector)  
+
+
+        if measurement_pts is not None and self.measurements_optimized is not None:
+            fig, ax = plt.subplots(sharey = True, figsize=(600/self.MY_DPI, 600/self.MY_DPI), dpi=self.MY_DPI)
+
+            for i,pt in enumerate(measurement_pts):
+                if i == 0:
+                    ax.scatter(pt[0], pt[1],marker='o', 
+                        facecolors='red', edgecolors='black', 
+                        s=60,zorder=1500, label = "original")
+                else:
+                    ax.scatter(pt[0], pt[1],marker='o', 
+                                        facecolors='red', edgecolors='black', 
+                                        s=60,zorder=1500,)            
+
+
+            for i,pt in enumerate(self.measurements_optimized):
+                if i == 0:
+                    ax.scatter(pt[0], pt[1],marker='o', 
+                        facecolors='white', edgecolors='black', 
+                        s=60,zorder=1500, label = "optimized")
+                    ax.add_artist(plt.Circle((pt[0], pt[1]), 
+                                            self.REP_RADIUS,                               
+                                            facecolor='grey', edgecolor='black', 
+                                            zorder=500,  alpha = 0.5))                 
+                else:
+                    ax.scatter(pt[0], pt[1],marker='o', 
+                        facecolors='white', edgecolors='black', 
+                        s=60,zorder=1500)
+                    ax.add_artist(plt.Circle((pt[0], pt[1]), 
+                                            self.REP_RADIUS,                               
+                                            facecolor='grey', edgecolor='black', 
+                                            zorder=500,  alpha = 0.5))                 
+    
+                    
+
+            plt.xlabel('Easting [m]', fontsize = self.FONT_SIZE)
+            plt.ylabel('Northing [m]', fontsize = self.FONT_SIZE)
+            ax.legend(loc='lower right', fontsize = self.FONT_SIZE)
+
+
+            ax.set_xlim(np.min(self.x),np.max(self.x))
+            ax.set_ylim(np.min(self.y),np.max(self.y))
+
+            ax.set_aspect(1.0)
+            plt.show()
+            if 'save_plot' in kwargs and kwargs['save_plot']:
+                fig.savefig(self.OUTPUT_DATA_PATH + 'measurements_optimized.pdf', bbox_inches='tight')
 
     def set_utm_zone(self, utm_zone):
         """
@@ -1135,6 +1314,10 @@ class CPT():
         if self.flags['lidar_pos_2'] and self.flags['second_lidar_layer']:
             i, j = self.find_mesh_point_index(self.lidar_pos_2)
             self.reachable_points = self.second_lidar_layer[i,j,:]
+            measurement_pts = self.measurement_type_selector(self.measurements_selector)
+            self.measurements_reachable = measurement_pts[np.where(self.reachable_points>0)]
+            self.flags['measurements_reachable'] = True
+
             # call for trajectory optimization
             # call for trajectory generation
         else:
