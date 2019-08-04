@@ -1076,7 +1076,6 @@ class CPT():
 
         """
 
-
         if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
             measurement_pts = self.measurement_type_selector(kwargs['points_type'])
         else:
@@ -1097,7 +1096,7 @@ class CPT():
                 start = points[0]
             else:
                 start = points[start]
-                
+
             unvisited_points = points
             path = [start]
             unvisited_points.remove(start)
@@ -2448,24 +2447,6 @@ class CPT():
 
 
     # def find_measurements(self):
-    #         """
-    #         Doc String
-    #         """
-    #     pass
-
-    # def generate_intersecting_layer(self):
-    #         """
-    #         Doc String
-    #         """
-    #     pass
-
-    # def generate_second_lidar_layer(self):
-    #         """
-    #         Doc String
-    #         """
-    #     pass
-
-    # def optimize_trajectory(self):
     #         """
     #         Doc String
     #         """
