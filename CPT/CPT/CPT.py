@@ -16,6 +16,27 @@ import os, shutil
 
 from random import shuffle
 
+def angles2displacement(angles):
+    angles_rolled = np.roll(angles, -1, axis = 0)
+    angular_displacement = []
+
+    for i in range(0,len(angles)):
+        if abs(angles[i,0] - angles_rolled[i,0]) > 180:
+            if abs(360 - angles[i,0] + angles_rolled[i,0]) < 180:
+                angular_displacement = angular_displacement + [[360 - angles[i,0] + angles_rolled[i,0],
+                                                               angles[i,1] - angles_rolled[i,1]]]
+            else:
+                angular_displacement = angular_displacement + [[angles[i,0] + 360 - angles_rolled[i,0],
+                                                               angles[i,1] - angles_rolled[i,1]]]
+        else:
+            angular_displacement = angular_displacement + [[angles[i,0] - angles_rolled[i,0],
+                                                           angles[i,1] - angles_rolled[i,1]]]
+
+
+
+
+    return np.asarray(angular_displacement)
+
 def del_folder_content(folder, exclude_file_extensions = None):
     """
     Deletes all files in a folder except specific file extensions.
@@ -1060,7 +1081,7 @@ class CPT():
             measurement_pts = self.measurement_type_selector(kwargs['points_type'])
         else:
             measurement_pts = self.measurements_reachable
-
+        
         if len(measurement_pts) > 0 and self.flags['lidar_pos_1'] and self.flags['lidar_pos_2']:
             points = measurement_pts.tolist()
             # if self.reachable_points is not None:
@@ -1069,11 +1090,13 @@ class CPT():
             #     points = measurement_pts.tolist()
 
 
-            if shuffle_pts:
-                shuffle(points)
+            # if shuffle_pts:
+            #     shuffle(points)
 
             if start is None:
                 start = points[0]
+            else:
+                start = points[start]
             unvisited_points = points
             path = [start]
             unvisited_points.remove(start)
@@ -1087,9 +1110,9 @@ class CPT():
                 path.append(next_visiting_point)
                 unvisited_points.remove(next_visiting_point)
             self.trajectory = np.asarray(path)
-            self.angles_1 =  self.generate_beam_coords(self.lidar_pos_1, self.trajectory, 0)
-            self.angles_2 =  self.generate_beam_coords(self.lidar_pos_2, self.trajectory, 0)
-            self.flags['trajectory_optimized'] = True
+        self.angles_1 =  self.generate_beam_coords(self.lidar_pos_1, self.trajectory, 0)
+        self.angles_2 =  self.generate_beam_coords(self.lidar_pos_2, self.trajectory, 0)
+        self.flags['trajectory_optimized'] = True
     
     def generate_trajectory(self):
         pass
