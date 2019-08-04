@@ -1,88 +1,38 @@
-# from CPT.CPT import CPT as CPT
 from CPT.CPT import *
-import numpy as np
-from itertools import combinations, product
-import matplotlib.pyplot as plt
-from matplotlib.patches import Circle, Wedge, Polygon
-
-MY_DPI = 96
-def measurement_optimization_plt(DPI=100):
-    fig, ax = plt.subplots(sharey=True,figsize=(500/MY_DPI, 500/MY_DPI), dpi=DPI) # note we must use plt.subplots, not plt.subplot
-
-    for i in range(0,len(points)):
-        if i == 0:
-            ax.scatter(points[i][0] - map_center[0], 
-                       points[i][1] - map_center[1], 
-                       marker='o', color='black', s=10,zorder=1000, label = "measurements")
-        else:
-            ax.scatter(points[i][0] - map_center[0], 
-                       points[i][1] - map_center[1], 
-                       marker='o', color='black', s=10,zorder=1000)            
-
-
-    for i in range(0,len(discs)):
-        if i == 0:
-            ax.scatter(discs[i][0] - map_center[0], 
-                       discs[i][1] - map_center[1], 
-                       marker='o', color='red', s=2,zorder=1000, label = "discs")
-            ax.add_artist(plt.Circle((discs[i][0] - map_center[0], discs[i][1] - map_center[1]), 
-                                     REPRESENT_RADIUS,                               
-                                     facecolor='grey', edgecolor='black', 
-                                     zorder=500,  alpha = 0.5))                 
-            
-
-        else:
-            ax.scatter(discs[i][0] - map_center[0], 
-                       discs[i][1] - map_center[1], 
-                       marker='o', color='red', s=2,zorder=1000)
-            ax.add_artist(plt.Circle((discs[i][0] - map_center[0], discs[i][1] - map_center[1]), 
-                                     REPRESENT_RADIUS,                               
-                                     facecolor='grey', edgecolor='black', 
-                                     zorder=500, alpha = 0.5))                       
-             
-
-    plt.xlabel('Easting [m]', fontsize=12)
-    plt.ylabel('Northing [m]', fontsize=12)
-    ax.legend(loc='lower left', fontsize=10)
-
-    ax.set_xlim(-5,15)
-    ax.set_ylim(-5,15)
-
-    ax.set_aspect(1.0)
-    plt.show()
-    
-
-map_center = [0,0]
-REPRESENT_RADIUS = 2
-np.random
-points = np.array([[1,3,3],[2,1,4],[5,2,1],[0,7.4,1],[7.4,4,1]])
-new = CPT()
-new.set_utm_zone("32V")
-new.add_measurements(measurements = points)
-new.REP_RADIUS = REPRESENT_RADIUS
-new.optimize_measurements()
-# print(new.measurements_optimized)
-
-discs = new.measurements_optimized
-measurement_optimization_plt()
-
-# print(new.measurements_initial)
-# print(new.measurements_optimized)
-
-# # discs, matrix = generating_disc_matrix(points, REPRESENT_RADIUS)
-# # print(discs)
-# # disc_covering(points, REPRESENT_RADIUS)
-# # print(matrix.shape)
-# # print(discs)
-
-# disc_covering(points, REPRESENT_RADIUS)
-# print(points)
-# print("\n")
-# print(array_difference(points, np.array([[1,3,3],[2,1,4],[2,2,2]])))
-
-
-# mesh_center = None
-
-# if mesh_center == None:
-#     print('It is None!')  
-
+layout = CPT()
+layout.REP_RADIUS = 1000
+layout.MESH_EXTENT = 6000
+layout.AVERAGE_RANGE = 500
+layout.LANDCOVER_DATA_PATH = '/Volumes/Secondary_Drive/work/projects/campaign-planning-tool/data/input/landcover/g100_clc12_V18_5.tif'
+layout.OUTPUT_DATA_PATH = '/Volumes/Secondary_Drive/work/projects/campaign-planning-tool/data/output/'
+layout.set_utm_zone('36S')
+layout.MAX_ELEVATION_ANGLE = 7
+points = np.array([
+[250596, 4231391, 80],
+[250356, 4231711, 80],
+[249476, 4231231, 80],
+[248316, 4229751, 80],
+[248356, 4229231, 80],
+[248556, 4228631, 80],
+[248316, 4227831, 80],
+[248636, 4227311, 80],
+[249156, 4227471, 80],
+[249116, 4226911, 80],
+[249196, 4226511, 80],
+[249396, 4226151, 80],
+[250396, 4226351, 80],
+[250316, 4225711, 80],
+[249876, 4225151, 80],
+[250396, 4224751, 80],
+[249796, 4224471, 80],
+[250036, 4224071, 80],
+[250476, 4223951, 80],
+[250796, 4223751, 80],
+[251236, 4224111, 80],
+[251396, 4223631, 80]])
+layout.add_measurements(measurements = points, points_type = 'initial')
+layout.measurements_initial[:,2] = layout.measurements_initial[:,2] + layout.get_elevation('36S',layout.measurements_initial)
+layout.optimize_measurements()
+layout.generate_combined_layer(points_type = 'optimized')
+layout.plot_optimization(points_type = 'initial')
+print(layout.measurements_optimized)

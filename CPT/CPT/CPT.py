@@ -275,8 +275,8 @@ class CPT():
     PULSE_LENGTH = 400 # in ns
     FFT_SIZE = 128 # no points
 
-    MY_DPI = 96
-    FONT_SIZE = 12
+    MY_DPI = 100
+    FONT_SIZE = 10
 
     def __init__(self):
         # measurement positions / mesh / beam coords
@@ -348,7 +348,8 @@ class CPT():
                       'los_blck_layer_generated' : False,
                       'combined_layer_generated' : False,
                       'intersecting_angle_layer_generated' : False,
-                      'second_lidar_layer' : False
+                      'second_lidar_layer' : False,
+                      'trajectory_optimized' : False
                      }
   
         CPT.NO_LAYOUTS += 1
@@ -395,9 +396,9 @@ class CPT():
             levels = np.array(range(-1,layer.shape[-1] + 1, 1))
             layer = np.sum(layer, axis = 2)
 
-        fig, ax = plt.subplots(sharey = True, figsize=(600/self.MY_DPI, 600/self.MY_DPI), dpi=self.MY_DPI)
-        cmap = plt.cm.RdBu
-        cs = plt.contourf(self.x, self.y, layer, levels=levels, cmap=cmap, alpha = 0.75)
+        fig, ax = plt.subplots(sharey = True, figsize=(800/self.MY_DPI, 800/self.MY_DPI), dpi=self.MY_DPI)
+        cmap = plt.cm.RdBu_r
+        cs = plt.contourf(self.x, self.y, layer, levels=levels, cmap=cmap, alpha = 1)
 
 
         cbar = plt.colorbar(cs,orientation='vertical',fraction=0.047, pad=0.01)
@@ -406,10 +407,10 @@ class CPT():
         
         if self.lidar_pos_1 is not None:
             ax.scatter(self.lidar_pos_1[0], self.lidar_pos_1[1], marker='o', 
-            facecolors='black', edgecolors='white', s=60, zorder=2000, label = "lidar_1")
+            facecolors='black', edgecolors='white', s=120, zorder=2000, label = "lidar_1")
         if self.lidar_pos_2 is not None:
             ax.scatter(self.lidar_pos_2[0], self.lidar_pos_2[1], marker = 'o', 
-            facecolors='white', edgecolors='black',s=60,zorder=2000, label = "lidar_2")
+            facecolors='white', edgecolors='black',s=120,zorder=2000, label = "lidar_2")
 
         if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
             measurement_pts = self.measurement_type_selector(kwargs['points_type'])
@@ -420,22 +421,22 @@ class CPT():
             for i, pts in enumerate(measurement_pts):
                 if i == 0:
                     ax.scatter(pts[0], pts[1], marker='o', 
-                    facecolors='red', edgecolors='black', 
-                    s=60,zorder=1500, label = 'measurements_' + self.measurements_selector)                    
+                    facecolors='yellow', edgecolors='black', 
+                    s=120,zorder=1500, label = 'measurements_' + self.measurements_selector)                    
                 else:
                     ax.scatter(pts[0], pts[1], marker='o',
-                    facecolors='red', edgecolors='black', 
-                    s=60,zorder=1500)
+                    facecolors='yellow', edgecolors='black', 
+                    s=120,zorder=1500)
 
         if self.reachable_points is not None:
             visible_points = measurement_pts[np.where(self.reachable_points>0)]
             for i in range(0,len(visible_points)):
                 if i == 0:
                     ax.scatter(visible_points[i][0], visible_points[i][1], 
-                            marker='x', color='green', s=60,zorder=2000, label = "reachable")
+                            marker='+', color='red', s=80,zorder=2000, label = "reachable")
                 else:
                     ax.scatter(visible_points[i][0], visible_points[i][1], 
-                            marker='x', color='green', s=60,zorder=2000)
+                            marker='+', color='red', s=80,zorder=2000)
 
         if self.lidar_pos_1 is not None or self.lidar_pos_2 is not None or measurement_pts is not None:
             ax.legend(loc='lower right', fontsize = self.FONT_SIZE)    
@@ -485,28 +486,28 @@ class CPT():
             measurement_pts = self.measurement_type_selector(kwargs['points_type'])
             self.measurements_selector = kwargs['points_type']
         else:
-            measurement_pts = self.measurement_type_selector(self.measurements_selector)  
+            measurement_pts = self.measurements_initial  
 
 
         if measurement_pts is not None and self.measurements_optimized is not None:
-            fig, ax = plt.subplots(sharey = True, figsize=(600/self.MY_DPI, 600/self.MY_DPI), dpi=self.MY_DPI)
+            fig, ax = plt.subplots(sharey = True, figsize=(800/self.MY_DPI, 800/self.MY_DPI), dpi=self.MY_DPI)
 
             for i,pt in enumerate(measurement_pts):
                 if i == 0:
                     ax.scatter(pt[0], pt[1],marker='o', 
                         facecolors='red', edgecolors='black', 
-                        s=60,zorder=1500, label = "original")
+                        s=10,zorder=1500, label = "original")
                 else:
                     ax.scatter(pt[0], pt[1],marker='o', 
                                         facecolors='red', edgecolors='black', 
-                                        s=60,zorder=1500,)            
+                                        s=10,zorder=1500,)            
 
 
             for i,pt in enumerate(self.measurements_optimized):
                 if i == 0:
                     ax.scatter(pt[0], pt[1],marker='o', 
                         facecolors='white', edgecolors='black', 
-                        s=60,zorder=1500, label = "optimized")
+                        s=10,zorder=1500, label = "optimized")
                     ax.add_artist(plt.Circle((pt[0], pt[1]), 
                                             self.REP_RADIUS,                               
                                             facecolor='grey', edgecolor='black', 
@@ -514,7 +515,7 @@ class CPT():
                 else:
                     ax.scatter(pt[0], pt[1],marker='o', 
                         facecolors='white', edgecolors='black', 
-                        s=60,zorder=1500)
+                        s=10,zorder=1500)
                     ax.add_artist(plt.Circle((pt[0], pt[1]), 
                                             self.REP_RADIUS,                               
                                             facecolor='grey', edgecolor='black', 
@@ -567,24 +568,24 @@ class CPT():
         >>> layout.plot_GIS_layer(layout.orography_layer, levels = np.array(range(0,510,10)), title = 'Orography', legend_label = 'Height asl [m]' , save_plot = True)
 
         """
-        if self.flags['measurements_reachable']:
+        if self.flags['trajectory_optimized']:
 
-            levels = np.array(range(-1,self.second_lidar_layer.shape[-1] + 1, 1))
-            layer = np.sum(self.second_lidar_layer, axis = 2)
+            levels = np.array(range(-1,self.combined_layer.shape[-1] + 1, 1))
+            layer = np.sum(self.combined_layer, axis = 2)
 
-            fig, ax = plt.subplots(sharey = True, figsize=(600/self.MY_DPI, 600/self.MY_DPI), dpi=self.MY_DPI)
-            cmap = plt.cm.RdBu
-            cs = plt.contourf(self.x, self.y, layer, levels=levels, cmap=cmap, alpha = 0.5)
+            fig, ax = plt.subplots(sharey = True, figsize=(800/self.MY_DPI, 800/self.MY_DPI), dpi=self.MY_DPI)
+            cmap = plt.cm.RdBu_r
+            cs = plt.contourf(self.x, self.y, layer, levels=levels, cmap=cmap, alpha = 1)
 
 
             cbar = plt.colorbar(cs,orientation='vertical',fraction=0.047, pad=0.01)
             cbar.set_label('Reachable points', fontsize = self.FONT_SIZE)
             
             ax.scatter(self.lidar_pos_1[0], self.lidar_pos_1[1], marker='o', 
-            facecolors='black', edgecolors='white', s=60, zorder=2000, label = "lidar_1")
+            facecolors='black', edgecolors='white', s=120, zorder=2000, label = "lidar_1")
 
             ax.scatter(self.lidar_pos_2[0], self.lidar_pos_2[1], marker = 'o', 
-            facecolors='white', edgecolors='black',s=60,zorder=2000, label = "lidar_2")
+            facecolors='white', edgecolors='black',s=120,zorder=2000, label = "lidar_2")
 
             if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
                 measurement_pts = self.measurement_type_selector(kwargs['points_type'])
@@ -595,28 +596,31 @@ class CPT():
                 for i, pts in enumerate(measurement_pts):
                     if i == 0:
                         ax.scatter(pts[0], pts[1], marker='o', 
-                        facecolors='red', edgecolors='black', 
-                        s=60,zorder=1500, label = 'measurements_' + self.measurements_selector)                    
+                        facecolors='yellow', edgecolors='black', 
+                        s=120,zorder=1500, label = 'measurements_' + self.measurements_selector)                    
                     else:
                         ax.scatter(pts[0], pts[1], marker='o',
-                        facecolors='red', edgecolors='black', 
-                        s=60,zorder=1500)
+                        facecolors='yellow', edgecolors='black', 
+                        s=120,zorder=1500)
 
             if self.measurements_reachable is not None:
                 for i in range(0,len(self.measurements_reachable)):
                     if i == 0:
                         ax.scatter(self.measurements_reachable[i][0], self.measurements_reachable[i][1], 
                                 marker='+', 
-                                color='yellow', 
-                                s=40,zorder=2000, label = "measurements_reachable")
+                                color='red',  edgecolors='black', 
+                                s=80,zorder=2000, label = "measurements_reachable")
                     else:
                         ax.scatter(self.measurements_reachable[i][0], self.measurements_reachable[i][1], 
                                 marker='+', 
-                                facecolors='yellow', 
-                                s=40,zorder=2000)
+                                facecolors='red', 
+                                s=80,zorder=2000)
 
                 ax.plot(self.trajectory[:,0],self.trajectory[:,1],
                         color='black', linestyle='--',linewidth=1, zorder=3000,label='trajectory')
+
+                ax.scatter(self.trajectory[0,0], self.trajectory[0,1], 
+                       marker='o', facecolors='white', edgecolors='green',s=300,zorder=1400,label = "trajectory start")
 
 
 
@@ -633,88 +637,90 @@ class CPT():
 
             if 'save_plot' in kwargs and kwargs['save_plot']:
                     fig.savefig(self.OUTPUT_DATA_PATH + 'campaign_layout' + '.pdf', bbox_inches='tight')
-
-    def plot_optimization(self, **kwargs):
-        """
-        Plots measurement point optimization result.
-        
-        Parameters
-        ----------
-        **kwargs : see below
-
-        Keyword Arguments
-        -----------------
-        save_plot : bool
-            Indicating whether to save the plot as PDF.
-
-        See also
-        --------
-        optimize_measurements : implementation of disc covering problem
-        add_measurements : method for adding initial measurement points
-
-        Notes
-        -----
-        To generate the plot it is required that 
-        the measurement optimization was performed.
-
-        Returns
-        -------
-        plot : matplotlib
-        
-        """
-        if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
-            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
-            self.measurements_selector = kwargs['points_type']
         else:
-            measurement_pts = self.measurement_type_selector(self.measurements_selector)  
+            print('Trajectory not optimized -> nothing to plot')
+
+    # def plot_optimization(self, **kwargs):
+    #     """
+    #     Plots measurement point optimization result.
+        
+    #     Parameters
+    #     ----------
+    #     **kwargs : see below
+
+    #     Keyword Arguments
+    #     -----------------
+    #     save_plot : bool
+    #         Indicating whether to save the plot as PDF.
+
+    #     See also
+    #     --------
+    #     optimize_measurements : implementation of disc covering problem
+    #     add_measurements : method for adding initial measurement points
+
+    #     Notes
+    #     -----
+    #     To generate the plot it is required that 
+    #     the measurement optimization was performed.
+
+    #     Returns
+    #     -------
+    #     plot : matplotlib
+        
+    #     """
+    #     if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
+    #         measurement_pts = self.measurement_type_selector(kwargs['points_type'])
+    #         self.measurements_selector = kwargs['points_type']
+    #     else:
+    #         measurement_pts = self.measurement_type_selector(self.measurements_selector)  
 
 
-        if measurement_pts is not None and self.measurements_optimized is not None:
-            fig, ax = plt.subplots(sharey = True, figsize=(600/self.MY_DPI, 600/self.MY_DPI), dpi=self.MY_DPI)
+    #     if measurement_pts is not None and self.measurements_optimized is not None:
+    #         fig, ax = plt.subplots(sharey = True, figsize=(800/self.MY_DPI, 800/self.MY_DPI), dpi=self.MY_DPI)
 
-            for i,pt in enumerate(measurement_pts):
-                if i == 0:
-                    ax.scatter(pt[0], pt[1],marker='o', 
-                        facecolors='red', edgecolors='black', 
-                        s=60,zorder=1500, label = "original")
-                else:
-                    ax.scatter(pt[0], pt[1],marker='o', 
-                                        facecolors='red', edgecolors='black', 
-                                        s=60,zorder=1500,)            
+    #         for i,pt in enumerate(measurement_pts):
+    #             if i == 0:
+    #                 ax.scatter(pt[0], pt[1],marker='o', 
+    #                     facecolors='red', edgecolors='black', 
+    #                     s=120,zorder=1500, label = "original")
+    #             else:
+    #                 ax.scatter(pt[0], pt[1],marker='o', 
+    #                                     facecolors='red', edgecolors='black', 
+    #                                     s=120,zorder=1500,)            
 
 
-            for i,pt in enumerate(self.measurements_optimized):
-                if i == 0:
-                    ax.scatter(pt[0], pt[1],marker='o', 
-                        facecolors='white', edgecolors='black', 
-                        s=60,zorder=1500, label = "optimized")
-                    ax.add_artist(plt.Circle((pt[0], pt[1]), 
-                                            self.REP_RADIUS,                               
-                                            facecolor='grey', edgecolor='black', 
-                                            zorder=500,  alpha = 0.5))                 
-                else:
-                    ax.scatter(pt[0], pt[1],marker='o', 
-                        facecolors='white', edgecolors='black', 
-                        s=60,zorder=1500)
-                    ax.add_artist(plt.Circle((pt[0], pt[1]), 
-                                            self.REP_RADIUS,                               
-                                            facecolor='grey', edgecolor='black', 
-                                            zorder=500,  alpha = 0.5))                 
+    #         for i,pt in enumerate(self.measurements_optimized):
+    #             if i == 0:
+    #                 ax.scatter(pt[0], pt[1],marker='o', 
+    #                     facecolors='white', edgecolors='black', 
+    #                     s=120,zorder=1500, label = "optimized")
+    #                 ax.add_artist(plt.Circle((pt[0], pt[1]), 
+    #                                         self.REP_RADIUS,                               
+    #                                         facecolor='grey', edgecolor='black', 
+    #                                         zorder=500,  alpha = 0.5))                 
+    #             else:
+    #                 ax.scatter(pt[0], pt[1],marker='o', 
+    #                     facecolors='white', edgecolors='black', 
+    #                     s=120,zorder=1500)
+    #                 ax.add_artist(plt.Circle((pt[0], pt[1]), 
+    #                                         self.REP_RADIUS,                               
+    #                                         facecolor='grey', edgecolor='black', 
+    #                                         zorder=500,  alpha = 0.5))                 
     
                     
 
-            plt.xlabel('Easting [m]', fontsize = self.FONT_SIZE)
-            plt.ylabel('Northing [m]', fontsize = self.FONT_SIZE)
-            ax.legend(loc='lower right', fontsize = self.FONT_SIZE)
+    #         plt.xlabel('Easting [m]', fontsize = self.FONT_SIZE)
+    #         plt.ylabel('Northing [m]', fontsize = self.FONT_SIZE)
+    #         ax.legend(loc='lower right', fontsize = self.FONT_SIZE)
 
 
-            ax.set_xlim(np.min(self.x),np.max(self.x))
-            ax.set_ylim(np.min(self.y),np.max(self.y))
+    #         ax.set_xlim(np.min(self.x),np.max(self.x))
+    #         ax.set_ylim(np.min(self.y),np.max(self.y))
 
-            ax.set_aspect(1.0)
-            plt.show()
-            if 'save_plot' in kwargs and kwargs['save_plot']:
-                fig.savefig(self.OUTPUT_DATA_PATH + 'measurements_optimized.pdf', bbox_inches='tight')
+    #         ax.set_aspect(1.0)
+    #         plt.show()
+    #         if 'save_plot' in kwargs and kwargs['save_plot']:
+    #             fig.savefig(self.OUTPUT_DATA_PATH + 'measurements_optimized.pdf', bbox_inches='tight')
 
     def set_utm_zone(self, utm_zone):
         """
@@ -923,17 +929,102 @@ class CPT():
             distances = np.where(distances <= self.REP_RADIUS, 1, 0)
             
             matrix = np.asarray(np.split(distances,len(discs)))
+
+            # removing discs which cover same points
+            unique_discs = np.unique(matrix, return_index= True, axis = 0)
+            matrix = unique_discs[0]
+            discs = discs[unique_discs[1]]
+
+            # remove discs which cover only one point
+            ind = np.where(np.sum(matrix,axis = 1) > 1)
+            matrix = matrix[ind]
+            discs = discs[ind]
+
+
             total_covered_points = np.sum(matrix,axis = 1)
 
             matrix = matrix[(-1*total_covered_points).argsort()]
             discs = discs[(-1*total_covered_points).argsort()]
 
+
+
             # adding 0 m for elevation of each disc
             discs = np.append(discs.T, np.array([np.zeros(len(discs))]),axis=0).T
+
+            self.discs = discs
+            self.matrix = matrix
 
             return discs, matrix
         else:
             return print("No measurement points -> nothing to optimize!")
+
+    @staticmethod
+    def find_unique_indexes(matrix):
+
+        unique_indexes = []
+        none_unique_indexes = []
+        for i in range(0,len(matrix)):
+            sub_matrix = np.delete(matrix, i, axis = 0)
+            sum_rows = np.sum(sub_matrix, axis = 0)
+            sum_rows[np.where(sum_rows>0)] = 1
+            product_rows = sum_rows * matrix[i]
+            product_rows = product_rows + matrix[i]
+            product_rows[np.where(product_rows>1)] = 0
+
+            if np.sum(product_rows) > 0:
+                unique_indexes = unique_indexes + [i]
+            else:
+                none_unique_indexes = none_unique_indexes + [i]
+                
+        return unique_indexes, none_unique_indexes
+
+    @classmethod
+    def minimize_discs(cls, matrix,disc):
+        unique_indexes, none_unique_indexes = cls.find_unique_indexes(matrix)
+        if len(none_unique_indexes) > 0:
+
+            disc_unique = disc[unique_indexes]
+            matrix_unique = matrix[unique_indexes]
+
+            disc_none_unique = disc[none_unique_indexes]
+            matrix_none_unique = matrix[none_unique_indexes]
+
+
+
+            row_sum = np.sum(matrix_unique, axis = 0)
+            # coverting all elements > 0 to 1
+            row_sum[np.where(row_sum > 0)] = 1
+
+            # removing all covered elements
+            matrix_test = matrix_none_unique* (1 - row_sum)
+
+            # removing discs that cover the same uncovered points
+            unique_elements = np.unique(matrix_test, return_index= True, axis = 0)
+            remaining_indexes = unique_elements[1]
+            matrix_test = matrix_test[remaining_indexes]
+            disc_test = disc_none_unique[remaining_indexes]
+
+            # sorting by the number of covered points prior test
+            total_covered_points = np.sum(matrix_test,axis = 1)
+            matrix_test = matrix_test[(-1*total_covered_points).argsort()]
+            disc_test = disc_test[(-1*total_covered_points).argsort()]
+
+            covered_pts_ind = np.unique(np.where(matrix_unique > 0)[1])
+            new_indexes = [] 
+            for i, row in enumerate(matrix_test):
+                covered_pts_ind_new = np.where(row > 0)[0]
+                
+                uncovered_pts_ind = np.setdiff1d(covered_pts_ind_new, covered_pts_ind)
+                if len(uncovered_pts_ind):
+                    covered_pts_ind = np.append(covered_pts_ind, uncovered_pts_ind)
+                    new_indexes = new_indexes + [i]
+                    
+            if len(new_indexes) > 0:
+                disc_unique = np.append(disc_unique, disc_test[new_indexes], axis = 0)
+            
+            return disc_unique
+        else:
+            return disc[unique_indexes]
 
     def optimize_measurements(self, **kwargs):
         """
@@ -991,22 +1082,35 @@ class CPT():
         if measurement_pts is not None:
             print('Optimizing ' + self.measurements_selector + ' measurement points!')
             discs, matrix = self.generate_disc_matrix()
+
+
             points_uncovered = measurement_pts
             points_covered_total = np.zeros((0,3), measurement_pts.dtype)
-            discs_selected = np.zeros((0,3))
+            # discs_selected = np.zeros((0,3))
             i = 0
             j = len(points_uncovered)
-
+            disc_indexes = []
             while i <= (len(discs) - 1) and j > 0 :
                 indexes = np.where(matrix[i] == 1 )
+                # matrix = matrix * (1 - matrix[i])
                 points_covered = measurement_pts[indexes]
                 points_new = array_difference(points_covered, points_covered_total)
                 if len(points_new) > 0:
                     points_covered_total = np.append(points_covered_total, points_new,axis=0)
-                    discs_selected = np.append(discs_selected, np.array([discs[i]]),axis=0)
+                    # discs_selected = np.append(discs_selected, np.array([discs[i]]),axis=0)
+                    disc_indexes = disc_indexes + [i]
                 points_uncovered = array_difference(points_uncovered, points_covered)        
                 i += 1
                 j = len(points_uncovered)
+
+            # makes subset of discs and matrix
+            discs_selected = discs[disc_indexes]
+            matrix_selected = matrix[disc_indexes]
+
+            # minimize number of discs
+            if len(discs_selected) > 1:
+                discs_selected = self.minimize_discs(matrix_selected,discs_selected)
+
             if len(points_uncovered) > 0:
                 self.measurements_optimized = np.append(discs_selected, points_uncovered, axis = 0)
                 terrain_height = self.get_elevation(self.long_zone + self.lat_zone, self.measurements_optimized)
@@ -1021,7 +1125,6 @@ class CPT():
                 self.measurements_optimized = measurement_pts
         else:
             print("No measurement positions added, nothing to optimize!")
-
 
     def optimize_trajectory(self, start=None, shuffle_pts=False, **kwargs):
         """
@@ -1039,13 +1142,14 @@ class CPT():
         if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
             measurement_pts = self.measurement_type_selector(kwargs['points_type'])
         else:
-            measurement_pts = self.measurement_type_selector(self.measurements_selector)
+            measurement_pts = self.measurements_reachable
 
         if len(measurement_pts) > 0 and self.flags['lidar_pos_1'] and self.flags['lidar_pos_2']:
-            if self.reachable_points is not None:
-                points = measurement_pts[np.where(self.reachable_points>0)].tolist()
-            else:
-                points = measurement_pts.tolist()
+            points = measurement_pts.tolist()
+            # if self.reachable_points is not None:
+            #     points = measurement_pts[np.where(self.reachable_points>0)].tolist()
+            # else:
+            #     points = measurement_pts.tolist()
 
 
             if shuffle_pts:
@@ -1065,11 +1169,14 @@ class CPT():
                 next_visiting_point = unvisited_points[element_index]
                 path.append(next_visiting_point)
                 unvisited_points.remove(next_visiting_point)
-        self.trajectory = np.asarray(path)
-        angles_1 =  self.generate_beam_coords(self.lidar_pos_1, self.trajectory, 0)
-        angles_2 =  self.generate_beam_coords(self.lidar_pos_2, self.trajectory, 0)
+            self.trajectory = np.asarray(path)
+            self.angles_1 =  self.generate_beam_coords(self.lidar_pos_1, self.trajectory, 0)
+            self.angles_2 =  self.generate_beam_coords(self.lidar_pos_2, self.trajectory, 0)
+            self.flags['trajectory_optimized'] = True
+    
+    def generate_trajectory(self):
+        pass
 
-        return angles_1, angles_2
 
     @classmethod
     def distance_windscanner(cls, point1, point2, windscanners):
@@ -1303,7 +1410,7 @@ class CPT():
         Finds index of the closest point in a set
         to the test point
         """
-        dist_2D = np.sum((self.mesh_utm - point)**2, axis=1)
+        dist_2D = np.sum((self.mesh_utm[:,(0,1)] - point[:2])**2, axis=1)
         index = np.argmin(dist_2D)
 
         i, j = np.array(np.where(self.mesh_indexes == index)).flatten()
