@@ -484,7 +484,6 @@ class CPT():
         """
         if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
             measurement_pts = self.measurement_type_selector(kwargs['points_type'])
-            self.measurements_selector = kwargs['points_type']
         else:
             measurement_pts = self.measurements_initial  
 
