@@ -595,7 +595,7 @@ class CPT():
 
             fig, ax = plt.subplots(sharey = True, figsize=(800/self.MY_DPI, 800/self.MY_DPI), dpi=self.MY_DPI)
             cmap = plt.cm.RdBu_r
-            cs = plt.contourf(self.x, self.y, layer, levels=levels, cmap=cmap, alpha = 1)
+            cs = plt.contourf(self.x, self.y, layer, levels=levels, cmap=cmap, alpha = 0)
 
 
             cbar = plt.colorbar(cs,orientation='vertical',fraction=0.047, pad=0.01)
@@ -746,26 +746,26 @@ class CPT():
 
             if len(kwargs['measurements'].shape) == 2:
                 if self.measurements_selector == 'initial':
-                    self.measurements_initial = np.unique(kwargs['measurements'], axis=0)
+                    self.measurements_initial = kwargs['measurements']
                 elif self.measurements_selector == 'optimized':
-                    self.measurements_optimized = np.unique(kwargs['measurements'], axis=0)
+                    self.measurements_initial = kwargs['measurements']
                 elif self.measurements_selector == 'reachable':
-                    self.measurements_reachable = np.unique(kwargs['measurements'], axis=0)
+                    self.measurements_initial = kwargs['measurements']
                 elif self.measurements_selector == 'identified':
-                    self.measurements_reachable = np.unique(kwargs['measurements'], axis=0)
+                    self.measurements_initial = kwargs['measurements']
                 else:
-                    self.measurements_misc = np.unique(kwargs['measurements'], axis=0)
+                    self.measurements_initial = kwargs['measurements']
             else:
                 if self.measurements_selector == 'initial':
-                    self.measurements_initial = np.unique(np.array([kwargs['measurements']]), axis=0)
+                    self.measurements_initial = np.array([kwargs['measurements']])
                 elif self.measurements_selector == 'optimized':
-                    self.measurements_optimized = np.unique(np.array([kwargs['measurements']]), axis=0)
+                    self.measurements_optimized = np.array([kwargs['measurements']])
                 elif self.measurements_selector == 'reachable':
-                    self.measurements_reachable = np.unique(np.array([kwargs['measurements']]), axis=0)
+                    self.measurements_reachable = np.array([kwargs['measurements']])
                 elif self.measurements_selector == 'identified':
-                    self.measurements_reachable = np.unique(np.array([kwargs['measurements']]), axis=0)
+                    self.measurements_reachable = np.array([kwargs['measurements']])
                 else:
-                    self.measurements_misc = np.unique(np.array([kwargs['measurements']]), axis=0)
+                    self.measurements_misc = np.array([kwargs['measurements']])
 
             self.flags['measurements_added'] = True
 
@@ -1084,19 +1084,20 @@ class CPT():
         
         if len(measurement_pts) > 0 and self.flags['lidar_pos_1'] and self.flags['lidar_pos_2']:
             points = measurement_pts.tolist()
-            # if self.reachable_points is not None:
-            #     points = measurement_pts[np.where(self.reachable_points>0)].tolist()
-            # else:
-            #     points = measurement_pts.tolist()
+            if self.reachable_points is not None:
+                points = measurement_pts[np.where(self.reachable_points>0)].tolist()
+            else:
+                points = measurement_pts.tolist()
 
 
-            # if shuffle_pts:
-            #     shuffle(points)
+            if shuffle_pts:
+                shuffle(points)
 
             if start is None:
                 start = points[0]
             else:
                 start = points[start]
+                
             unvisited_points = points
             path = [start]
             unvisited_points.remove(start)
