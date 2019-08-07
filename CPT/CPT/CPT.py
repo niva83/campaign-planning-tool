@@ -408,10 +408,10 @@ class CPT():
         
         if self.lidar_pos_1 is not None:
             ax.scatter(self.lidar_pos_1[0], self.lidar_pos_1[1], marker='o', 
-            facecolors='black', edgecolors='white', s=120, zorder=2000, label = "lidar_1")
+            facecolors='black', edgecolors='white', s=60, zorder=2000, label = "lidar_1")
         if self.lidar_pos_2 is not None:
             ax.scatter(self.lidar_pos_2[0], self.lidar_pos_2[1], marker = 'o', 
-            facecolors='white', edgecolors='black',s=120,zorder=2000, label = "lidar_2")
+            facecolors='white', edgecolors='black',s=60,zorder=2000, label = "lidar_2")
 
         if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
             measurement_pts = self.measurement_type_selector(kwargs['points_type'])
@@ -423,11 +423,11 @@ class CPT():
                 if i == 0:
                     ax.scatter(pts[0], pts[1], marker='o', 
                     facecolors='yellow', edgecolors='black', 
-                    s=120,zorder=1500, label = 'measurements_' + self.measurements_selector)                    
+                    s=60,zorder=1500, label = 'measurements_' + self.measurements_selector)                    
                 else:
                     ax.scatter(pts[0], pts[1], marker='o',
                     facecolors='yellow', edgecolors='black', 
-                    s=120,zorder=1500)
+                    s=60,zorder=1500)
 
         if self.reachable_points is not None:
             visible_points = measurement_pts[np.where(self.reachable_points>0)]
@@ -570,22 +570,23 @@ class CPT():
         """
         if self.flags['trajectory_optimized']:
 
-            levels = np.array(range(-1,self.combined_layer.shape[-1] + 1, 1))
-            layer = np.sum(self.combined_layer, axis = 2)
+            # levels = np.array(range(-1,self.combined_layer.shape[-1] + 1, 1))
+            # layer = np.sum(self.combined_layer, axis = 2)
+            levels = np.linspace(np.min(self.orography_layer), np.max(self.orography_layer), 20)
 
             fig, ax = plt.subplots(sharey = True, figsize=(800/self.MY_DPI, 800/self.MY_DPI), dpi=self.MY_DPI)
-            cmap = plt.cm.RdBu_r
-            cs = plt.contourf(self.x, self.y, layer, levels=levels, cmap=cmap, alpha = 0)
+            cmap = plt.cm.Greys
+            cs = plt.contourf(self.x, self.y, self.orography_layer, levels=levels, cmap=cmap, alpha = 1)
 
 
             cbar = plt.colorbar(cs,orientation='vertical',fraction=0.047, pad=0.01)
-            cbar.set_label('Reachable points', fontsize = self.FONT_SIZE)
+            cbar.set_label('Height asl [m]', fontsize = self.FONT_SIZE)
             
             ax.scatter(self.lidar_pos_1[0], self.lidar_pos_1[1], marker='o', 
-            facecolors='black', edgecolors='white', s=120, zorder=2000, label = "lidar_1")
+            facecolors='black', edgecolors='white', s=60, zorder=2000, label = "lidar_1")
 
             ax.scatter(self.lidar_pos_2[0], self.lidar_pos_2[1], marker = 'o', 
-            facecolors='white', edgecolors='black',s=120,zorder=2000, label = "lidar_2")
+            facecolors='white', edgecolors='black',s=60,zorder=2000, label = "lidar_2")
 
             if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
                 measurement_pts = self.measurement_type_selector(kwargs['points_type'])
@@ -597,11 +598,11 @@ class CPT():
                     if i == 0:
                         ax.scatter(pts[0], pts[1], marker='o', 
                         facecolors='yellow', edgecolors='black', 
-                        s=120,zorder=1500, label = 'measurements_' + self.measurements_selector)                    
+                        s=60,zorder=1500, label = 'measurements_' + self.measurements_selector)                    
                     else:
                         ax.scatter(pts[0], pts[1], marker='o',
                         facecolors='yellow', edgecolors='black', 
-                        s=120,zorder=1500)
+                        s=60,zorder=1500)
 
             if self.measurements_reachable is not None:
                 for i in range(0,len(self.measurements_reachable)):
@@ -617,10 +618,10 @@ class CPT():
                                 s=80,zorder=2000)
 
                 ax.plot(self.trajectory[:,0],self.trajectory[:,1],
-                        color='black', linestyle='--',linewidth=1, zorder=3000,label='trajectory')
+                        color='red', linestyle='--',linewidth=1, zorder=3000,label='trajectory')
 
                 ax.scatter(self.trajectory[0,0], self.trajectory[0,1], 
-                       marker='o', facecolors='white', edgecolors='green',s=300,zorder=1400,label = "trajectory start")
+                       marker='o', facecolors='white', edgecolors='green',s=120,zorder=1400,label = "trajectory start")
 
 
 
@@ -1197,10 +1198,18 @@ class CPT():
     
     def generate_trajectory(self):
 
-        self.angles_1 =  self.generate_beam_coords(self.lidar_pos_1, self.trajectory, 0)
-        self.angles_2 =  self.generate_beam_coords(self.lidar_pos_2, self.trajectory, 0)
+        _, angles_stop_1, displ_1 =  self.trajectory2displacement(self.lidar_pos_1, self.trajectory)
+        _, angles_stop_2, displ_2 =  self.trajectory2displacement(self.lidar_pos_2, self.trajectory)
 
-        pass
+        # must add velocity kinematic limit here!!!!
+        
+        min_time_1 = 2 * np.sqrt(np.max(abs(displ_1), axis = 1)/ self.MAX_ACCELERATION)*1000
+        min_time_2 = 2 * np.sqrt(np.max(abs(displ_2), axis = 1)/ self.MAX_ACCELERATION)*1000
+
+        timing = np.array([min_time_1, min_time_2]).T
+
+
+        return timing
 
 
 
@@ -1520,6 +1529,8 @@ class CPT():
             self.measurements_selector = kwargs['points_type']
         else:
             self.measurements_selector = 'initial'
+
+        self.reachable_points = None
 
         if self.measurement_type_selector(self.measurements_selector) is not None:
             print('Generating combined layer for ' + self.measurements_selector + ' measurement points!')
