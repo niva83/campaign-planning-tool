@@ -16,26 +16,6 @@ import os, shutil
 
 from random import shuffle
 
-def angles2displacement(angles):
-    angles_rolled = np.roll(angles, -1, axis = 0)
-    angular_displacement = []
-
-    for i in range(0,len(angles)):
-        if abs(angles[i,0] - angles_rolled[i,0]) > 180:
-            if abs(360 - angles[i,0] + angles_rolled[i,0]) < 180:
-                angular_displacement = angular_displacement + [[360 - angles[i,0] + angles_rolled[i,0],
-                                                               angles[i,1] - angles_rolled[i,1]]]
-            else:
-                angular_displacement = angular_displacement + [[angles[i,0] + 360 - angles_rolled[i,0],
-                                                               angles[i,1] - angles_rolled[i,1]]]
-        else:
-            angular_displacement = angular_displacement + [[angles[i,0] - angles_rolled[i,0],
-                                                           angles[i,1] - angles_rolled[i,1]]]
-
-
-
-
-    return np.asarray(angular_displacement)
 
 def del_folder_content(folder, exclude_file_extensions = None):
     """
@@ -1065,19 +1045,58 @@ class CPT():
             print("No measurement positions added, nothing to optimize!")
 
     def optimize_trajectory(self, **kwargs):
+        """
+        Finding a shortest trajectory through the set of measurement points.
+        
+        Parameters
+        ----------
+        see kwargs
+
+        
+        Keyword paramaters
+        ------------------
+        points_type : str
+            A string indicating which measurement points
+            to create the trajectory for.
+        
+        Returns
+        -------
+        self.trajectory : ndarray
+            An ordered nD array containing trajectory points.
+        
+        See also
+        --------
+        self.tsp : adapted traveling salesman problem for scanning lidars
+        self.generate_trajectory : generation of synchronized trajectories
+
+        Notes
+        --------
+        The optimization of the trajectory is performed by applying the adapted 
+        traveling salesman problem to the measurement point set while varing the
+        starting point of the trajectory. This secures the shortest trajectory. 
+
+        References
+        ----------
+        .. [1] Nikola Vasiljevic, Andrea Vignaroli, Andreas Bechmann and 
+            Rozenn Wagner: Digitalization of scanning lidar measurement
+            campaign planning, https://www.wind-energ-sci-discuss.net/
+            wes-2019-13/#discussion, 2017.
+        Examples
+        --------
+        """        
         # selecting points which will be used for optimization
         if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
             measurement_pts = self.measurement_type_selector(kwargs['points_type'])
         else:
             measurement_pts = self.measurements_reachable
-
+        
         if len(measurement_pts) > 0 and self.flags['lidar_pos_1'] and self.flags['lidar_pos_2']:        
 
             travel_1 = []
             travel_2 = []
             for i in range(0,len(measurement_pts)):
 
-                self.tsp(i, False)
+                self.trajectory = self.tsp(measurement_pts, self.lidar_pos_1, self.lidar_pos_2, i)
                 _,_, displ_1 =  self.trajectory2displacement(self.lidar_pos_1, self.trajectory)
                 _,_, displ_2 =  self.trajectory2displacement(self.lidar_pos_2, self.trajectory)
                 max_travel_1 = np.max(np.sum(displ_1, axis = 0))
@@ -1087,21 +1106,21 @@ class CPT():
                 
             total_travel = np.asarray(travel_1) + np.asarray(travel_2)
             min_traj_ind = np.where(total_travel == np.min(total_travel))
-            self.tsp(min_traj_ind[0][0], False)        
+            self.trajectory = self.tsp(measurement_pts, self.lidar_pos_1, self.lidar_pos_2, min_traj_ind[0][0])
+            self.flags['trajectory_optimized'] = True
 
 
-    def tsp(self, start=None, shuffle_pts=False, **kwargs):
+    @classmethod
+    def tsp(cls, measurement_pts, lidar_pos_1, lidar_pos_2, start=None):
         """
-        Finding a shortest trajectory through the set of measurement points.
+        Solving a travelening salesman problem for a set of points and 
+        two lidar positions.
         
         Parameters
         ----------
         start : int
             Presetting the trajectory starting point.
             A default value is set to None.
-        shuffle_pts : bool
-            Shuffling points prior the optimization.
-            A default value is set to False.
         
         Keyword paramaters
         ------------------
@@ -1136,61 +1155,47 @@ class CPT():
         Examples
         --------
         """
-        # selecting points which will be used for optimization
-        if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
-            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
+        points = measurement_pts.tolist()
+
+        if start is None:
+            shuffle(points)
+            start = points[0]
+
         else:
-            measurement_pts = self.measurements_reachable
-        
-        # checks if conditions are satisfied to perform the optimization
-        if len(measurement_pts) > 0 and self.flags['lidar_pos_1'] and self.flags['lidar_pos_2']:
-            points = measurement_pts.tolist()
+            start = points[start]
 
+        unvisited_points = points
+        # sets first trajectory point        
+        trajectory = [start]
+        # removes that point from the points list
+        unvisited_points.remove(start)
+        # lidar list
+        lidars = [lidar_pos_1, lidar_pos_2]
 
-            if shuffle_pts:
-                shuffle(points)
+        while unvisited_points:
+            last_point = trajectory[-1]
+            max_angular_displacements = []
 
-            if start is None:
-                start = points[0]
-            else:
-                start = points[start]
+            # calculates maximum angular move from the last
+            # trajectory point to any other point which is not
+            # a part of the trajectory            
+            for next_point in unvisited_points:
+                max_displacement = cls.calculate_max_move(last_point, next_point, lidars)
+                max_angular_displacements = max_angular_displacements + [max_displacement]
 
-            unvisited_points = points
-            # sets first trajectory point        
-            trajectory = [start]
-            # removes that point from the points list
-            unvisited_points.remove(start)
-            # lidar list
-            lidars = [self.lidar_pos_1, self.lidar_pos_2]
+            # finds which displacement is shortest
+            # and the corresponding index in the list
+            min_displacement = min(max_angular_displacements)
+            index = max_angular_displacements.index(min_displacement)
 
-            while unvisited_points:
-                last_point = trajectory[-1]
-                max_angular_displacements = []
-
-                # calculates maximum angular move from the last
-                # trajectory point to any other point which is not
-                # a part of the trajectory            
-                for next_point in unvisited_points:
-                    max_displacement = self.calculate_max_move(last_point, next_point, lidars)
-                    max_angular_displacements = max_angular_displacements + [max_displacement]
-
-                # finds which displacement is shortest
-                # and the corresponding index in the list
-                min_displacement = min(max_angular_displacements)
-                index = max_angular_displacements.index(min_displacement)
-
-                # next trajectory point is added to the trajectory
-                # and removed from the list of unvisited points
-                next_trajectory_point = unvisited_points[index]
-                trajectory.append(next_trajectory_point)
-                unvisited_points.remove(next_trajectory_point)
-
-            self.trajectory = np.asarray(trajectory)
-            self.flags['trajectory_optimized'] = True
+            # next trajectory point is added to the trajectory
+            # and removed from the list of unvisited points
+            next_trajectory_point = unvisited_points[index]
+            trajectory.append(next_trajectory_point)
+            unvisited_points.remove(next_trajectory_point)
+        return np.asarray(trajectory)
     
     def generate_trajectory(self):
-
-
 
         self.angles_1 =  self.generate_beam_coords(self.lidar_pos_1, self.trajectory, 0)
         self.angles_2 =  self.generate_beam_coords(self.lidar_pos_2, self.trajectory, 0)
@@ -1250,27 +1255,6 @@ class CPT():
         angular_displacement[:, 1][ind_1] = 360 - angular_displacement[:, 1][ind_1]
         angular_displacement[:, 1][ind_2] = 360 + angular_displacement[:, 1][ind_2]
         return angles_start, angles_stop, angular_displacement      
-
-
-    @staticmethod
-    def angles2displacement(angles):
-        angles_rolled = np.roll(angles, -1, axis = 0)
-        angular_displacement = []
-
-        for i in range(0,len(angles)):
-            if abs(angles[i,0] - angles_rolled[i,0]) > 180:
-                if abs(360 - angles[i,0] + angles_rolled[i,0]) < 180:
-                    angular_displacement = angular_displacement + [[360 - angles[i,0] + angles_rolled[i,0],
-                                                                angles[i,1] - angles_rolled[i,1]]]
-                else:
-                    angular_displacement = angular_displacement + [[angles[i,0] + 360 - angles_rolled[i,0],
-                                                                angles[i,1] - angles_rolled[i,1]]]
-            else:
-                angular_displacement = angular_displacement + [[angles[i,0] - angles_rolled[i,0],
-                                                            angles[i,1] - angles_rolled[i,1]]]
-
-        return np.asarray(angular_displacement)
-
 
     def add_lidars(self, **kwargs):
         """
