@@ -269,15 +269,126 @@ class CPT():
     
     ACCUMULATION_TIME = 1000 # in ms
     AVERAGE_RANGE = 3000 # in m
-    MAX_ACCELERATION = 100 # deg / s^2
+    MIN_RANGE = 50 # in m 
+    MAX_RANGE = 6000 # in m
+    MAX_ACCELERATION = 100 # in deg / s^2
+    MAX_VELOCITY = 50 # in deg / s
     MAX_ELEVATION_ANGLE = 5 # in deg
     MAX_NO_OF_RANGES = 100 # maximum number of range gates
     MIN_INTERSECTING_ANGLE = 30 # in deg
     PULSE_LENGTH = 400 # in ns
     FFT_SIZE = 128 # no points
+    NO_DIGITS = 2 # number of decimal digits for positions and angles
 
     MY_DPI = 100
     FONT_SIZE = 10
+
+    __rg_template = """LidarMode	insertMODE
+MaxDistance	insertMaxRange
+FFTSize	insertFFTSize
+insertRangeGates"""
+
+    __pmc_template =  {'skeleton' : 
+"""CLOSE
+END GATHER
+DELETE GATHER
+DELETE TRACE
+
+
+OPEN PROG 1983 CLEAR
+P1988=0
+P1983=0
+P1000=1
+M372=0
+P1015=0
+M1000=0
+P1001=-3000
+P1007=1
+P1004=1
+I5192=1
+I5187=1
+I5188=0
+I322=insertPRF
+
+CMD"#3HMZ"
+
+#1->-8192X
+#2->8192X+8192Y
+
+
+IF (P1005=1)
+    I5111=10000*8388608/I10
+        WHILE(I5111>0)
+                IF(P1004=1)
+                    CMD"#3j+"
+                    IF (P1008=0)
+                        F(P1011)
+                        X(1st_azimuth)Y(1st_elevation)
+                    ENDIF
+                END IF
+            P1004=0
+        END WHILE
+ENDIF
+P1000=2
+WHILE(P1001!=-1999)
+    insertMeasurements
+
+    IF(P1001=-78)
+        CMD"#3j/"
+        P1001=-1999
+    ENDIF
+
+ENDWHILE
+CMD"#3j/"
+F30
+X0Y0
+
+WHILE(M133=0 OR M233=0)
+END WHILE
+
+; CLEARING ALL VARIABLES
+P1000=0
+M372=0
+P1015=0
+M1000=0
+P1007=0
+P1004=0
+P1002=0
+P1003=0
+P1011=0
+P1001=0
+P1013=0
+P1008=0
+P1010=0
+P1005=0
+
+CLOSE""",
+    "motion":
+    """I5111 = (insertMotionTime)*8388608/I10
+    TA(insertHalfMotionTime)TM(1)
+    X(insertAzimuth)Y(insertElevation)
+    WHILE(I5111>0)
+    END WHILE
+    WHILE(M133=0 OR M233=0)
+    END WHILE
+
+    CMD"#3j^insertTriggers"
+    I5111 = (insertAccTime)*8388608/I10
+    WHILE(I5111>0)
+    END WHILE
+
+    WHILE(M333=0)
+    END WHILE
+
+    Dwell(1)
+    IF(P1983>0)
+        I5111=P1983*8388608/I10
+        WHILE(I5111>0)
+        END WHILE
+        P1984=P1983
+        P1988=P1988+1
+        P1983=0
+    END IF"""}
 
     def __init__(self):
         # measurement positions / mesh / beam coords
@@ -296,6 +407,9 @@ class CPT():
         self.flat_index_array = None 
         self.reachable_points = None
         self.trajectory = None
+        self.motion_table = None
+        self.motion_program_1 = None
+        self.motion_program_2 = None
         
         # lidar positions
         self.lidar_pos_1 = None        
@@ -350,7 +464,8 @@ class CPT():
                       'combined_layer_generated' : False,
                       'intersecting_angle_layer_generated' : False,
                       'second_lidar_layer' : False,
-                      'trajectory_optimized' : False
+                      'trajectory_optimized' : False,
+                      'motion_table_generated' : False,
                      }
   
         CPT.NO_LAYOUTS += 1
@@ -577,7 +692,6 @@ class CPT():
             fig, ax = plt.subplots(sharey = True, figsize=(800/self.MY_DPI, 800/self.MY_DPI), dpi=self.MY_DPI)
             cmap = plt.cm.Greys
             cs = plt.contourf(self.x, self.y, self.orography_layer, levels=levels, cmap=cmap, alpha = 0.4)
-
 
             cbar = plt.colorbar(cs,orientation='vertical',fraction=0.047, pad=0.01)
             cbar.set_label('Height asl [m]', fontsize = self.FONT_SIZE)
@@ -1195,6 +1309,157 @@ class CPT():
             trajectory.append(next_trajectory_point)
             unvisited_points.remove(next_trajectory_point)
         return np.asarray(trajectory)
+
+    @staticmethod
+    def displacement2time(displacement, Amax, Vmax):
+
+        time = np.empty((len(displacement),), dtype=float)
+        # find indexes for which the scanner head 
+        # will reach maximum velocity (i.e. rated speed)
+        index_a = np.where(displacement > (Vmax**2) / Amax)
+
+        # find indexes for which the scanner head 
+        # will not reach maximum velocity (i.e. rated speed)
+        index_b = np.where(displacement <= (Vmax**2) / Amax)
+
+        time[index_a] = displacement[index_a] / Vmax + Vmax / Amax
+        time[index_b] = 2 * np.sqrt(displacement[index_b] / Amax)
+
+
+        return time
+
+    def export_measurement_scenario(self):
+        if self.flags['motion_table_generated'] == False:
+            self.generate_trajectory()
+
+        if self.flags['motion_table_generated'] and len(self.OUTPUT_DATA_PATH):
+            export_flag = True
+            motion_program_1 = self.__pmc_template['skeleton']
+            motion_program_2 = self.__pmc_template['skeleton']
+            
+            in_loop_str_1 = ""
+            in_loop_str_2 = ""
+            
+            for i,row in enumerate(self.motion_table.values):
+                new_pts_1 = self.__pmc_template['motion'].replace("insertMotionTime", str(row[-1]))
+                new_pts_2 = self.__pmc_template['motion'].replace("insertMotionTime", str(row[-1]))
+                
+                new_pts_1 = new_pts_1.replace("insertHalfMotionTime", str(row[-1]/2))
+                new_pts_2 = new_pts_2.replace("insertHalfMotionTime", str(row[-1]/2))
+                
+                new_pts_1 = new_pts_1.replace("insertAzimuth", str(row[1]))    
+                new_pts_2 = new_pts_2.replace("insertAzimuth", str(row[4]))        
+            
+                new_pts_1 = new_pts_1.replace("insertElevation", str(row[2]))    
+                new_pts_2 = new_pts_2.replace("insertElevation", str(row[5]))
+                
+                in_loop_str_1 = in_loop_str_1 + new_pts_1
+                in_loop_str_2 = in_loop_str_2 + new_pts_2    
+            
+                if i == 0:
+                    motion_program_1 = motion_program_1.replace("1st_azimuth", str(row[1]))
+                    motion_program_1 = motion_program_1.replace("1st_elevation", str(row[2]))
+            
+                    motion_program_2 = motion_program_2.replace("1st_azimuth", str(row[4]))
+                    motion_program_2 = motion_program_2.replace("1st_elevation", str(row[5]))
+            
+            
+            
+            motion_program_1 = motion_program_1.replace("insertMeasurements", in_loop_str_1)
+            motion_program_2 = motion_program_2.replace("insertMeasurements", in_loop_str_2)
+            
+            if self.ACCUMULATION_TIME % 100 == 0 and (self.PULSE_LENGTH in [100, 200, 400]):
+            
+                if self.PULSE_LENGTH == 400:
+                    PRF = 10000 # in kHz
+                    lidar_mode = 'Long'
+                elif self.PULSE_LENGTH == 200:
+                    PRF = 20000
+                    lidar_mode = 'Middle'
+                elif self.PULSE_LENGTH == 100:
+                    PRF = 40000
+                    lidar_mode = 'Short'
+
+            
+                no_pulses = PRF * self.ACCUMULATION_TIME / 1000
+
+                motion_program_1 = motion_program_1.replace("insertAccTime", str(self.ACCUMULATION_TIME))
+                motion_program_2 = motion_program_2.replace("insertAccTime", str(self.ACCUMULATION_TIME))
+
+                motion_program_1 = motion_program_1.replace("insertTriggers", str(no_pulses))
+                motion_program_2 = motion_program_2.replace("insertTriggers", str(no_pulses))
+
+                motion_program_1 = motion_program_1.replace("insertPRF", str(PRF))
+                motion_program_2 = motion_program_2.replace("insertPRF", str(PRF))
+
+                self.motion_program_1 = motion_program_1
+                self.motion_program_2 = motion_program_2
+
+                file_1 = open(self.OUTPUT_DATA_PATH + "lidar_1_motion.PMC","w+")
+                file_2 = open(self.OUTPUT_DATA_PATH + "lidar_2_motion.PMC","w+")
+
+                file_1.write(motion_program_1)
+                file_2.write(motion_program_2)
+
+                file_1.close()
+                file_2.close()
+
+
+
+                range_1 = self.generate_beam_coords(self.lidar_pos_1, self.trajectory, opt = 0)[:, 2].astype(int)
+                range_2 = self.generate_beam_coords(self.lidar_pos_2, self.trajectory, opt = 0)[:, 2].astype(int)
+
+                range_1.sort()
+                range_2.sort()
+
+                range_1 = range_1.tolist()
+                range_2 = range_2.tolist()
+
+
+                no_used_ranges = len(range_1)
+                no_remain_ranges = self.MAX_NO_OF_RANGES - no_used_ranges
+
+                prequal_ranges_1 = np.linspace(self.MIN_RANGE, min(range_1) , int(no_remain_ranges/2)).astype(int).tolist()
+                sequal_ranges_1 = np.linspace(max(range_1) + self.MIN_RANGE, self.MAX_RANGE, int(no_remain_ranges/2)).astype(int).tolist()
+                range_1 = prequal_ranges_1 + range_1 + sequal_ranges_1
+
+                prequal_ranges_2 = np.linspace(self.MIN_RANGE, min(range_2), int(no_remain_ranges/2)).astype(int).tolist()
+                sequal_ranges_2 = np.linspace(max(range_2) + self.MIN_RANGE, self.MAX_RANGE, int(no_remain_ranges/2)).astype(int).tolist()
+                range_2 = prequal_ranges_2 + range_2 + sequal_ranges_2
+
+                self.range_gate_file_1 =  self.generate_range_gate_file(range_1, lidar_mode)
+                self.range_gate_file_2 =  self.generate_range_gate_file(range_1, lidar_mode)
+
+                file_1 = open(self.OUTPUT_DATA_PATH + "lidar_1_range_gates.txt","w+")
+                file_2 = open(self.OUTPUT_DATA_PATH + "lidar_2_range_gates.txt","w+")
+
+                file_1.write(self.range_gate_file_1)
+                file_2.write(self.range_gate_file_2)
+
+                file_1.close()
+                file_2.close()
+                    
+    def generate_range_gate_file(self, range_gates, lidar_mode):
+        range_gate_file = self.__rg_template
+        range_gate_file = range_gate_file.replace("insertMODE", str(lidar_mode))
+        range_gate_file = range_gate_file.replace("insertMaxRange", str(max(range_gates)))
+        range_gate_file = range_gate_file.replace("insertFFTSize", str(self.FFT_SIZE))
+
+        rows = ""
+        range_gate_row = "\t".join(list(map(str, range_gates)))
+
+        for i in range(0, len(self.trajectory)):
+            row_temp = str(i+1) + '\t' + str(self.ACCUMULATION_TIME) + '\t'
+            row_temp = row_temp + range_gate_row
+
+            if i < len(self.trajectory) - 1:
+                row_temp = row_temp + '\n'
+            rows = rows + row_temp
+
+        range_gate_file = range_gate_file.replace("insertRangeGates", rows)
+
+        return range_gate_file
+
     
     def generate_trajectory(self):
 
@@ -1202,16 +1467,33 @@ class CPT():
         _, angles_stop_2, displ_2 =  self.trajectory2displacement(self.lidar_pos_2, self.trajectory)
 
         # must add velocity kinematic limit here!!!!
-        
-        min_time_1 = 2 * np.sqrt(np.max(abs(displ_1), axis = 1)/ self.MAX_ACCELERATION)*1000
-        min_time_2 = 2 * np.sqrt(np.max(abs(displ_2), axis = 1)/ self.MAX_ACCELERATION)*1000
 
-        timing = np.array([min_time_1, min_time_2]).T
+        min_time_1 = self.displacement2time(np.max(displ_1, axis = 1),self.MAX_ACCELERATION, self.MAX_VELOCITY)
+        min_time_2 = self.displacement2time(np.max(displ_2, axis = 1),self.MAX_ACCELERATION, self.MAX_VELOCITY)
 
+        timing = np.ceil((np.array([min_time_1, min_time_2]).T * 1000))
 
-        return timing
+        sync_time = np.max(timing, axis = 1)
 
+        matrix = np.array([angles_stop_1[:,0],angles_stop_1[:,1],timing[:,0], angles_stop_2[:,0],angles_stop_2[:,1],timing[:,1],sync_time]).T
 
+        motion_table = pd.DataFrame(matrix, columns = ["Azimuth lidar_1 [deg]", "Elevation lidar_1 [deg]", "Move time lidar_1 [ms]",
+                                                                       "Azimuth lidar_2 [deg]", "Elevation lidar_2 [deg]", "Move time lidar_2 [ms]",
+                                                                       "Sync move time [ms]"])
+        first_column = []
+
+        for i in range(0, len(displ_1)):
+            if i != len(displ_1) - 1:
+                insert_str = str(i + 1) + '->' + str(i + 2)
+                first_column = first_column + [insert_str]
+            else:
+                insert_str = str(i + 1) + '->1' 
+                first_column = first_column + [insert_str]
+
+        motion_table.insert(loc=0, column='Step-stare order', value=first_column)
+
+        self.motion_table = motion_table
+        self.flags['motion_table_generated'] = True
 
     @classmethod
     def calculate_max_move(cls, point1, point2, windscanners):
@@ -1245,7 +1527,7 @@ class CPT():
         return np.array([azimuth_displacement,elevation_displacement])
 
     @classmethod
-    def trajectory2displacement(cls, lidar_pos, trajectory):
+    def trajectory2displacement(cls, lidar_pos, trajectory, rollover = True):
         angles_start = cls.generate_beam_coords(lidar_pos, trajectory, opt = 0)[:, (0,1)]
         angles_stop = cls.generate_beam_coords(lidar_pos, np.roll(trajectory, -1, axis = 0), opt = 0)[:, (0,1)]
         angular_displacement = abs(angles_start - angles_stop)
@@ -1263,7 +1545,7 @@ class CPT():
         ind_3 = np.where((abs(angular_displacement[:, 1]) <= 180))
         angular_displacement[:, 1][ind_1] = 360 - angular_displacement[:, 1][ind_1]
         angular_displacement[:, 1][ind_2] = 360 + angular_displacement[:, 1][ind_2]
-        return angles_start, angles_stop, angular_displacement      
+        return np.round(angles_start, cls.NO_DIGITS), np.round(angles_stop,cls.NO_DIGITS), np.abs(angular_displacement)
 
     def add_lidars(self, **kwargs):
         """
