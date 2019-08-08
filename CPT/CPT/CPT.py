@@ -2832,12 +2832,6 @@ CLOSE""",
     #         """
     #     pass
 
-    # def generate_trajectory(self):
-    #         """
-    #         Doc String
-    #         """
-    #     pass
-
     # def export_campaign_design(self):
     #         """
     #         Doc String
