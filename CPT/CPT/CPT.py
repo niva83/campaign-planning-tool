@@ -576,7 +576,7 @@ class CPT():
 
             fig, ax = plt.subplots(sharey = True, figsize=(800/self.MY_DPI, 800/self.MY_DPI), dpi=self.MY_DPI)
             cmap = plt.cm.Greys
-            cs = plt.contourf(self.x, self.y, self.orography_layer, levels=levels, cmap=cmap, alpha = 1)
+            cs = plt.contourf(self.x, self.y, self.orography_layer, levels=levels, cmap=cmap, alpha = 0.4)
 
 
             cbar = plt.colorbar(cs,orientation='vertical',fraction=0.047, pad=0.01)
@@ -618,7 +618,7 @@ class CPT():
                                 s=80,zorder=2000)
 
                 ax.plot(self.trajectory[:,0],self.trajectory[:,1],
-                        color='red', linestyle='--',linewidth=1, zorder=3000,label='trajectory')
+                        color='blue', linestyle='--',linewidth=1, zorder=3000,label='trajectory')
 
                 ax.scatter(self.trajectory[0,0], self.trajectory[0,1], 
                        marker='o', facecolors='white', edgecolors='green',s=120,zorder=1400,label = "trajectory start")
