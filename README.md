@@ -21,13 +21,25 @@ https://data.dtu.dk/collections/Campaign_Planning_Tool_results_for_three_sites_i
 # Installation - Simple Way
 
 Step 1: install Anaconda
-Step 2: in bash type: “conda config --append channels conda-forge”
-Step 3: in bash type:  conda create --name cpt --file requirements_conda.txt
+
+Step 2: in bash type: 
+	
+	conda config --append channels conda-forge
+
+Step 3: in bash type:
+	
+	conda create --name cpt --file requirements_conda.txt
+
 Step 4: activate new enviroment: source activate cpt
-Step 5: test pip: “which pip” 
-	     it should return “/anaconda3/envs/cpt/bin/pip”
+
+Step 5: test pip: 
+	
+	which pip 
+it should return “/anaconda3/envs/cpt/bin/pip”
+
 Step 6: install remaining packages using following command:
-		pip install -r requirements_pip.txt
+	
+	pip install -r requirements_pip.txt
 
 Step 7: test new enviroment
 
