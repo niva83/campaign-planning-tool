@@ -895,8 +895,8 @@ CLOSE""",
         Keyword Arguments
         -----------------
         points_type : str
-            A string indicating to what type of 
-            measurements should be added.
+            A string indicating what type of measurements are 
+            added to the measurements dictionary.
         points : ndarray, required
             nD array containing data with `float` or `int` type
             corresponding to UTM coordinates of measurement points.
@@ -923,23 +923,28 @@ CLOSE""",
         """
         if self.flags['utm_set']:
             if 'points_type' in kwargs:
-                if 'points' in kwargs:
-                    if len(kwargs['points'].shape) == 2 and kwargs['points'].shape[1] == 3:
+                if kwargs['points_type'] in self.POINTS_TYPE:
+                    if 'points' in kwargs:
+                        if len(kwargs['points'].shape) == 2 and kwargs['points'].shape[1] == 3:
 
-                        points_pd = pd.DataFrame(kwargs['points'], 
-                                                 columns = ["Easting [m]", "Northing [m]","Height asl [m]"])
+                            points_pd = pd.DataFrame(kwargs['points'], 
+                                                    columns = ["Easting [m]", "Northing [m]","Height asl [m]"])
 
-                        points_pd.insert(loc=0, column='Point no.', value=np.array(range(1,len(points_pd) + 1)))
-                        pts_dict = {kwargs['points_type']: points_pd}
-                        self.measurements_dictionary.update(pts_dict)
+                            points_pd.insert(loc=0, column='Point no.', value=np.array(range(1,len(points_pd) + 1)))
+                            pts_dict = {kwargs['points_type']: points_pd}
+                            self.measurements_dictionary.update(pts_dict)
 
-                        print('Measurement points \'' + kwargs['points_type'] + '\' added to the measurements dictionary!')
-                        print('Measurements dictionary contains ' + str(len(self.measurements_dictionary)) + ' different measurement type(s).')
+                            print('Measurement points \'' + kwargs['points_type'] + '\' added to the measurements dictionary!')
+                            print('Measurements dictionary contains ' + str(len(self.measurements_dictionary)) + ' different measurement type(s).')
+                            self.flags['measurements_added'] = True
+                        else:
+                            print('Incorrect position information, cannot add measurements!')
+                            print('Input measurement points must be a numpy array of shape (n,3) where n is number of points!')
                     else:
-                        print('Incorrect position information, cannot add measurements!')
-                        print('Input measurement points must be a numpy array of shape (n,3) where n is number of points!')
+                        print('Measurement points not specified, cannot add points!')
                 else:
-                    print('Measurement points not specified, cannot add points!')
+                    print('Measurement point type not permitted!')
+                    print('Allowed types are: \'initial\', \'optimized\', \'reachable\', \'identified\' and \'misc\'')
             else:
                 print('Measurement points\' type not provided, cannot add measurement points!')
         else:
@@ -1901,7 +1906,7 @@ CLOSE""",
         if 'mesh_center' in kwargs:
             self.mesh_center = kwargs['mesh_center']
             self.flags['mesh_center_added'] = True
-        elif self.flags['measurements_added']:
+        elif len(measurement_pts) > 0:
             self.mesh_center = np.int_(np.mean(measurement_pts,axis = 0))
             self.flags['mesh_center_added'] = True
         else:
@@ -2325,15 +2330,15 @@ CLOSE""",
         """        
 
         if points_type == 'initial':
-            return self.measurements_initial
+            return self.measurements_dictionary['initial'].values[:, 1:]
         elif points_type == 'optimized':
-            return self.measurements_optimized
+            return self.measurements_dictionary['optimized'].values[:, 1:]
         elif points_type == 'reachable':
-            return self.measurements_reachable
+            return self.measurements_dictionary['reachable'].values[:, 1:]
         elif points_type == 'identified':
-            return self.measurements_reachable
+            return self.measurements_dictionary['identified'].values[:, 1:]
         elif points_type == 'misc':
-            return self.measurements_misc            
+            return self.measurements_dictionary['misc'].values[:, 1:]
         else:
             return None
 
@@ -2396,33 +2401,7 @@ CLOSE""",
         else:
             return None            
 
-    def store_points(self, points_type, points):
-        """
-        Store measurement points to the measurement point
-        variable specified by the type.
 
-        Parameters
-        ----------
-        points_type : str
-            A string indicating measurement points type
-        points : ndarray
-            nD array containing measurement points
-
-        Notes
-        -----
-        ...
-        """        
-
-        if points_type == 'initial':
-            self.measurements_initial = points
-        elif points_type == 'optimized':
-            self.measurements_optimized = points
-        elif points_type == 'reachable':
-            self.measurements_reachable = points
-        elif points_type == 'identified':
-            self.measurements_reachable = points
-        else:
-            self.measurements_misc = points
 
     def generate_topographic_layer(self):
         """
