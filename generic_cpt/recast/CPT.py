@@ -266,6 +266,22 @@ class CPT():
     MESH_EXTENT = 5000 # in m
     REP_RADIUS = 500 # in m
     POINTS_TYPE = np.array(['initial', 'optimized', 'reachable', 'identified', 'misc'])
+    LAYER_TYPE = np.array([
+                        'orography',
+                        'landcover',
+                        'canopy_height',
+                        'topography',
+                        'restriction_zones',
+                        'elevation_angle_contrained',
+                        'range_contrained',
+                        'los_blockage',
+                        'combined',
+                        'intersecting_angle_contrained',
+                        'second_lidar_placement',
+                        'aerial_image',
+                        'misc'
+    ])
+    COLOR_LIST = ['blue', 'orange', 'green', 'red', 'purple', 'brown', 'pink', 'gray', 'olive', 'cyan']
     
     ACCUMULATION_TIME = 1000 # in ms
     AVERAGE_RANGE = 3000 # in m
@@ -396,6 +412,7 @@ CLOSE""",
         self.lat_zone = None
         self.epsg_code = None 
         self.hemisphere = None 
+        self.measurements_dictionary = {}
         self.measurements_initial = None
         self.measurements_optimized = None
         self.measurements_identified = None
@@ -412,7 +429,7 @@ CLOSE""",
         self.range_gate_file = None
         
         # lidar positions
-        self.lidar = {}
+        self.lidar_dictionary = {}
         self.lidar_pos_1 = None        
         self.lidar_pos_2 = None
 
@@ -428,7 +445,7 @@ CLOSE""",
         self.canopy_height_layer = None
         self.topography_layer = None
         self.landcover_layer = None        
-        self.exclusion_layer = None        
+        self.restriction_zones_layer = None       
         self.elevation_angle_layer = None
         self.los_blck_layer = None
         self.misc_layer = None
@@ -865,6 +882,68 @@ CLOSE""",
                     self.measurements_misc = np.array([kwargs['measurements']])
 
             self.flags['measurements_added'] = True
+
+    def add_measurement_instances(self, **kwargs):
+        """
+        Adds measurement points, given in as UTM coordinates,
+        to the measurement points dictionary.
+        
+        Parameters
+        ----------
+            **kwargs : see below
+
+        Keyword Arguments
+        -----------------
+        points_type : str
+            A string indicating to what type of 
+            measurements should be added.
+        points : ndarray, required
+            nD array containing data with `float` or `int` type
+            corresponding to UTM coordinates of measurement points.
+            nD array data are expressed in meters.
+        
+        Returns
+        -------
+
+        Notes
+        --------
+
+        Examples
+        --------
+        >>> layout = CPT()
+        >>> layout.set_utm_zone('33T')
+        Correct latitudinal zone!
+        Correct longitudinal zone!
+        UTM zone set
+        >>> layout.add_measurement_instances(points = np.array([[576697, 4845753, 395 + 80], 
+        [577979, 4844819, 478 + 80],]), points_type = 'initial')
+        Measurement points 'initial' added to the measurements dictionary!
+        Measurements dictionary contains 1 different measurement type(s).
+
+        """
+        if self.flags['utm_set']:
+            if 'points_type' in kwargs:
+                if 'points' in kwargs:
+                    if len(kwargs['points'].shape) == 2 and kwargs['points'].shape[1] == 3:
+
+                        points_pd = pd.DataFrame(kwargs['points'], 
+                                                 columns = ["Easting [m]", "Northing [m]","Height asl [m]"])
+
+                        points_pd.insert(loc=0, column='Point no.', value=np.array(range(1,len(points_pd) + 1)))
+                        pts_dict = {kwargs['points_type']: points_pd}
+                        self.measurements_dictionary.update(pts_dict)
+
+                        print('Measurement points \'' + kwargs['points_type'] + '\' added to the measurements dictionary!')
+                        print('Measurements dictionary contains ' + str(len(self.measurements_dictionary)) + ' different measurement type(s).')
+                    else:
+                        print('Incorrect position information, cannot add measurements!')
+                        print('Input measurement points must be a numpy array of shape (n,3) where n is number of points!')
+                else:
+                    print('Measurement points not specified, cannot add points!')
+            else:
+                print('Measurement points\' type not provided, cannot add measurement points!')
+        else:
+            print('UTM zone not specified, cannot add measurement points!')
 
     def generate_disc_matrix(self, **kwargs):
         """
@@ -1463,29 +1542,27 @@ CLOSE""",
         return range_gate_file
 
     
-    def generate_trajectory(self):
+    def generate_trajectory(self, lidar_pos, trajectory):
 
-        _, angles_stop_1, displ_1 =  self.trajectory2displacement(self.lidar_pos_1, self.trajectory)
-        _, angles_stop_2, displ_2 =  self.trajectory2displacement(self.lidar_pos_2, self.trajectory)
+        _, angles_stop, angular_displacement =  self.trajectory2displacement(lidar_pos, trajectory)
 
-        # must add velocity kinematic limit here!!!!
 
-        min_time_1 = self.displacement2time(np.max(displ_1, axis = 1),self.MAX_ACCELERATION, self.MAX_VELOCITY)
-        min_time_2 = self.displacement2time(np.max(displ_2, axis = 1),self.MAX_ACCELERATION, self.MAX_VELOCITY)
+        move_time = self.displacement2time(np.max(angular_displacement, axis = 1),
+                                           self.MAX_ACCELERATION, 
+                                           self.MAX_VELOCITY)
 
-        timing = np.ceil((np.array([min_time_1, min_time_2]).T * 1000))
 
-        sync_time = np.max(timing, axis = 1)
+        timing = np.ceil(move_time * 1000)
 
-        matrix = np.array([angles_stop_1[:,0],angles_stop_1[:,1],timing[:,0], angles_stop_2[:,0],angles_stop_2[:,1],timing[:,1],sync_time]).T
+        matrix = np.array([angles_stop[:,0],
+                           angles_stop[:,1],
+                           timing]).T
 
-        motion_table = pd.DataFrame(matrix, columns = ["Azimuth lidar_1 [deg]", "Elevation lidar_1 [deg]", "Move time lidar_1 [ms]",
-                                                                       "Azimuth lidar_2 [deg]", "Elevation lidar_2 [deg]", "Move time lidar_2 [ms]",
-                                                                       "Sync move time [ms]"])
+        motion_table = pd.DataFrame(matrix, columns = ["Azimuth [deg]", "Elevation [deg]", "Move time [ms]"])
         first_column = []
 
-        for i in range(0, len(displ_1)):
-            if i != len(displ_1) - 1:
+        for i in range(0, len(angular_displacement)):
+            if i != len(angular_displacement) - 1:
                 insert_str = str(i + 1) + '->' + str(i + 2)
                 first_column = first_column + [insert_str]
             else:
@@ -1493,9 +1570,7 @@ CLOSE""",
                 first_column = first_column + [insert_str]
 
         motion_table.insert(loc=0, column='Step-stare order', value=first_column)
-
-        self.motion_table = motion_table
-        self.flags['motion_table_generated'] = True
+        return motion_table
 
     @classmethod
     def calculate_max_move(cls, point1, point2, windscanners):
@@ -1549,10 +1624,10 @@ CLOSE""",
         angular_displacement[:, 1][ind_2] = 360 + angular_displacement[:, 1][ind_2]
         return np.round(angles_start, cls.NO_DIGITS), np.round(angles_stop,cls.NO_DIGITS), np.abs(angular_displacement)
 
-    def add_lidar(self, **kwargs):
+    def add_lidar_instance(self, **kwargs):
         """
-        Adds lidars positions, provided as 
-        UTM coordinate triplets, to the CPT class.
+        Adds a lidar instance, containing lidar position in UTM 
+        coordinates and unique lidar id, to the lidar dictionary.
         
         Parameters
         ----------
@@ -1560,7 +1635,7 @@ CLOSE""",
 
         Keyword Arguments
         -----------------
-        unique_id : str, required
+        lidar_id : str, required
             String which identifies lidar.
         position : ndarray, required
             nD array containing data with `float` or `int` type corresponding 
@@ -1577,27 +1652,33 @@ CLOSE""",
         Examples
         --------
         >>> layout = CPT()
-        >>> layout.set_utm_zone('31V')
+        >>> layout.set_utm_zone('33T')
         Correct latitudinal zone!
         Correct longitudinal zone!
         UTM zone set
-        >>> layout.add_lidars(lidar_pos_1 = np.array([1,20,200]))
-        Lidar 1 position added!
-
-        >>> layout.add_lidars(lidar_pos_1 = np.array([1,20,200]), lidar_pos_2 = np.array([-20,1, 200]))
-        Lidar 1 position added!
-        Lidar 2 position added!        
+        >>> layout.add_lidar(position = np.array([580600,4845700,100]), lidar_id = 'koshava')
+        Lidar 'koshava' added to the class instance!      
         """
         if self.flags['utm_set']:
-            if 'unique_id' in kwargs:
+            if 'lidar_id' in kwargs:
                 if 'position' in kwargs:
                     if self.check_lidar_position(kwargs['position']):
-                        lidar_dict = {kwargs['unique_id']:{'position':kwargs['position'],
-                                                      'reachable_points' :'',      
-                                                      'motion_program':'',
-                                                      'range_gate_file':''}}
-                        self.lidar.update(lidar_dict)
-                        print('Lidar \'' + kwargs['unique_id'] + '\' added to the class instance!')
+                        lidar_dict = {kwargs['lidar_id']:{
+                                                      'position': kwargs['position'],
+                                                      'lidar_inside_mesh' : False,
+                                                      'measurement_id' : None,
+                                                      'measurement_points' : None,
+                                                      'reachable_points' : None,
+                                                      'trajectory' : None,
+                                                      'probing_coordinates' : None,
+                                                      'emission_config': None,      
+                                                      'motion_config': None,
+                                                      'acqusition_config': None,
+                                                      'data_config': None}
+                                     }
+                        self.lidar_dictionary.update(lidar_dict)
+                        print('Lidar \'' + kwargs['lidar_id'] + '\' added to the lidar dictionary!')
+                        print('Lidar dictionary contains ' + str(len(self.lidar_dictionary)) + ' lidar instance(s).')
                     else:
                         print('Incorrect position information, cannot add lidar!')
                 else:
@@ -1606,6 +1687,158 @@ CLOSE""",
                 print('Lidar id not provided, cannot add lidar!')
         else:
             print('UTM zone not specified, cannot add lidar!')
+
+    def update_lidar_dictionary(self, **kwargs):
+        # call update_lidar_instance through 'for loop'
+        pass
+
+    def update_lidar_instance(self, **kwargs):
+        """
+        Updates a instance(s) in lidar dictionary with
+        measurement points lidar instance, containing lidar position in UTM 
+        coordinates and unique lidar id, to the lidar dictionary.
+        
+        Parameters
+        ----------
+            **kwargs : see below
+
+        Keyword Arguments
+        -----------------
+        lidar_id : str, optional
+            String which identifies the lidar instance to be updated.
+        use_reachable_points : boolean, optional
+            Indicates whether to update the lidar instance
+            only considering the reachable points.
+        gis_layer_id : str, optional
+            String indicating which GIS layer to use
+            for the instance update.
+            The argument value can be either 'combined or 'second_lidar'.
+        use_optimized_trajectory: boolean, optional
+            Indicates whether to use the optimized  trajectory for
+            to update the lidar dictionary. 
+        motion_type : str, optional
+            String indicating which type of motion should be used to 
+            generate trajetory between measurement points.
+            The argument takes either 'step-stare' or 'sweep' value.
+
+        Returns
+        -------
+
+        Notes
+        --------
+        If 'lidar_id' is not provided, the method will update all the instances 
+        in the lidar dictionary. 
+        If 'only_reachable_points' is not provided, the method
+        will consider all the measurement points during the instance update.
+
+        If 'only_reachable_points' is set to True, the method requires that the
+        'gis_layer_id' points to either 'combined' or 'second_lidar' layer. If
+        'gis_layer_id' is not provided the method will use 'combined' layer.
+
+        If 'use_optimized_trajectory' is set to True, it is required that the 
+        method self.optimize_trajectory was run prior the current method, 
+        otherwise the current method will update the lidar instance considering
+        the order of measurement points as is.
+
+        Currently the method only support step-stare trajectory, so the argument
+        wheter on not set 'motion_type' it will not impact the trajectory calculation.
+
+
+        Examples
+        --------
+
+        """
+
+        measurement_pts = self.measurement_type_selector(self.measurements_selector)
+        if len(measurement_pts) > 0:
+            if 'lidar_id' in kwargs and kwargs['lidar_id'] in self.lidar_dictionary:
+                # selects the according lidar
+                # sets measurement_id
+                self.lidar_dictionary[kwargs['lidar_id']]['measurement_id'] = self.measurements_selector
+
+                measurement_pts = pd.DataFrame(np.round(measurement_pts, self.NO_DIGITS), 
+                                                columns = ["Easting [m]", 
+                                                           "Northing [m]", 
+                                                           "Height asl [m]"])
+                measurement_pts.insert(loc=0, column='Point no.', value=np.array(range(1,len(measurement_pts) + 1)))                
+
+                self.lidar_dictionary[kwargs['lidar_id']]['measurement_points'] = measurement_pts
+
+                if self.flags['mesh_generated']:
+                    lidar_position = self.lidar_dictionary[kwargs['lidar_id']]['position']
+                    self.lidar_dictionary[kwargs['lidar_id']]['lidar_inside_mesh'] = self.inside_mesh(self.mesh_corners_utm, lidar_position)
+
+                    
+                    if  (
+                            self.lidar_dictionary[kwargs['lidar_id']]['lidar_inside_mesh'] and
+                            'gis_layer_id' in kwargs and
+                            (kwargs['gis_layer_id'] == 'combined' or 
+                            kwargs['gis_layer_id'] == 'second_lidar_placement') and
+                            self.layer_selector(kwargs['gis_layer_id']) is not None
+                        ):
+                        layer = self.layer_selector(kwargs['gis_layer_id'])
+                        i, j = self.find_mesh_point_index(self.lidar_dictionary[kwargs['lidar_id']]['position'])
+                        self.lidar_dictionary[kwargs['lidar_id']]['reachable_points'] = layer[i,j,:]                        
+                    elif (
+                        self.lidar_dictionary[kwargs['lidar_id']]['lidar_inside_mesh'] and 
+                        self.layer_selector('combined') is not None
+                         ):
+                        layer = self.layer_selector('combined')
+                        i, j = self.find_mesh_point_index(self.lidar_dictionary[kwargs['lidar_id']]['position'])
+                        self.lidar_dictionary[kwargs['lidar_id']]['reachable_points'] = self.combined_layer[i,j,:]                     
+                    else:
+                        self.lidar_dictionary[kwargs['lidar_id']]['reachable_points'] = np.full(len(measurement_pts),0.0)                    
+                
+                if  (
+                      'use_optimized_trajectory' in kwargs and 
+                      kwargs['use_optimized_trajectory'] and
+                      self.trajectory is not None
+                    ):
+                    self.lidar_dictionary[kwargs['lidar_id']]['trajectory'] = self.trajectory
+
+                elif (
+                      'use_reachable_points' in kwargs and 
+                      kwargs['use_reachable_points']
+                   ):
+                    reachable_pts = self.lidar_dictionary[kwargs['lidar_id']]['reachable_points']
+                    self.lidar_dictionary[kwargs['lidar_id']]['trajectory'] = measurement_pts[np.where(reachable_pts > 0)]
+                else:
+                    self.lidar_dictionary[kwargs['lidar_id']]['trajectory'] = measurement_pts
+                
+                # calculate probing coordinates
+                probing_coords = self.generate_beam_coords(self.lidar_dictionary[kwargs['lidar_id']]['position'],
+                                                           self.lidar_dictionary[kwargs['lidar_id']]['trajectory'],
+                                                           0)
+
+                probing_coords = pd.DataFrame(np.round(probing_coords, self.NO_DIGITS), 
+                                                columns = ["Azimuth [deg]", 
+                                                           "Elevation [deg]", 
+                                                           "Range [m]"])
+                probing_coords.insert(loc=0, column='Point no.', value=np.array(range(1,len(probing_coords) + 1)))
+                
+                self.lidar_dictionary[kwargs['lidar_id']]['probing_coordinates'] = probing_coords
+
+                # calculate motion config table
+                self.lidar_dictionary[kwargs['lidar_id']]['motion_config'] = self.generate_trajectory(
+                    self.lidar_dictionary[kwargs['lidar_id']]['position'], 
+                    self.lidar_dictionary[kwargs['lidar_id']]['trajectory'])
+                
+                # calculate range gate table
+
+                self.lidar_dictionary[kwargs['lidar_id']]['emission_config'] = {'pulse_length': self.PULSE_LENGTH}
+                self.lidar_dictionary[kwargs['lidar_id']]['acqusition_config'] = {'fft_size': self.FFT_SIZE}                    
+            else:
+                print('The provided lidar_id does not match any lidar instance in lidar dictionary!')
+        else:
+            print('There are no measurement points -> halting lidar instance/dictionary update!')
+    
+    @staticmethod
+    def inside_mesh(mesh_corners, point):
+        diff = mesh_corners - point
+        if np.all(diff[0,(0,1)] <= 0) and np.all(diff[1,(0,1)] >= 0):
+            return True
+        return False
+
 
 
     def generate_mesh(self, **kwargs):
@@ -1732,14 +1965,15 @@ CLOSE""",
         measurement_pts = self.measurement_type_selector(self.measurements_selector)
         if len(measurement_pts) > 0:
             if 'lidar_id' in kwargs:
-                if kwargs['lidar_id'] in self.lidar:
-                    lidar_position = self.lidar[kwargs['lidar_id']]['position']
+                if kwargs['lidar_id'] in self.lidar_dictionary:
+                    lidar_position = self.lidar_dictionary[kwargs['lidar_id']]['position']
                     self.generate_intersecting_angle_layer(lidar_position, measurement_pts)
                     self.flags['intersecting_angle_layer_generated'] = True
                     i, j = self.find_mesh_point_index(lidar_position)
-
+                    self.lidar_dictionary[kwargs['lidar_id']]['measurement_id'] = self.measurements_selector
+                    self.lidar_dictionary[kwargs['lidar_id']]['measurement_points'] = measurement_pts
                     self.reachable_points = self.combined_layer[i,j,:]
-                    self.lidar[kwargs['lidar_id']]['reachable_points'] = measurement_pts[np.where(self.reachable_points>0)]
+                    self.lidar_dictionary[kwargs['lidar_id']]['reachable_points'] = self.reachable_points
                     self.second_lidar_layer = self.combined_layer * self.intersecting_angle_layer * self.reachable_points
                     self.flags['second_lidar_layer'] = True
                 else:
@@ -2103,6 +2337,64 @@ CLOSE""",
         else:
             return None
 
+    def layer_selector(self, layer_type):
+        """
+        Selects GIS layer according to the provided type.
+
+        Parameters
+        ----------
+        layer_type : str
+            A string indicating which layer to be returned
+
+        Returns
+        -------
+        layer : ndarray
+            Depending on the input type this method returns one
+            of the following GIS layers:
+            Orography
+            Landcover
+            Canopy height
+            Topography
+            Restriction zones
+            Elevation angle constrained
+            Range restriction
+            LOS blockage 
+            Combined 
+            Intersecting angle constrained
+            Second lidar placement
+            Aerial image
+            Misc layer
+        Notes
+        -----
+        This method is used during the generation of the beam steering coordinates.
+        """        
+
+        if layer_type == 'orography':
+            return self.orography_layer
+        elif layer_type == 'landcover':
+            return self.landcover_layer
+        elif layer_type == 'canopy_height':
+            return self.canopy_height_layer
+        elif layer_type == 'topography':
+            return self.topographic
+        elif layer_type == 'restriction_zones':
+            return self.restriction_zones_layer
+        elif layer_type == 'elevation_angle_contrained':
+            return self.elevation_angle_layer
+        elif layer_type == 'range_contrained':
+            return self.range_layer
+        elif layer_type == 'los_blockage':
+            return self.los_blck_layer
+        elif layer_type == 'combined':
+            return self.combined_layer
+        elif layer_type == 'intersecting_angle_contrained':
+            return self.intersecting_angle_layer
+        elif layer_type == 'second_lidar_placement':
+            return self.second_lidar_layer        
+        elif layer_type == 'misc':
+            return self.misc_layer
+        else:
+            return None            
 
     def store_points(self, points_type, points):
         """
@@ -2546,14 +2838,14 @@ CLOSE""",
         """        
         if(type(lidar_position).__module__ == np.__name__):
                 if (len(lidar_position.shape) == 1 and lidar_position.shape[0] == 3):
-                    return True
+                        return True
                 else:
-                    print('Wrong dimensions!\nLidar position is described by 3 parameters:\n(1)Easting\n(2)Northing\n(3)Height')
-                    print('Lidar position was not added')
+                    print('Wrong dimensions!\nLidar position is described by 3 parameters:\n(1)Easting\n(2)Northing\n(3)Height!')
+                    print('Lidar position was not added!')
                     return False
         else:
             print('Input is not numpy array!')
-            print('Lidar position was not added')
+            print('Lidar position was not added!')
             return False      
 
     @staticmethod  
