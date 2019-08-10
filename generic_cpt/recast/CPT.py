@@ -529,6 +529,7 @@ CLOSE""",
 
         if len(layer.shape) > 2:
             levels = np.array(range(-1,layer.shape[-1] + 1, 1))
+            boundaries = np.array(range(-1,layer.shape[-1] + 1, 1)) + 0.5
             layer = np.sum(layer, axis = 2)
 
         fig, ax = plt.subplots(sharey = True, figsize=(800/self.MY_DPI, 800/self.MY_DPI), dpi=self.MY_DPI)
@@ -536,7 +537,7 @@ CLOSE""",
         cs = plt.pcolormesh(self.x, self.y, layer, cmap=cmap, alpha = 1)
 
 
-        cbar = plt.colorbar(cs,orientation='vertical', ticks=levels, boundaries=levels,fraction=0.047, pad=0.01)
+        cbar = plt.colorbar(cs,orientation='vertical', ticks=levels, boundaries=boundaries,fraction=0.047, pad=0.01)
         if 'legend_label' in kwargs:
             cbar.set_label(kwargs['legend_label'], fontsize = self.FONT_SIZE)
         
@@ -620,10 +621,10 @@ CLOSE""",
         if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
             measurement_pts = self.measurement_type_selector(kwargs['points_type'])
         else:
-            measurement_pts = self.measurements_initial  
+            measurement_pts = self.measurement_type_selector('initial')
 
 
-        if measurement_pts is not None and self.measurements_optimized is not None:
+        if measurement_pts is not None and self.measurement_type_selector('optimized') is not None:
             fig, ax = plt.subplots(sharey = True, figsize=(800/self.MY_DPI, 800/self.MY_DPI), dpi=self.MY_DPI)
 
             for i,pt in enumerate(measurement_pts):
@@ -637,7 +638,7 @@ CLOSE""",
                                         s=10,zorder=1500,)            
 
 
-            for i,pt in enumerate(self.measurements_optimized):
+            for i,pt in enumerate(self.measurement_type_selector('optimized') ):
                 if i == 0:
                     ax.scatter(pt[0], pt[1],marker='o', 
                         facecolors='white', edgecolors='black', 
@@ -937,6 +938,7 @@ CLOSE""",
                             print('Measurement points \'' + kwargs['points_type'] + '\' added to the measurements dictionary!')
                             print('Measurements dictionary contains ' + str(len(self.measurements_dictionary)) + ' different measurement type(s).')
                             self.flags['measurements_added'] = True
+                            self.measurements_selector = kwargs['points_type']
                         else:
                             print('Incorrect position information, cannot add measurements!')
                             print('Input measurement points must be a numpy array of shape (n,3) where n is number of points!')
@@ -1214,11 +1216,12 @@ CLOSE""",
                 # matrix = matrix * (1 - matrix[i])
                 points_covered = measurement_pts[indexes]
                 points_new = array_difference(points_covered, points_covered_total)
+
                 if len(points_new) > 0:
                     points_covered_total = np.append(points_covered_total, points_new,axis=0)
                     # discs_selected = np.append(discs_selected, np.array([discs[i]]),axis=0)
                     disc_indexes = disc_indexes + [i]
-                points_uncovered = array_difference(points_uncovered, points_covered)        
+                points_uncovered = array_difference(points_uncovered, points_covered)
                 i += 1
                 j = len(points_uncovered)
 
@@ -1229,19 +1232,34 @@ CLOSE""",
             # minimize number of discs
             if len(discs_selected) > 1:
                 discs_selected = self.minimize_discs(matrix_selected,discs_selected)
-
+            self.disc_temp = discs_selected
+            # if we don't cover all the points
+            # remaining uncovered points must be
+            # added to the array
+            self.uncovered = points_uncovered
+            self.covered = points_covered_total
             if len(points_uncovered) > 0:
-                self.measurements_optimized = np.append(discs_selected, points_uncovered, axis = 0)
-                terrain_height = self.get_elevation(self.long_zone + self.lat_zone, self.measurements_optimized)
-                self.measurements_optimized[:, 2] = terrain_height + np.average(measure_pt_height)
+                measurements_optimized = np.append(discs_selected, points_uncovered, axis = 0)
+                terrain_height = self.get_elevation(self.long_zone + self.lat_zone, measurements_optimized)
+                measurements_optimized[:, 2] = terrain_height + np.average(measure_pt_height)
+                self.add_measurement_instances(points = measurements_optimized, points_type = 'optimized')
 
+            # if we cover all the points then
+            # the optimized measurements are
+            # are equal to the disc centers
             else:
-                self.measurements_optimized = discs_selected
-                terrain_height = self.get_elevation(self.long_zone + self.lat_zone, self.measurements_optimized)
-                self.measurements_optimized[:, 2] = terrain_height + np.average(measure_pt_height)
+                measurements_optimized = discs_selected
+                terrain_height = self.get_elevation(self.long_zone + self.lat_zone, measurements_optimized)
+                measurements_optimized[:, 2] = terrain_height + np.average(measure_pt_height)
+                self.add_measurement_instances(points = measurements_optimized, points_type = 'optimized')
 
-            if len(self.measurements_optimized) == len(measurement_pts):
-                self.measurements_optimized = measurement_pts
+            # in case when none of the measurement
+            # points are covered by this method than
+            # the optimized points should be equal to
+            # the original measurements points
+            # if len(measurements_optimized) == len(measurement_pts):
+            #     self.add_measurement_instances(points = measurement_pts, points_type = 'optimized')
+                
         else:
             print("No measurement positions added, nothing to optimize!")
 
@@ -2030,8 +2048,6 @@ CLOSE""",
 
         if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
             self.measurements_selector = kwargs['points_type']
-        else:
-            self.measurements_selector = 'initial'
 
         self.reachable_points = None
 
@@ -2330,15 +2346,15 @@ CLOSE""",
         """        
 
         if points_type == 'initial':
-            return self.measurements_dictionary['initial'].values[:, 1:]
+            return np.asarray(self.measurements_dictionary['initial'].values[:, 1:].tolist())
         elif points_type == 'optimized':
-            return self.measurements_dictionary['optimized'].values[:, 1:]
+            return np.asarray(self.measurements_dictionary['optimized'].values[:, 1:].tolist())
         elif points_type == 'reachable':
-            return self.measurements_dictionary['reachable'].values[:, 1:]
+            return np.asarray(self.measurements_dictionary['reachable'].values[:, 1:].tolist())
         elif points_type == 'identified':
-            return self.measurements_dictionary['identified'].values[:, 1:]
+            return np.asarray(self.measurements_dictionary['identified'].values[:, 1:].tolist())
         elif points_type == 'misc':
-            return self.measurements_dictionary['misc'].values[:, 1:]
+            return np.asarray(self.measurements_dictionary['misc'].values[:, 1:].tolist())
         else:
             return None
 
