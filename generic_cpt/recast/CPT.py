@@ -1911,8 +1911,6 @@ CLOSE""",
                     self.lidar_dictionary[kwargs['lidar_id']]['trajectory'].values[:,1:])
                 
                 # calculate range gate table
-
-
                 self.lidar_dictionary[kwargs['lidar_id']]['emission_config'] = {'pulse_length': self.PULSE_LENGTH}
                 self.lidar_dictionary[kwargs['lidar_id']]['acqusition_config'] = {'fft_size': self.FFT_SIZE}                    
             else:
