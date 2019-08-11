@@ -526,10 +526,11 @@ CLOSE""",
             levels = kwargs['levels']
         else:
             levels = np.linspace(np.min(layer), np.max(layer), 20)
+            boundaries = levels + 0.5
     
         if len(layer.shape) > 2:
             levels = np.array(range(-1,layer.shape[-1] + 1, 1))
-            boundaries = np.array(range(-1,layer.shape[-1] + 1, 1)) + 0.5
+            boundaries = levels + 0.5
             layer = np.sum(layer, axis = 2)
     
         fig, ax = plt.subplots(sharey = True, figsize=(800/self.MY_DPI, 800/self.MY_DPI), dpi=self.MY_DPI)
@@ -1838,6 +1839,7 @@ CLOSE""",
             if 'lidar_id' in kwargs and kwargs['lidar_id'] in self.lidar_dictionary:
                 # selects the according lidar
                 # sets measurement_id
+                print('Updating lidar instance: \'' + kwargs['lidar_id'] + '\'')
                 self.lidar_dictionary[kwargs['lidar_id']]['measurement_id'] = self.measurements_selector
 
                 self.lidar_dictionary[kwargs['lidar_id']]['measurement_points'] = self.measurements_dictionary[self.measurements_selector]
@@ -1909,6 +1911,7 @@ CLOSE""",
                     self.lidar_dictionary[kwargs['lidar_id']]['trajectory'].values[:,1:])
                 
                 # calculate range gate table
+
 
                 self.lidar_dictionary[kwargs['lidar_id']]['emission_config'] = {'pulse_length': self.PULSE_LENGTH}
                 self.lidar_dictionary[kwargs['lidar_id']]['acqusition_config'] = {'fft_size': self.FFT_SIZE}                    
@@ -2051,15 +2054,21 @@ CLOSE""",
         if len(measurement_pts) > 0:
             if 'lidar_id' in kwargs:
                 if kwargs['lidar_id'] in self.lidar_dictionary:
+
                     lidar_position = self.lidar_dictionary[kwargs['lidar_id']]['position']
                     self.generate_intersecting_angle_layer(lidar_position, measurement_pts)
                     self.flags['intersecting_angle_layer_generated'] = True
-                    i, j = self.find_mesh_point_index(lidar_position)
-                    self.lidar_dictionary[kwargs['lidar_id']]['measurement_id'] = self.measurements_selector
-                    self.lidar_dictionary[kwargs['lidar_id']]['measurement_points'] = measurement_pts
-                    self.reachable_points = self.combined_layer[i,j,:]
-                    self.lidar_dictionary[kwargs['lidar_id']]['reachable_points'] = self.reachable_points
-                    self.second_lidar_layer = self.combined_layer * self.intersecting_angle_layer * self.reachable_points
+                    self.update_lidar_instance(lidar_id = kwargs['lidar_id'])
+                    reachable_points = self.lidar_dictionary[kwargs['lidar_id']]['reachable_points']
+
+
+                    # i, j = self.find_mesh_point_index(lidar_position)
+                    # self.lidar_dictionary[kwargs['lidar_id']]['measurement_id'] = self.measurements_selector
+                    # self.lidar_dictionary[kwargs['lidar_id']]['measurement_points'] = measurement_pts
+                    # self.reachable_points = self.combined_layer[i,j,:]
+                    # self.lidar_dictionary[kwargs['lidar_id']]['reachable_points'] = self.reachable_points
+
+                    self.second_lidar_layer = self.combined_layer * self.intersecting_angle_layer * reachable_points
                     self.flags['second_lidar_layer'] = True
                 else:
                     print('Lidar does not exist in self.lidar dict, halting operation!')
