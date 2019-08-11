@@ -960,6 +960,66 @@ CLOSE""",
         else:
             print('UTM zone not specified, cannot add measurement points!')
 
+    def find_common_reachable_points(self, **kwargs):
+
+        
+        if ('points_type' in kwargs and 
+            kwargs['points_type'] in self.POINTS_TYPE and 
+            self.measurements_dictionary[kwargs['points_type']] is not None
+        ):
+            if ('lidar_ids' in kwargs and set(kwargs['lidar_ids']).issubset(self.lidar_dictionary)):
+                flag = True
+                measurement_id = []
+
+                for lidar in kwargs['lidar_ids']:
+                    reachable_pts = self.lidar_dictionary[lidar]['reachable_points']
+                    if reachable_pts is None:
+                        flag = False
+
+                    else:
+                        measurement_id = measurement_id + [self.lidar_dictionary[lidar]['measurement_id']]
+
+                if flag:
+                    if all(x == measurement_id[0] for x in measurement_id):
+                        flag = True
+                    else:
+                        flag = False
+                        print('One or more lidar instances was not updated with the same measurement points!')
+                        print('Halting operation!')
+                else:
+                    print('One or more lidar instances was not updated!')
+                    print('Halting operation!')
+                    print('Run self.update_lidar_dictionary() to update all lidar instances!')
+                    print('Run self.update_lidar_instance(lidar_id = name) to a single lidar instance!')
+
+                if flag:
+                    if kwargs['points_type'] == measurement_id[0]:
+                        measurement_pts = self.measurement_type_selector(kwargs['points_type'])
+                        self.measurement_selector = 'reachable'
+                        all_ones = np.full(len(measurement_pts),1)
+                        for lidar in kwargs['lidar_ids']:
+                            reachable_pts = self.lidar_dictionary[lidar]['reachable_points']
+                            all_ones = all_ones * reachable_pts            
+                        pts_ind = np.where(all_ones == 1)
+                        self.add_measurement_instances(points = measurement_pts[pts_ind], 
+                                                       points_type = 'reachable')
+                        self.optimize_trajectory(points_type = 'reachable', 
+                                                 lidar_ids = kwargs['lidar_ids'])
+
+                        for lidar in kwargs['lidar_ids']:
+                            self.update_lidar_instance(lidar_id = lidar, use_optimized_trajectory = True)
+                        
+                        # should run to sync timing between windscanners!
+
+                    else:
+                        print('Lidar instances \'measurement_id\' does not match \'points_id\' keyword paramater')
+                        print('Halting operation!')
+            else:
+                print('One or more lidar ids don\'t exist in the lidar dictionary')
+                print('Available lidar ids: ' + str(list(self.lidar_dictionary.keys())))
+        else:
+            print('Either point type id does not exist or for the corresponding measurement dictionary instance there are no points!')
+          
     def generate_disc_matrix(self, **kwargs):
         """
         Generates mid points between any combination of two measurement points 
@@ -1284,7 +1344,9 @@ CLOSE""",
         ------------------
         points_type : str
             A string indicating which measurement points
-            to create the trajectory for.
+            should be consider for the trajectory optimization.
+        lidar_ids : list of str
+            A list of strings containing lidar ids.
         
         Returns
         -------
@@ -1312,33 +1374,66 @@ CLOSE""",
         --------
         """        
         # selecting points which will be used for optimization
-        if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
-            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
-        else:
-            measurement_pts = self.measurements_reachable
-        
-        if len(measurement_pts) > 0 and self.flags['lidar_pos_1'] and self.flags['lidar_pos_2']:        
+        if ('points_type' in kwargs and
+             kwargs['points_type'] in self.POINTS_TYPE and
+             kwargs['points_type'] in self.measurements_dictionary and
+             len(self.measurements_dictionary[kwargs['points_type']]) > 0
+            ):
+            if ('lidar_ids' in kwargs and
+                 set(kwargs['lidar_ids']).issubset(self.lidar_dictionary)
+                ):
 
-            travel_1 = []
-            travel_2 = []
-            for i in range(0,len(measurement_pts)):
+                measurement_pts = self.measurements_dictionary[kwargs['points_type']].values[:, 1:].tolist()
+                self.measurements_selector = kwargs['points_type']
+                sync_time_list = []
+                for i in range(0,len(measurement_pts)):
+    
+                    trajectory = self.tsp(i, **kwargs)
 
-                self.trajectory = self.tsp(measurement_pts, self.lidar_pos_1, self.lidar_pos_2, i)
-                _,_, displ_1 =  self.trajectory2displacement(self.lidar_pos_1, self.trajectory)
-                _,_, displ_2 =  self.trajectory2displacement(self.lidar_pos_2, self.trajectory)
-                max_travel_1 = np.max(np.sum(displ_1, axis = 0))
-                max_travel_2 = np.max(np.sum(displ_2, axis = 0))
-                travel_1 = travel_1 + [max_travel_1]
-                travel_2 = travel_2 + [max_travel_2]
+                    # needs to record each lidar timing for each move
+                    # and then 'if we want to keep them in syn
+                    sync_time = []
+                    for lidar in kwargs['lidar_ids']:
+
+                        motion_table = self.generate_trajectory(self.lidar_dictionary[lidar]['position'], 
+                                                                trajectory)
+                        timing = motion_table.loc[:, 'Move time [ms]'].values
+                        sync_time = sync_time + [timing]
+                    sync_time = np.sum(np.max(np.asarray(sync_time).T, axis = 1))
+                    sync_time_list = sync_time_list + [sync_time]
+                    
+                        # if i == 0:
+                        #     total_time.update({lidar:{i : timing}})
+                        # else:
+                        #     total_time[lidar].update({i : timing})
+
+                sync_time_list = np.asarray(sync_time_list)
+                self.temp = sync_time_list
+                # this returns tuple, and sometimes by chance there 
+                # are two min values we are selecting first one!
+                # first 0 means to select the array from the tuple, 
+                # while second 0 results in selecting the first min value
+                min_traj_ind = np.where(sync_time_list == np.min(sync_time_list))[0][0]
+                trajectory = self.tsp(min_traj_ind, **kwargs)
                 
-            total_travel = np.asarray(travel_1) + np.asarray(travel_2)
-            min_traj_ind = np.where(total_travel == np.min(total_travel))
-            self.trajectory = self.tsp(measurement_pts, self.lidar_pos_1, self.lidar_pos_2, min_traj_ind[0][0])
-            self.flags['trajectory_optimized'] = True
+                trajectory = pd.DataFrame(trajectory, columns = ["Easting [m]", 
+                "Northing [m]", 
+                "Height asl [m]"])
+
+                trajectory.insert(loc=0, column='Point no.', value=np.array(range(1,len(trajectory) + 1)))
+                self.trajectory = trajectory
+                self.flags['trajectory_optimized'] = True                
 
 
-    @classmethod
-    def tsp(cls, measurement_pts, lidar_ids, start=None):
+            else: 
+                print('One or more lidar ids don\'t exist in the lidar dictionary')
+                print('Available lidar ids: ' + str(list(self.lidar_dictionary.keys())))
+
+        else:
+            print('Either point type id does not exist or for the corresponding measurement dictionary instance there are no points!')
+
+
+    def tsp(self, start=None, **kwargs):
         """
         Solving a travelening salesman problem for a set of points and 
         two lidar positions.
@@ -1353,12 +1448,14 @@ CLOSE""",
         ------------------
         points_type : str
             A string indicating which measurement points
-            to create the trajectory for.
+            should be consider for the trajectory optimization.
+        lidar_ids : list of str
+            A list of strings containing lidar ids.
         
         Returns
         -------
-        self.trajectory : ndarray
-            An ordered nD array containing trajectory points.
+        trajectory : ndarray
+            An ordered nD array containing optimized trajectory points.
         
         See also
         --------
@@ -1382,45 +1479,65 @@ CLOSE""",
         Examples
         --------
         """
-        points = measurement_pts.tolist()
+        if ('points_type' in kwargs and
+             kwargs['points_type'] in self.POINTS_TYPE and
+             kwargs['points_type'] in self.measurements_dictionary and
+             len(self.measurements_dictionary[kwargs['points_type']]) > 0
+            ):
+            if ('lidar_ids' in kwargs and
+                 set(kwargs['lidar_ids']).issubset(self.lidar_dictionary)
+                ):
+                points = self.measurements_dictionary[kwargs['points_type']].values[:, 1:].tolist()
 
-        if start is None:
-            shuffle(points)
-            start = points[0]
+                if start is None:
+                    shuffle(points)
+                    start = points[0]
+                else:
+                    start = points[start]
 
+                unvisited_points = points
+                # sets first trajectory point        
+                trajectory = [start]
+                # removes that point from the points list
+                unvisited_points.remove(start)
+
+                # lidar list
+                lidars = []
+                for lidar in kwargs['lidar_ids']:
+                    lidars = lidars + [self.lidar_dictionary[lidar]['position']]
+
+                while unvisited_points:
+                    last_point = trajectory[-1]
+                    max_angular_displacements = []
+
+                    # calculates maximum angular move from the last
+                    # trajectory point to any other point which is not
+                    # a part of the trajectory            
+                    for next_point in unvisited_points:
+                        max_displacement = self.calculate_max_move(last_point, next_point, lidars)
+                        max_angular_displacements = max_angular_displacements + [max_displacement]
+
+                    # finds which displacement is shortest
+                    # and the corresponding index in the list
+                    min_displacement = min(max_angular_displacements)
+                    index = max_angular_displacements.index(min_displacement)
+
+                    # next trajectory point is added to the trajectory
+                    # and removed from the list of unvisited points
+                    next_trajectory_point = unvisited_points[index]
+                    trajectory.append(next_trajectory_point)
+                    unvisited_points.remove(next_trajectory_point)
+                trajectory = np.asarray(trajectory)
+                return trajectory
+            else: 
+                print('One or more lidar ids don\'t exist in the lidar dictionary')
+                print('Available lidar ids: ' + str(list(self.lidar_dictionary.keys())))
+                trajectory = None
+                return trajectory
         else:
-            start = points[start]
-
-        unvisited_points = points
-        # sets first trajectory point        
-        trajectory = [start]
-        # removes that point from the points list
-        unvisited_points.remove(start)
-        # lidar list
-        lidars = [lidar_pos_1, lidar_pos_2]
-
-        while unvisited_points:
-            last_point = trajectory[-1]
-            max_angular_displacements = []
-
-            # calculates maximum angular move from the last
-            # trajectory point to any other point which is not
-            # a part of the trajectory            
-            for next_point in unvisited_points:
-                max_displacement = cls.calculate_max_move(last_point, next_point, lidars)
-                max_angular_displacements = max_angular_displacements + [max_displacement]
-
-            # finds which displacement is shortest
-            # and the corresponding index in the list
-            min_displacement = min(max_angular_displacements)
-            index = max_angular_displacements.index(min_displacement)
-
-            # next trajectory point is added to the trajectory
-            # and removed from the list of unvisited points
-            next_trajectory_point = unvisited_points[index]
-            trajectory.append(next_trajectory_point)
-            unvisited_points.remove(next_trajectory_point)
-        return np.asarray(trajectory)
+            print('Either point type id does not exist or selected there are no points!')
+            trajectory = None
+            return trajectory
 
     @staticmethod
     def displacement2time(displacement, Amax, Vmax):
@@ -1604,9 +1721,9 @@ CLOSE""",
         return motion_table
 
     @classmethod
-    def calculate_max_move(cls, point1, point2, windscanners):
-        azimuth_max = max(map(lambda x: abs(cls.rollover(point1, point2, x)[0]), windscanners))
-        elevation_max = max(map(lambda x: abs(cls.rollover(point1, point2, x)[1]), windscanners))
+    def calculate_max_move(cls, point1, point2, lidars):
+        azimuth_max = max(map(lambda x: abs(cls.rollover(point1, point2, x)[0]), lidars))
+        elevation_max = max(map(lambda x: abs(cls.rollover(point1, point2, x)[1]), lidars))
 
         return max(azimuth_max,elevation_max)
 
@@ -1775,7 +1892,6 @@ CLOSE""",
             kwargs.update({'lidar_id' : ''})
 
         for lidar in self.lidar_dictionary:
-            print('Updating lidar instance: \'' + lidar + '\'')
             kwargs['lidar_id'] = lidar
             self.update_lidar_instance(**kwargs)
 
@@ -1883,8 +1999,8 @@ CLOSE""",
                     reachable_pts = self.lidar_dictionary[kwargs['lidar_id']]['reachable_points']
 
                     pts_subset = measurement_pts[np.where(reachable_pts > 0)]
-                    pts_subset = pd.DataFrame(pts_subset, columns = ["Easting [deg]", 
-                                                                    "Northing [deg]", 
+                    pts_subset = pd.DataFrame(pts_subset, columns = ["Easting [m]", 
+                                                                    "Northing [m]", 
                                                                     "Height asl [m]"])
 
                     pts_subset.insert(loc=0, column='Point no.', value=np.array(range(1,len(pts_subset) + 1)))                                    
