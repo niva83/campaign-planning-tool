@@ -492,14 +492,14 @@ CLOSE""",
     def plot_layer(self, layer, **kwargs):
         """
         Plots individual GIS layers.
-        
+    
         Parameters
         ----------
         layer : ndarray
             nD array containing data with `float` or `int` type 
             corresponding to a specific GIS layer.
         **kwargs : see below
-
+    
         Keyword Arguments
         -----------------
         title : str
@@ -511,59 +511,53 @@ CLOSE""",
         save_plot : bool
             Indicating whether to save the plot as PDF.
         input_type : str
-
-        
+    
+    
         Returns
         -------
         plot : matplotlib
-        
+    
         Examples
         --------
         >>> layout.plot_GIS_layer(layout.orography_layer, levels = np.array(range(0,510,10)), title = 'Orography', legend_label = 'Height asl [m]' , save_plot = True)
-
+    
         """
         if 'levels' in kwargs:
             levels = kwargs['levels']
         else:
             levels = np.linspace(np.min(layer), np.max(layer), 20)
-
+    
         if len(layer.shape) > 2:
             levels = np.array(range(-1,layer.shape[-1] + 1, 1))
             boundaries = np.array(range(-1,layer.shape[-1] + 1, 1)) + 0.5
             layer = np.sum(layer, axis = 2)
-
+    
         fig, ax = plt.subplots(sharey = True, figsize=(800/self.MY_DPI, 800/self.MY_DPI), dpi=self.MY_DPI)
         cmap = plt.cm.RdBu_r
         cs = plt.pcolormesh(self.x, self.y, layer, cmap=cmap, alpha = 1)
-
-
+    
+    
         cbar = plt.colorbar(cs,orientation='vertical', ticks=levels, boundaries=boundaries,fraction=0.047, pad=0.01)
         if 'legend_label' in kwargs:
             cbar.set_label(kwargs['legend_label'], fontsize = self.FONT_SIZE)
+            
         
-        if self.lidar_pos_1 is not None:
-            ax.scatter(self.lidar_pos_1[0], self.lidar_pos_1[1], marker='o', 
-            facecolors='black', edgecolors='white', s=60, zorder=2000, label = "lidar_1")
-        if self.lidar_pos_2 is not None:
-            ax.scatter(self.lidar_pos_2[0], self.lidar_pos_2[1], marker = 'o', 
-            facecolors='white', edgecolors='black',s=60,zorder=2000, label = "lidar_2")
-
         if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
             measurement_pts = self.measurement_type_selector(kwargs['points_type'])
         else:
             measurement_pts = self.measurement_type_selector(self.measurements_selector)        
-
+    
         if measurement_pts is not None:
             for i, pts in enumerate(measurement_pts):
                 if i == 0:
                     ax.scatter(pts[0], pts[1], marker='o', 
                     facecolors='yellow', edgecolors='black', 
-                    s=60,zorder=1500, label = 'measurements_' + self.measurements_selector)                    
+                    s=80,zorder=1500, label = 'points: ' + self.measurements_selector)                    
                 else:
                     ax.scatter(pts[0], pts[1], marker='o',
                     facecolors='yellow', edgecolors='black', 
-                    s=60,zorder=1500)
-
+                    s=80,zorder=1500)
+    
         if self.reachable_points is not None:
             visible_points = measurement_pts[np.where(self.reachable_points>0)]
             for i in range(0,len(visible_points)):
@@ -573,19 +567,30 @@ CLOSE""",
                 else:
                     ax.scatter(visible_points[i][0], visible_points[i][1], 
                             marker='+', color='black', s=80,zorder=2000)
-
-        if self.lidar_pos_1 is not None or self.lidar_pos_2 is not None or measurement_pts is not None:
-            ax.legend(loc='lower right', fontsize = self.FONT_SIZE)    
-
+    
         plt.xlabel('Easting [m]', fontsize = self.FONT_SIZE)
         plt.ylabel('Northing [m]', fontsize = self.FONT_SIZE)
-
+    
         if 'title' in kwargs:
             plt.title(kwargs['title'], fontsize = self.FONT_SIZE)
-
+    
         ax.set_aspect(1.0)
+    
+        if len(self.lidar_dictionary) > 0:
+            for i, lidar in enumerate(self.lidar_dictionary):
+                lidar_pos = self.lidar_dictionary[lidar]['position']
+                ax.scatter(lidar_pos[0], lidar_pos[1], 
+                            marker='s', 
+                            facecolors=self.COLOR_LIST[i], edgecolors='white',linewidth='2',
+                            s=100, zorder=2000, label = 'lidar: ' + lidar)
+    
+        if self.lidar_pos_1 is not None or self.lidar_pos_2 is not None or measurement_pts is not None:
+            ax.legend(loc='lower right', fontsize = self.FONT_SIZE)    
+    
+    
+        
         plt.show()
-
+    
         if 'title' in kwargs and 'save_plot' in kwargs and kwargs['save_plot']:
                 fig.savefig(self.OUTPUT_DATA_PATH + kwargs['title'] + '.pdf', bbox_inches='tight')
 
@@ -620,8 +625,10 @@ CLOSE""",
         """
         if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
             measurement_pts = self.measurement_type_selector(kwargs['points_type'])
+            pts_str = kwargs['points_type']
         else:
             measurement_pts = self.measurement_type_selector('initial')
+            pts_str = 'initial'
 
 
         if measurement_pts is not None and self.measurement_type_selector('optimized') is not None:
@@ -631,7 +638,7 @@ CLOSE""",
                 if i == 0:
                     ax.scatter(pt[0], pt[1],marker='o', 
                         facecolors='red', edgecolors='black', 
-                        s=10,zorder=1500, label = "original")
+                        s=10,zorder=1500, label = "points: " + pts_str)
                 else:
                     ax.scatter(pt[0], pt[1],marker='o', 
                                         facecolors='red', edgecolors='black', 
@@ -642,11 +649,11 @@ CLOSE""",
                 if i == 0:
                     ax.scatter(pt[0], pt[1],marker='o', 
                         facecolors='white', edgecolors='black', 
-                        s=10,zorder=1500, label = "optimized")
+                        s=10,zorder=1500, label = "points: optimized")
                     ax.add_artist(plt.Circle((pt[0], pt[1]), 
                                             self.REP_RADIUS,                               
                                             facecolor='grey', edgecolor='black', 
-                                            zorder=500,  alpha = 0.5))                 
+                                            zorder=0,  alpha = 0.5))                 
                 else:
                     ax.scatter(pt[0], pt[1],marker='o', 
                         facecolors='white', edgecolors='black', 
@@ -654,7 +661,7 @@ CLOSE""",
                     ax.add_artist(plt.Circle((pt[0], pt[1]), 
                                             self.REP_RADIUS,                               
                                             facecolor='grey', edgecolor='black', 
-                                            zorder=500,  alpha = 0.5))                 
+                                            zorder=0,  alpha = 0.5))                 
     
                     
 
@@ -1712,8 +1719,64 @@ CLOSE""",
             print('UTM zone not specified, cannot add lidar!')
 
     def update_lidar_dictionary(self, **kwargs):
-        # call update_lidar_instance through 'for loop'
-        pass
+        """
+        Updates all instances in lidar dictionary with 
+        measurement points, trajectory and lidar configuration.
+        
+        Parameters
+        ----------
+            **kwargs : see below
+
+        Keyword Arguments
+        -----------------
+        use_reachable_points : boolean, optional
+            Indicates whether to update the lidar instance
+            only considering the reachable points.
+        gis_layer_id : str, optional
+            String indicating which GIS layer to use
+            for the instance update.
+            The argument value can be either 'combined or 'second_lidar'.
+        use_optimized_trajectory: boolean, optional
+            Indicates whether to use the optimized  trajectory for
+            to update the lidar dictionary. 
+        motion_type : str, optional
+            String indicating which type of motion should be used to 
+            generate trajetory between measurement points.
+            The argument takes either 'step-stare' or 'sweep' value.
+
+        Returns
+        -------
+
+        Notes
+        --------
+        If 'only_reachable_points' is not provided, the method
+        will consider all the measurement points during the instance update.
+
+        If 'only_reachable_points' is set to True, the method requires that the
+        'gis_layer_id' points to either 'combined' or 'second_lidar' layer. If
+        'gis_layer_id' is not provided the method will use 'combined' layer.
+
+        If 'use_optimized_trajectory' is set to True, it is required that the 
+        method self.optimize_trajectory was run prior the current method, 
+        otherwise the current method will update the lidar instance considering
+        the order of measurement points as is.
+
+        Currently the method only support step-stare trajectory, so the argument
+        wheter on not set 'motion_type' it will not impact the trajectory calculation.
+
+
+        Examples
+        --------
+
+        """
+
+        if 'lidar_id' not in kwargs:
+            kwargs.update({'lidar_id' : ''})
+
+        for lidar in self.lidar_dictionary:
+            print('Updating lidar instance: \'' + lidar + '\'')
+            kwargs['lidar_id'] = lidar
+            self.update_lidar_instance(**kwargs)
 
     def update_lidar_instance(self, **kwargs):
         """
@@ -1727,7 +1790,7 @@ CLOSE""",
 
         Keyword Arguments
         -----------------
-        lidar_id : str, optional
+        lidar_id : str, required
             String which identifies the lidar instance to be updated.
         use_reachable_points : boolean, optional
             Indicates whether to update the lidar instance
@@ -1749,8 +1812,6 @@ CLOSE""",
 
         Notes
         --------
-        If 'lidar_id' is not provided, the method will update all the instances 
-        in the lidar dictionary. 
         If 'only_reachable_points' is not provided, the method
         will consider all the measurement points during the instance update.
 
@@ -1779,13 +1840,7 @@ CLOSE""",
                 # sets measurement_id
                 self.lidar_dictionary[kwargs['lidar_id']]['measurement_id'] = self.measurements_selector
 
-                measurement_pts = pd.DataFrame(np.round(measurement_pts, self.NO_DIGITS), 
-                                                columns = ["Easting [m]", 
-                                                           "Northing [m]", 
-                                                           "Height asl [m]"])
-                measurement_pts.insert(loc=0, column='Point no.', value=np.array(range(1,len(measurement_pts) + 1)))                
-
-                self.lidar_dictionary[kwargs['lidar_id']]['measurement_points'] = measurement_pts
+                self.lidar_dictionary[kwargs['lidar_id']]['measurement_points'] = self.measurements_dictionary[self.measurements_selector]
 
                 if self.flags['mesh_generated']:
                     lidar_position = self.lidar_dictionary[kwargs['lidar_id']]['position']
@@ -1824,13 +1879,20 @@ CLOSE""",
                       kwargs['use_reachable_points']
                    ):
                     reachable_pts = self.lidar_dictionary[kwargs['lidar_id']]['reachable_points']
-                    self.lidar_dictionary[kwargs['lidar_id']]['trajectory'] = measurement_pts[np.where(reachable_pts > 0)]
+
+                    pts_subset = measurement_pts[np.where(reachable_pts > 0)]
+                    pts_subset = pd.DataFrame(pts_subset, columns = ["Easting [deg]", 
+                                                                    "Northing [deg]", 
+                                                                    "Height asl [m]"])
+
+                    pts_subset.insert(loc=0, column='Point no.', value=np.array(range(1,len(pts_subset) + 1)))                                    
+                    self.lidar_dictionary[kwargs['lidar_id']]['trajectory'] = pts_subset
                 else:
-                    self.lidar_dictionary[kwargs['lidar_id']]['trajectory'] = measurement_pts
+                    self.lidar_dictionary[kwargs['lidar_id']]['trajectory'] = self.lidar_dictionary[kwargs['lidar_id']]['measurement_points']
                 
                 # calculate probing coordinates
                 probing_coords = self.generate_beam_coords(self.lidar_dictionary[kwargs['lidar_id']]['position'],
-                                                           self.lidar_dictionary[kwargs['lidar_id']]['trajectory'],
+                                                           self.lidar_dictionary[kwargs['lidar_id']]['trajectory'].values[:, 1:],
                                                            0)
 
                 probing_coords = pd.DataFrame(np.round(probing_coords, self.NO_DIGITS), 
@@ -1844,7 +1906,7 @@ CLOSE""",
                 # calculate motion config table
                 self.lidar_dictionary[kwargs['lidar_id']]['motion_config'] = self.generate_trajectory(
                     self.lidar_dictionary[kwargs['lidar_id']]['position'], 
-                    self.lidar_dictionary[kwargs['lidar_id']]['trajectory'])
+                    self.lidar_dictionary[kwargs['lidar_id']]['trajectory'].values[:,1:])
                 
                 # calculate range gate table
 
@@ -2397,7 +2459,7 @@ CLOSE""",
         elif layer_type == 'canopy_height':
             return self.canopy_height_layer
         elif layer_type == 'topography':
-            return self.topographic
+            return self.topography_layer
         elif layer_type == 'restriction_zones':
             return self.restriction_zones_layer
         elif layer_type == 'elevation_angle_contrained':
