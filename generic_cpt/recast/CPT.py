@@ -526,14 +526,18 @@ CLOSE""",
             if 'levels' in kwargs:
                 levels = kwargs['levels']
             else:
-                levels = np.linspace(np.min(layer), np.max(layer), 20)
-                boundaries = levels + 0.5
+                min_value = np.min(layer)
+                max_value = np.max(layer)
+                increment = abs(max_value - min_value)/20
+                min_value = min_value
+                
+                levels = np.linspace(min_value, max_value, 20)
+                boundaries = np.linspace(min_value - increment/2, max_value + increment/2, 21)          
         
             if len(layer.shape) > 2:
                 layer = np.sum(layer, axis = 2)
                 levels = np.array(range(-1,int(np.max(layer)) + 1, 1))
                 boundaries = levels + 0.5
-                
         
             fig, ax = plt.subplots(sharey = True, figsize=(800/self.MY_DPI, 800/self.MY_DPI), dpi=self.MY_DPI)
             cmap = plt.cm.RdBu_r
@@ -598,7 +602,6 @@ CLOSE""",
                     fig.savefig(self.OUTPUT_DATA_PATH + kwargs['title'] + '.pdf', bbox_inches='tight')
         else:
             print('Provided layer does not exist!')
-
 
     def plot_optimization(self, **kwargs):
         """
