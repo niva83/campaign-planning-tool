@@ -3,7 +3,7 @@ from itertools import combinations, product
 from pyproj import Proj
 
 from osgeo import gdal, osr, ogr, gdal_array
-import rasterio
+from PIL import Image
 import srtm
 
 import pandas as pd
@@ -2893,11 +2893,9 @@ CLOSE""",
         """         
         if self.flags['landcover_map_clipped']:
             nrows, ncols = self.x.shape
-            with rasterio.open(self.OUTPUT_DATA_PATH + 'landcover_cropped_utm.tif') as src:
-                land_cover_array = src.read()
-                # header_information = src.profile
-            land_cover_array = np.flip(land_cover_array.reshape(nrows, ncols),axis=0)
-            # land_cover_array = np.flip(land_cover_array,axis=0)
+            im = Image.open(self.OUTPUT_DATA_PATH + 'landcover_cropped_utm.tif')
+            land_cover_array = np.array(im)
+            land_cover_array = np.flip(land_cover_array,axis=0)
             self.landcover_layer = land_cover_array
             self.flags['landcover_layer_generated'] = True
         else:
