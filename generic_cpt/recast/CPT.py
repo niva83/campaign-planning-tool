@@ -3,7 +3,6 @@ from itertools import combinations, product
 from pyproj import Proj
 
 from osgeo import gdal, osr, ogr, gdal_array
-from PIL import Image
 import srtm
 
 import pandas as pd
@@ -2896,9 +2895,9 @@ CLOSE""",
         """         
         if self.flags['landcover_map_clipped']:
             nrows, ncols = self.x.shape
-            im = Image.open(self.OUTPUT_DATA_PATH + 'landcover_cropped_utm.tif')
-            land_cover_array = np.array(im)
-            land_cover_array = np.flip(land_cover_array,axis=0)
+            im = gdal.Open(self.OUTPUT_DATA_PATH + 'landcover_cropped_utm.tif')
+            band = im.GetRasterBand(1)
+            land_cover_array = np.flip(band.ReadAsArray(),axis=0)
             self.landcover_layer = land_cover_array
             self.flags['landcover_layer_generated'] = True
         else:
