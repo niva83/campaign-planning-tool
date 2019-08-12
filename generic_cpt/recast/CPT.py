@@ -522,78 +522,82 @@ CLOSE""",
         >>> layout.plot_GIS_layer(layout.orography_layer, levels = np.array(range(0,510,10)), title = 'Orography', legend_label = 'Height asl [m]' , save_plot = True)
     
         """
-        if 'levels' in kwargs:
-            levels = kwargs['levels']
-        else:
-            levels = np.linspace(np.min(layer), np.max(layer), 20)
-            boundaries = levels + 0.5
-    
-        if len(layer.shape) > 2:
-            levels = np.array(range(-1,layer.shape[-1] + 1, 1))
-            boundaries = levels + 0.5
-            layer = np.sum(layer, axis = 2)
-    
-        fig, ax = plt.subplots(sharey = True, figsize=(800/self.MY_DPI, 800/self.MY_DPI), dpi=self.MY_DPI)
-        cmap = plt.cm.RdBu_r
-        cs = plt.pcolormesh(self.x, self.y, layer, cmap=cmap, alpha = 1)
-    
-    
-        cbar = plt.colorbar(cs,orientation='vertical', ticks=levels, boundaries=boundaries,fraction=0.047, pad=0.01)
-        if 'legend_label' in kwargs:
-            cbar.set_label(kwargs['legend_label'], fontsize = self.FONT_SIZE)
+        if layer is not None:
+            if 'levels' in kwargs:
+                levels = kwargs['levels']
+            else:
+                levels = np.linspace(np.min(layer), np.max(layer), 20)
+                boundaries = levels + 0.5
+        
+            if len(layer.shape) > 2:
+                layer = np.sum(layer, axis = 2)
+                levels = np.array(range(-1,int(np.max(layer)) + 1, 1))
+                boundaries = levels + 0.5
+                
+        
+            fig, ax = plt.subplots(sharey = True, figsize=(800/self.MY_DPI, 800/self.MY_DPI), dpi=self.MY_DPI)
+            cmap = plt.cm.RdBu_r
+            cs = plt.pcolormesh(self.x, self.y, layer, cmap=cmap, alpha = 1)
+        
+        
+            cbar = plt.colorbar(cs,orientation='vertical', ticks=levels, boundaries=boundaries,fraction=0.047, pad=0.01)
+            if 'legend_label' in kwargs:
+                cbar.set_label(kwargs['legend_label'], fontsize = self.FONT_SIZE)
+                
             
+            if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
+                measurement_pts = self.measurement_type_selector(kwargs['points_type'])
+            else:
+                measurement_pts = self.measurement_type_selector(self.measurements_selector)        
         
-        if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
-            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
+            if measurement_pts is not None:
+                for i, pts in enumerate(measurement_pts):
+                    if i == 0:
+                        ax.scatter(pts[0], pts[1], marker='o', 
+                        facecolors='yellow', edgecolors='black', 
+                        s=80,zorder=1500, label = 'points: ' + self.measurements_selector)                    
+                    else:
+                        ax.scatter(pts[0], pts[1], marker='o',
+                        facecolors='yellow', edgecolors='black', 
+                        s=80,zorder=1500)
+        
+            if self.reachable_points is not None:
+                visible_points = measurement_pts[np.where(self.reachable_points>0)]
+                for i in range(0,len(visible_points)):
+                    if i == 0:
+                        ax.scatter(visible_points[i][0], visible_points[i][1], 
+                                marker='+', color='black', s=80,zorder=2000, label = "reachable")
+                    else:
+                        ax.scatter(visible_points[i][0], visible_points[i][1], 
+                                marker='+', color='black', s=80,zorder=2000)
+        
+            plt.xlabel('Easting [m]', fontsize = self.FONT_SIZE)
+            plt.ylabel('Northing [m]', fontsize = self.FONT_SIZE)
+        
+            if 'title' in kwargs:
+                plt.title(kwargs['title'], fontsize = self.FONT_SIZE)
+        
+            ax.set_aspect(1.0)
+        
+            if len(self.lidar_dictionary) > 0:
+                for i, lidar in enumerate(self.lidar_dictionary):
+                    lidar_pos = self.lidar_dictionary[lidar]['position']
+                    ax.scatter(lidar_pos[0], lidar_pos[1], 
+                                marker='s', 
+                                facecolors=self.COLOR_LIST[i], edgecolors='white',linewidth='2',
+                                s=100, zorder=2000, label = 'lidar: ' + lidar)
+        
+            if self.lidar_pos_1 is not None or self.lidar_pos_2 is not None or measurement_pts is not None:
+                ax.legend(loc='lower right', fontsize = self.FONT_SIZE)    
+        
+        
+            
+            plt.show()
+        
+            if 'title' in kwargs and 'save_plot' in kwargs and kwargs['save_plot']:
+                    fig.savefig(self.OUTPUT_DATA_PATH + kwargs['title'] + '.pdf', bbox_inches='tight')
         else:
-            measurement_pts = self.measurement_type_selector(self.measurements_selector)        
-    
-        if measurement_pts is not None:
-            for i, pts in enumerate(measurement_pts):
-                if i == 0:
-                    ax.scatter(pts[0], pts[1], marker='o', 
-                    facecolors='yellow', edgecolors='black', 
-                    s=80,zorder=1500, label = 'points: ' + self.measurements_selector)                    
-                else:
-                    ax.scatter(pts[0], pts[1], marker='o',
-                    facecolors='yellow', edgecolors='black', 
-                    s=80,zorder=1500)
-    
-        if self.reachable_points is not None:
-            visible_points = measurement_pts[np.where(self.reachable_points>0)]
-            for i in range(0,len(visible_points)):
-                if i == 0:
-                    ax.scatter(visible_points[i][0], visible_points[i][1], 
-                            marker='+', color='black', s=80,zorder=2000, label = "reachable")
-                else:
-                    ax.scatter(visible_points[i][0], visible_points[i][1], 
-                            marker='+', color='black', s=80,zorder=2000)
-    
-        plt.xlabel('Easting [m]', fontsize = self.FONT_SIZE)
-        plt.ylabel('Northing [m]', fontsize = self.FONT_SIZE)
-    
-        if 'title' in kwargs:
-            plt.title(kwargs['title'], fontsize = self.FONT_SIZE)
-    
-        ax.set_aspect(1.0)
-    
-        if len(self.lidar_dictionary) > 0:
-            for i, lidar in enumerate(self.lidar_dictionary):
-                lidar_pos = self.lidar_dictionary[lidar]['position']
-                ax.scatter(lidar_pos[0], lidar_pos[1], 
-                            marker='s', 
-                            facecolors=self.COLOR_LIST[i], edgecolors='white',linewidth='2',
-                            s=100, zorder=2000, label = 'lidar: ' + lidar)
-    
-        if self.lidar_pos_1 is not None or self.lidar_pos_2 is not None or measurement_pts is not None:
-            ax.legend(loc='lower right', fontsize = self.FONT_SIZE)    
-    
-    
-        
-        plt.show()
-    
-        if 'title' in kwargs and 'save_plot' in kwargs and kwargs['save_plot']:
-                fig.savefig(self.OUTPUT_DATA_PATH + kwargs['title'] + '.pdf', bbox_inches='tight')
+            print('Provided layer does not exist!')
 
 
     def plot_optimization(self, **kwargs):
@@ -960,7 +964,7 @@ CLOSE""",
         else:
             print('UTM zone not specified, cannot add measurement points!')
 
-    def find_common_reachable_points(self, **kwargs):
+    def update_reachable_points(self, **kwargs):
 
         
         if ('points_type' in kwargs and 
@@ -994,6 +998,7 @@ CLOSE""",
 
                 if flag:
                     if kwargs['points_type'] == measurement_id[0]:
+                        print('Finding reachable points which are common for lidar instances:' + str(kwargs['lidar_ids']))
                         measurement_pts = self.measurement_type_selector(kwargs['points_type'])
                         self.measurement_selector = 'reachable'
                         all_ones = np.full(len(measurement_pts),1)
@@ -1001,13 +1006,18 @@ CLOSE""",
                             reachable_pts = self.lidar_dictionary[lidar]['reachable_points']
                             all_ones = all_ones * reachable_pts            
                         pts_ind = np.where(all_ones == 1)
+                        print('Updating self.measurements_dictionary instance \'reachable\' with common reachable points')
                         self.add_measurement_instances(points = measurement_pts[pts_ind], 
                                                        points_type = 'reachable')
+                        print('Optimizing trajectory through the common reachable points for lidar instances:' + str(kwargs['lidar_ids']))
                         self.optimize_trajectory(points_type = 'reachable', 
                                                  lidar_ids = kwargs['lidar_ids'])
-
+                                              
+                        print('Lidar instances:' + str(kwargs['lidar_ids']) + ' will be updated with the common reachable points and optimized trajectory')
                         for lidar in kwargs['lidar_ids']:
-                            self.update_lidar_instance(lidar_id = lidar, use_optimized_trajectory = True)
+                            self.update_lidar_instance(lidar_id = lidar, use_optimized_trajectory = True, points_type = 'reachable')
+
+                        self.sync_trajectory(**kwargs)                            
                         
                         # should run to sync timing between windscanners!
 
@@ -1019,7 +1029,31 @@ CLOSE""",
                 print('Available lidar ids: ' + str(list(self.lidar_dictionary.keys())))
         else:
             print('Either point type id does not exist or for the corresponding measurement dictionary instance there are no points!')
-          
+
+    def sync_trajectory(self, **kwargs):
+        if ('lidar_ids' in kwargs and set(kwargs['lidar_ids']).issubset(self.lidar_dictionary)):
+            print('Synchronizing trajectories for lidar instances:' + str(kwargs['lidar_ids']))                                                 
+            sync_time = []
+            try:
+                for lidar in kwargs['lidar_ids']:
+                    motion_table = self.lidar_dictionary[lidar]['motion_config']
+                    timing = motion_table.loc[:, 'Move time [ms]'].values
+                    sync_time = sync_time + [timing]
+
+                sync_time = np.max(np.asarray(sync_time).T, axis = 1)
+                
+                for lidar in kwargs['lidar_ids']:
+                    self.lidar_dictionary[lidar]['motion_config']['Move time [ms]'] = sync_time
+            except:
+                print('Number of trajectory points for lidar instances don\'t match!')
+                print('Aborting the operation!')
+
+        else: 
+            print('One or more lidar ids don\'t exist in the lidar dictionary')
+            print('Available lidar ids: ' + str(list(self.lidar_dictionary.keys())))
+            print('Aborting the operation!')
+                
+            
     def generate_disc_matrix(self, **kwargs):
         """
         Generates mid points between any combination of two measurement points 
@@ -1557,131 +1591,138 @@ CLOSE""",
 
         return time
 
-    def export_measurement_scenario(self):
-        if self.flags['motion_table_generated'] == False:
-            self.generate_trajectory()
+    def export_measurement_scenario(self, **kwargs):
+        if ('lidar_id' in kwargs and kwargs['lidar_id'] in self.lidar_dictionary):
+            self.export_motion_config(**kwargs)
+            self.export_range_gate(**kwargs)
+        else:
+            print('Lidar instance \'' + kwargs['lidar_id'] + '\' does not exist in the lidar dictionary!')
+            print('Aborting the operation!')
 
-        if self.flags['motion_table_generated'] and len(self.OUTPUT_DATA_PATH):
-            export_flag = True
-            motion_program_1 = self.__pmc_template['skeleton']
-            motion_program_2 = self.__pmc_template['skeleton']
-            
-            in_loop_str_1 = ""
-            in_loop_str_2 = ""
-            
-            for i,row in enumerate(self.motion_table.values):
-                new_pts_1 = self.__pmc_template['motion'].replace("insertMotionTime", str(row[-1]))
-                new_pts_2 = self.__pmc_template['motion'].replace("insertMotionTime", str(row[-1]))
-                
-                new_pts_1 = new_pts_1.replace("insertHalfMotionTime", str(row[-1]/2))
-                new_pts_2 = new_pts_2.replace("insertHalfMotionTime", str(row[-1]/2))
-                
-                new_pts_1 = new_pts_1.replace("insertAzimuth", str(row[1]))    
-                new_pts_2 = new_pts_2.replace("insertAzimuth", str(row[4]))        
-            
-                new_pts_1 = new_pts_1.replace("insertElevation", str(row[2]))    
-                new_pts_2 = new_pts_2.replace("insertElevation", str(row[5]))
-                
-                in_loop_str_1 = in_loop_str_1 + new_pts_1
-                in_loop_str_2 = in_loop_str_2 + new_pts_2    
-            
-                if i == 0:
-                    motion_program_1 = motion_program_1.replace("1st_azimuth", str(row[1]))
-                    motion_program_1 = motion_program_1.replace("1st_elevation", str(row[2]))
-            
-                    motion_program_2 = motion_program_2.replace("1st_azimuth", str(row[4]))
-                    motion_program_2 = motion_program_2.replace("1st_elevation", str(row[5]))
-            
-            
-            
-            motion_program_1 = motion_program_1.replace("insertMeasurements", in_loop_str_1)
-            motion_program_2 = motion_program_2.replace("insertMeasurements", in_loop_str_2)
-            
-            if self.ACCUMULATION_TIME % 100 == 0 and (self.PULSE_LENGTH in [100, 200, 400]):
-            
-                if self.PULSE_LENGTH == 400:
-                    PRF = 10000 # in kHz
-                    lidar_mode = 'Long'
-                elif self.PULSE_LENGTH == 200:
-                    PRF = 20000
-                    lidar_mode = 'Middle'
-                elif self.PULSE_LENGTH == 100:
-                    PRF = 40000
-                    lidar_mode = 'Short'
+    def export_motion_config(self, **kwargs):
+        # needs to check if output data folder exists!!!!
+        if ('lidar_id' in kwargs and kwargs['lidar_id'] in self.lidar_dictionary):
+            if self.lidar_dictionary[kwargs['lidar_id']]['motion_config'] is not None:
+                motion_config = self.lidar_dictionary[kwargs['lidar_id']]['motion_config']
+                export_flag = True
+                motion_program = self.__pmc_template['skeleton']
+                in_loop_str = ""
 
-            
-                no_pulses = PRF * self.ACCUMULATION_TIME / 1000
-
-                motion_program_1 = motion_program_1.replace("insertAccTime", str(self.ACCUMULATION_TIME))
-                motion_program_2 = motion_program_2.replace("insertAccTime", str(self.ACCUMULATION_TIME))
-
-                motion_program_1 = motion_program_1.replace("insertTriggers", str(no_pulses))
-                motion_program_2 = motion_program_2.replace("insertTriggers", str(no_pulses))
-
-                motion_program_1 = motion_program_1.replace("insertPRF", str(PRF))
-                motion_program_2 = motion_program_2.replace("insertPRF", str(PRF))
-
-                self.motion_program_1 = motion_program_1
-                self.motion_program_2 = motion_program_2
-
-                file_1 = open(self.OUTPUT_DATA_PATH + "lidar_1_motion.PMC","w+")
-                file_2 = open(self.OUTPUT_DATA_PATH + "lidar_2_motion.PMC","w+")
-
-                file_1.write(motion_program_1)
-                file_2.write(motion_program_2)
-
-                file_1.close()
-                file_2.close()
-
-
-
-                range_1 = self.generate_beam_coords(self.lidar_pos_1, self.trajectory, opt = 0)[:, 2].astype(int)
-                range_2 = self.generate_beam_coords(self.lidar_pos_2, self.trajectory, opt = 0)[:, 2].astype(int)
-
-                range_1.sort()
-                range_2.sort()
-
-                range_1 = range_1.tolist()
-                range_2 = range_2.tolist()
-
-
-                no_used_ranges = len(range_1)
-                no_remain_ranges = self.MAX_NO_OF_RANGES - no_used_ranges
-
-                prequal_ranges_1 = np.linspace(self.MIN_RANGE, min(range_1) , int(no_remain_ranges/2)).astype(int).tolist()
-                sequal_ranges_1 = np.linspace(max(range_1) + self.MIN_RANGE, self.MAX_RANGE, int(no_remain_ranges/2)).astype(int).tolist()
-                range_1 = prequal_ranges_1 + range_1 + sequal_ranges_1
-
-                prequal_ranges_2 = np.linspace(self.MIN_RANGE, min(range_2), int(no_remain_ranges/2)).astype(int).tolist()
-                sequal_ranges_2 = np.linspace(max(range_2) + self.MIN_RANGE, self.MAX_RANGE, int(no_remain_ranges/2)).astype(int).tolist()
-                range_2 = prequal_ranges_2 + range_2 + sequal_ranges_2
-
-                self.range_gate_file_1 =  self.generate_range_gate_file(range_1, lidar_mode)
-                self.range_gate_file_2 =  self.generate_range_gate_file(range_1, lidar_mode)
-
-                file_1 = open(self.OUTPUT_DATA_PATH + "lidar_1_range_gates.txt","w+")
-                file_2 = open(self.OUTPUT_DATA_PATH + "lidar_2_range_gates.txt","w+")
-
-                file_1.write(self.range_gate_file_1)
-                file_2.write(self.range_gate_file_2)
-
-                file_1.close()
-                file_2.close()
+                for i,row in enumerate(motion_config.values):
+                    new_pt = self.__pmc_template['motion'].replace("insertMotionTime", str(row[-1]))                    
+                    new_pt = new_pt.replace("insertHalfMotionTime", str(row[-1]/2))
+                    new_pt = new_pt.replace("insertAzimuth", str(row[1]))
+                    new_pt = new_pt.replace("insertElevation", str(row[2])) 
                     
-    def generate_range_gate_file(self, range_gates, lidar_mode):
-        range_gate_file = self.__rg_template
+                    in_loop_str = in_loop_str + new_pt
+                
+                    if i == 0:
+                        motion_program = motion_program.replace("1st_azimuth", str(row[1]))
+                        motion_program = motion_program.replace("1st_elevation", str(row[2]))
+    
+                motion_program = motion_program.replace("insertMeasurements", in_loop_str)
+                if self.ACCUMULATION_TIME % 100 == 0:
+                    if (self.PULSE_LENGTH in [100, 200, 400]):
+            
+                        if self.PULSE_LENGTH == 400:
+                            PRF = 10000 # in kHz
+                            lidar_mode = 'Long'
+                        elif self.PULSE_LENGTH == 200:
+                            PRF = 20000
+                            lidar_mode = 'Middle'
+                        elif self.PULSE_LENGTH == 100:
+                            PRF = 40000
+                            lidar_mode = 'Short'
+        
+                        no_pulses = PRF * self.ACCUMULATION_TIME / 1000
+                        motion_program = motion_program.replace("insertAccTime", str(self.ACCUMULATION_TIME))
+                        motion_program = motion_program.replace("insertTriggers", str(no_pulses))
+                        motion_program = motion_program.replace("insertPRF", str(PRF))
+
+
+                        output_file = open(self.OUTPUT_DATA_PATH + kwargs['lidar_id'] + "_motion.PMC","w+")
+                        output_file.write(motion_program)
+                        output_file.close()
+                    else:
+                        print('Not allowed pulse lenght!')
+                        print('Aborting the operation!')
+                else:
+                    print('Not allowed accomulation time! It must be a multiple of 100 ms')
+                    print('Aborting the operation!')
+
+            else:
+                print('something')
+                print('Aborting the operation!')
+        else:
+            print('something')
+            print('Aborting the operation!')
+
+    def export_range_gate(self, **kwargs):
+        if ('lidar_id' in kwargs and kwargs['lidar_id'] in self.lidar_dictionary):
+            if self.lidar_dictionary[kwargs['lidar_id']]['motion_config'] is not None:
+                if len(self.lidar_dictionary[kwargs['lidar_id']]['motion_config']) == len(self.lidar_dictionary[kwargs['lidar_id']]['probing_coordinates']):
+                    if self.ACCUMULATION_TIME % 100 == 0: 
+                        if (self.PULSE_LENGTH in [100, 200, 400]):
+                            if self.PULSE_LENGTH == 400:
+                                PRF = 10000 # in kHz
+                                lidar_mode = 'Long'
+                            elif self.PULSE_LENGTH == 200:
+                                PRF = 20000
+                                lidar_mode = 'Middle'
+                            elif self.PULSE_LENGTH == 100:
+                                PRF = 40000
+                                lidar_mode = 'Short'
+                            
+                            # selecting range gates from the probing coordinates key 
+                            # which are stored in last column and converting them to int
+                            range_gates = self.lidar_dictionary[kwargs['lidar_id']]['probing_coordinates'].values[:,3].astype(int)
+
+                            range_gates.sort()
+                            range_gates = range_gates.tolist()
+                            no_los = len(range_gates)
+
+                            no_used_ranges = len(range_gates)
+                            no_remain_ranges = self.MAX_NO_OF_RANGES - no_used_ranges
+                            prequal_range_gates = np.linspace(self.MIN_RANGE, min(range_gates) , int(no_remain_ranges/2)).astype(int).tolist()
+                            sequal_range_gates = np.linspace(max(range_gates) + self.MIN_RANGE, self.MAX_RANGE, int(no_remain_ranges/2)).astype(int).tolist()
+                            range_gates = prequal_range_gates + range_gates + sequal_range_gates
+
+                            range_gate_file =  self.generate_range_gate_file(self.__rg_template, no_los, range_gates, lidar_mode, self.FFT_SIZE, self.ACCUMULATION_TIME)
+
+                            output_file = open(self.OUTPUT_DATA_PATH + kwargs['lidar_id'] + "_range_gates.txt","w+")
+                            output_file.write(range_gate_file)
+                            output_file.close()
+                        else:
+                            print('Not allowed pulse lenght!')
+                            print('Aborting the operation!')
+                    else:
+                        print('Not allowed accumulation time! It must be a multiple of 100 ms')
+                        print('Aborting the operation!')
+                else:
+                    print('Probing coordinates and motion config are misaligned !')
+                    print('Aborting the operation!')
+            else:
+                print('something')
+                print('Aborting the operation!')
+        else:
+            print('something')
+            print('Aborting the operation!')
+
+    @staticmethod
+    def generate_range_gate_file(template_str, no_los, range_gates, lidar_mode, fft_size, accumulation_time):
+        range_gate_file = template_str
         range_gate_file = range_gate_file.replace("insertMODE", str(lidar_mode))
         range_gate_file = range_gate_file.replace("insertMaxRange", str(max(range_gates)))
-        range_gate_file = range_gate_file.replace("insertFFTSize", str(self.FFT_SIZE))
+        range_gate_file = range_gate_file.replace("insertFFTSize", str(fft_size))
 
         rows = ""
         range_gate_row = "\t".join(list(map(str, range_gates)))
 
-        for i in range(0, len(self.trajectory)):
-            row_temp = str(i+1) + '\t' + str(self.ACCUMULATION_TIME) + '\t'
+        for i in range(0, no_los):
+            row_temp = str(i+1) + '\t' + str(accumulation_time) + '\t'
             row_temp = row_temp + range_gate_row
 
-            if i < len(self.trajectory) - 1:
+            if i < no_los - 1:
                 row_temp = row_temp + '\n'
             rows = rows + row_temp
 
@@ -1825,8 +1866,8 @@ CLOSE""",
                                                       'data_config': None}
                                      }
                         self.lidar_dictionary.update(lidar_dict)
-                        print('Lidar \'' + kwargs['lidar_id'] + '\' added to the lidar dictionary!')
-                        print('Lidar dictionary contains ' + str(len(self.lidar_dictionary)) + ' lidar instance(s).')
+                        print('Lidar \'' + kwargs['lidar_id'] + '\' added to the lidar dictionary, which now contains ' + str(len(self.lidar_dictionary)) + ' lidar instance(s).')
+                        # print('Lidar dictionary contains ' + str(len(self.lidar_dictionary)) + ' lidar instance(s).')
                     else:
                         print('Incorrect position information, cannot add lidar!')
                 else:
@@ -1888,12 +1929,22 @@ CLOSE""",
 
         """
 
-        if 'lidar_id' not in kwargs:
+        if ('points_type' in kwargs and 
+            kwargs['points_type'] in self.POINTS_TYPE and 
+            kwargs['points_type'] in self.measurements_dictionary
+            ):
+            kwargs.update({'points_type' : kwargs['points_type']})
             kwargs.update({'lidar_id' : ''})
 
-        for lidar in self.lidar_dictionary:
-            kwargs['lidar_id'] = lidar
-            self.update_lidar_instance(**kwargs)
+
+            for lidar in self.lidar_dictionary:
+                kwargs['lidar_id'] = lidar
+                self.update_lidar_instance(**kwargs)
+
+        else:
+            print('Either the points_id was not provided or no points exists for the given points_id!')
+            print('Halting the current operation!')
+
 
     def update_lidar_instance(self, **kwargs):
         """
@@ -1909,6 +1960,8 @@ CLOSE""",
         -----------------
         lidar_id : str, required
             String which identifies the lidar instance to be updated.
+        points_type : str, optional
+            Indicates which points to be used to update the lidar instace.
         use_reachable_points : boolean, optional
             Indicates whether to update the lidar instance
             only considering the reachable points.
@@ -1949,90 +2002,102 @@ CLOSE""",
         --------
 
         """
+        if ('points_type' in kwargs and 
+            kwargs['points_type'] in self.POINTS_TYPE and 
+            kwargs['points_type'] in self.measurements_dictionary
+            ):
+            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
+            self.measurements_selector = kwargs['points_type']
 
-        measurement_pts = self.measurement_type_selector(self.measurements_selector)
-        if len(measurement_pts) > 0:
-            if 'lidar_id' in kwargs and kwargs['lidar_id'] in self.lidar_dictionary:
-                # selects the according lidar
-                # sets measurement_id
-                print('Updating lidar instance: \'' + kwargs['lidar_id'] + '\'')
-                self.lidar_dictionary[kwargs['lidar_id']]['measurement_id'] = self.measurements_selector
-
-                self.lidar_dictionary[kwargs['lidar_id']]['measurement_points'] = self.measurements_dictionary[self.measurements_selector]
-
-                if self.flags['mesh_generated']:
-                    lidar_position = self.lidar_dictionary[kwargs['lidar_id']]['position']
-                    self.lidar_dictionary[kwargs['lidar_id']]['lidar_inside_mesh'] = self.inside_mesh(self.mesh_corners_utm, lidar_position)
-
+            if len(measurement_pts) > 0:
+                if 'lidar_id' in kwargs and kwargs['lidar_id'] in self.lidar_dictionary:
+                    # selects the according lidar
+                    # sets measurement_id
+                    print('Updating lidar instance \'' + kwargs['lidar_id'] + '\' considering measurement type \'' + self.measurements_selector + '\'.') 
+                    self.lidar_dictionary[kwargs['lidar_id']]['measurement_id'] = self.measurements_selector
+    
+                    self.lidar_dictionary[kwargs['lidar_id']]['measurement_points'] = self.measurements_dictionary[self.measurements_selector]
+    
+                    if self.flags['mesh_generated']:
+                        lidar_position = self.lidar_dictionary[kwargs['lidar_id']]['position']
+                        self.lidar_dictionary[kwargs['lidar_id']]['lidar_inside_mesh'] = self.inside_mesh(self.mesh_corners_utm, lidar_position)
+    
+                        
+                        if  (
+                                self.lidar_dictionary[kwargs['lidar_id']]['lidar_inside_mesh'] and
+                                'gis_layer_id' in kwargs and
+                                (kwargs['gis_layer_id'] == 'combined' or 
+                                kwargs['gis_layer_id'] == 'second_lidar_placement') and
+                                self.layer_selector(kwargs['gis_layer_id']) is not None
+                            ):
+                            layer = self.layer_selector(kwargs['gis_layer_id'])
+                            i, j = self.find_mesh_point_index(self.lidar_dictionary[kwargs['lidar_id']]['position'])
+                            self.lidar_dictionary[kwargs['lidar_id']]['reachable_points'] = layer[i,j,:]                        
+                        elif (
+                            self.lidar_dictionary[kwargs['lidar_id']]['lidar_inside_mesh'] and 
+                            self.layer_selector('combined') is not None
+                             ):
+                            layer = self.layer_selector('combined')
+                            i, j = self.find_mesh_point_index(self.lidar_dictionary[kwargs['lidar_id']]['position'])
+                            self.lidar_dictionary[kwargs['lidar_id']]['reachable_points'] = self.combined_layer[i,j,:]                     
+                        else:
+                            self.lidar_dictionary[kwargs['lidar_id']]['reachable_points'] = np.full(len(measurement_pts),0.0)                    
                     
                     if  (
-                            self.lidar_dictionary[kwargs['lidar_id']]['lidar_inside_mesh'] and
-                            'gis_layer_id' in kwargs and
-                            (kwargs['gis_layer_id'] == 'combined' or 
-                            kwargs['gis_layer_id'] == 'second_lidar_placement') and
-                            self.layer_selector(kwargs['gis_layer_id']) is not None
+                          'use_optimized_trajectory' in kwargs and 
+                          kwargs['use_optimized_trajectory'] and
+                          self.trajectory is not None
                         ):
-                        layer = self.layer_selector(kwargs['gis_layer_id'])
-                        i, j = self.find_mesh_point_index(self.lidar_dictionary[kwargs['lidar_id']]['position'])
-                        self.lidar_dictionary[kwargs['lidar_id']]['reachable_points'] = layer[i,j,:]                        
+                        self.lidar_dictionary[kwargs['lidar_id']]['trajectory'] = self.trajectory
+    
                     elif (
-                        self.lidar_dictionary[kwargs['lidar_id']]['lidar_inside_mesh'] and 
-                        self.layer_selector('combined') is not None
-                         ):
-                        layer = self.layer_selector('combined')
-                        i, j = self.find_mesh_point_index(self.lidar_dictionary[kwargs['lidar_id']]['position'])
-                        self.lidar_dictionary[kwargs['lidar_id']]['reachable_points'] = self.combined_layer[i,j,:]                     
+                          'use_reachable_points' in kwargs and 
+                          kwargs['use_reachable_points']
+                       ):
+                        reachable_pts = self.lidar_dictionary[kwargs['lidar_id']]['reachable_points']
+    
+                        pts_subset = measurement_pts[np.where(reachable_pts > 0)]
+                        pts_subset = pd.DataFrame(pts_subset, columns = ["Easting [m]", 
+                                                                        "Northing [m]", 
+                                                                        "Height asl [m]"])
+    
+                        pts_subset.insert(loc=0, column='Point no.', value=np.array(range(1,len(pts_subset) + 1)))                                    
+                        self.lidar_dictionary[kwargs['lidar_id']]['trajectory'] = pts_subset
                     else:
-                        self.lidar_dictionary[kwargs['lidar_id']]['reachable_points'] = np.full(len(measurement_pts),0.0)                    
-                
-                if  (
-                      'use_optimized_trajectory' in kwargs and 
-                      kwargs['use_optimized_trajectory'] and
-                      self.trajectory is not None
-                    ):
-                    self.lidar_dictionary[kwargs['lidar_id']]['trajectory'] = self.trajectory
-
-                elif (
-                      'use_reachable_points' in kwargs and 
-                      kwargs['use_reachable_points']
-                   ):
-                    reachable_pts = self.lidar_dictionary[kwargs['lidar_id']]['reachable_points']
-
-                    pts_subset = measurement_pts[np.where(reachable_pts > 0)]
-                    pts_subset = pd.DataFrame(pts_subset, columns = ["Easting [m]", 
-                                                                    "Northing [m]", 
-                                                                    "Height asl [m]"])
-
-                    pts_subset.insert(loc=0, column='Point no.', value=np.array(range(1,len(pts_subset) + 1)))                                    
-                    self.lidar_dictionary[kwargs['lidar_id']]['trajectory'] = pts_subset
+                        self.lidar_dictionary[kwargs['lidar_id']]['trajectory'] = self.lidar_dictionary[kwargs['lidar_id']]['measurement_points']
+                    
+                    # calculate probing coordinates
+                    probing_coords = self.generate_beam_coords(self.lidar_dictionary[kwargs['lidar_id']]['position'],
+                                                               self.lidar_dictionary[kwargs['lidar_id']]['trajectory'].values[:, 1:],
+                                                               0)
+    
+                    probing_coords = pd.DataFrame(np.round(probing_coords, self.NO_DIGITS), 
+                                                    columns = ["Azimuth [deg]", 
+                                                               "Elevation [deg]", 
+                                                               "Range [m]"])
+                    probing_coords.insert(loc=0, column='Point no.', value=np.array(range(1,len(probing_coords) + 1)))
+                    
+                    self.lidar_dictionary[kwargs['lidar_id']]['probing_coordinates'] = probing_coords
+    
+                    # calculate motion config table
+                    self.lidar_dictionary[kwargs['lidar_id']]['motion_config'] = self.generate_trajectory(
+                        self.lidar_dictionary[kwargs['lidar_id']]['position'], 
+                        self.lidar_dictionary[kwargs['lidar_id']]['trajectory'].values[:,1:])
+                    
+                    # calculate range gate table
+                    self.lidar_dictionary[kwargs['lidar_id']]['emission_config'] = {'pulse_length': self.PULSE_LENGTH}
+                    self.lidar_dictionary[kwargs['lidar_id']]['acqusition_config'] = {'fft_size': self.FFT_SIZE}                    
                 else:
-                    self.lidar_dictionary[kwargs['lidar_id']]['trajectory'] = self.lidar_dictionary[kwargs['lidar_id']]['measurement_points']
-                
-                # calculate probing coordinates
-                probing_coords = self.generate_beam_coords(self.lidar_dictionary[kwargs['lidar_id']]['position'],
-                                                           self.lidar_dictionary[kwargs['lidar_id']]['trajectory'].values[:, 1:],
-                                                           0)
-
-                probing_coords = pd.DataFrame(np.round(probing_coords, self.NO_DIGITS), 
-                                                columns = ["Azimuth [deg]", 
-                                                           "Elevation [deg]", 
-                                                           "Range [m]"])
-                probing_coords.insert(loc=0, column='Point no.', value=np.array(range(1,len(probing_coords) + 1)))
-                
-                self.lidar_dictionary[kwargs['lidar_id']]['probing_coordinates'] = probing_coords
-
-                # calculate motion config table
-                self.lidar_dictionary[kwargs['lidar_id']]['motion_config'] = self.generate_trajectory(
-                    self.lidar_dictionary[kwargs['lidar_id']]['position'], 
-                    self.lidar_dictionary[kwargs['lidar_id']]['trajectory'].values[:,1:])
-                
-                # calculate range gate table
-                self.lidar_dictionary[kwargs['lidar_id']]['emission_config'] = {'pulse_length': self.PULSE_LENGTH}
-                self.lidar_dictionary[kwargs['lidar_id']]['acqusition_config'] = {'fft_size': self.FFT_SIZE}                    
+                    print('The provided lidar_id does not match any lidar instance in lidar dictionary!')
             else:
-                print('The provided lidar_id does not match any lidar instance in lidar dictionary!')
+                print('There are no measurement points -> halting lidar instance/dictionary update!')
+
         else:
-            print('There are no measurement points -> halting lidar instance/dictionary update!')
+            print('Either the points_id was not provided or no points exists for the given points_id!')
+            print('Halting the current operation!')
+
+
+
     
     @staticmethod
     def inside_mesh(mesh_corners, point):
@@ -2164,25 +2229,20 @@ CLOSE""",
 
 
     def generate_second_lidar_layer(self, **kwargs):
+        self.measurements_selector = self.combined_layer_pts_type
         measurement_pts = self.measurement_type_selector(self.measurements_selector)
         if len(measurement_pts) > 0:
             if 'lidar_id' in kwargs:
                 if kwargs['lidar_id'] in self.lidar_dictionary:
-
+                    # storing id of the lidar used to generate second lidar placement layer
+                    self.first_lidar_id = kwargs['lidar_id']
                     lidar_position = self.lidar_dictionary[kwargs['lidar_id']]['position']
                     self.generate_intersecting_angle_layer(lidar_position, measurement_pts)
                     self.flags['intersecting_angle_layer_generated'] = True
-                    self.update_lidar_instance(lidar_id = kwargs['lidar_id'])
-                    reachable_points = self.lidar_dictionary[kwargs['lidar_id']]['reachable_points']
-
-
-                    # i, j = self.find_mesh_point_index(lidar_position)
-                    # self.lidar_dictionary[kwargs['lidar_id']]['measurement_id'] = self.measurements_selector
-                    # self.lidar_dictionary[kwargs['lidar_id']]['measurement_points'] = measurement_pts
-                    # self.reachable_points = self.combined_layer[i,j,:]
-                    # self.lidar_dictionary[kwargs['lidar_id']]['reachable_points'] = self.reachable_points
-
-                    self.second_lidar_layer = self.combined_layer * self.intersecting_angle_layer * reachable_points
+                    self.update_lidar_instance(lidar_id = kwargs['lidar_id'], points_type = self.measurements_selector)
+                    self.second_lidar_layer = self.combined_layer * self.intersecting_angle_layer
+                    # reachable_points = self.lidar_dictionary[kwargs['lidar_id']]['reachable_points']
+                    # self.second_lidar_layer = self.combined_layer * self.intersecting_angle_layer * reachable_points
                     self.flags['second_lidar_layer'] = True
                 else:
                     print('Lidar does not exist in self.lidar dict, halting operation!')
@@ -2231,27 +2291,33 @@ CLOSE""",
         add_measurements() : adding measurement points to the CPT class instance 
         """
 
-        if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
+        if ('points_type' in kwargs and 
+            kwargs['points_type'] in self.POINTS_TYPE and 
+            kwargs['points_type'] in self.measurements_dictionary
+            ):
             self.measurements_selector = kwargs['points_type']
 
-        self.reachable_points = None
+            if len(self.measurement_type_selector(self.measurements_selector)) > 0:
+                print('Generating combined layer for ' + self.measurements_selector + ' measurement points!')
+                self.generate_mesh()
+                self.generate_topographic_layer()
+                self.generate_beam_coords_mesh()
+                self.generate_range_restriction_layer()
+                self.generate_elevation_restriction_layer()
+                self.generate_los_blck_layer()
 
-        if self.measurement_type_selector(self.measurements_selector) is not None:
-            print('Generating combined layer for ' + self.measurements_selector + ' measurement points!')
-            self.generate_mesh()
-            self.generate_topographic_layer()
-            self.generate_beam_coords_mesh()
-            self.generate_range_restriction_layer()
-            self.generate_elevation_restriction_layer()
-            self.generate_los_blck_layer()
-
-            nrows, ncols = self.x.shape
-            self.combined_layer = self.elevation_angle_layer * self.range_layer * self.los_blck_layer
-            self.combined_layer = self.combined_layer * self.restriction_zones_layer.reshape((nrows,ncols,1))
-            self.flags['combined_layer_generated'] = True
+                nrows, ncols = self.x.shape
+                self.combined_layer = self.elevation_angle_layer * self.range_layer * self.los_blck_layer
+                self.combined_layer = self.combined_layer * self.restriction_zones_layer.reshape((nrows,ncols,1))
+                self.flags['combined_layer_generated'] = True
+                self.combined_layer_pts_type = kwargs['points_type']
+            else:
+                print('Instance in self.measurements_dictionary for type'+ self.measurements_selector + ' is empty!')
+                print('Combined layer was not generated!')
         else:
-            print('Variable self.measurements_'+ self.measurements_selector + ' is empty!')
+            print('Either points_type was not provided or for the provided points_type there is no instance in self.measurements_dictionary!')
             print('Combined layer was not generated!')
+
 
     def generate_los_blck_layer(self, **kwargs):
         """
