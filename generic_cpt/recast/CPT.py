@@ -2,6 +2,7 @@ import numpy as np
 from itertools import combinations, product
 from pyproj import Proj
 
+
 from osgeo import gdal, osr, ogr, gdal_array
 import srtm
 
@@ -11,6 +12,7 @@ from shapely.geometry import Point
 import whitebox
 
 import matplotlib.pyplot as plt
+from PIL import Image
 import os, shutil
 
 from random import shuffle
@@ -2303,10 +2305,10 @@ CLOSE""",
                 print('Generating combined layer for ' + self.measurements_selector + ' measurement points!')
                 self.generate_mesh()
                 self.generate_topographic_layer()
-                self.generate_beam_coords_mesh()
+                self.generate_beam_coords_mesh(**kwargs)
                 self.generate_range_restriction_layer()
                 self.generate_elevation_restriction_layer()
-                self.generate_los_blck_layer()
+                self.generate_los_blck_layer(**kwargs)
 
                 nrows, ncols = self.x.shape
                 if (self.flags['los_blck_layer_generated'] and 
@@ -2323,12 +2325,15 @@ CLOSE""",
                         print('Combined layer generated without landcover data!')
                         self.flags['combined_layer_generated'] = True
                         self.combined_layer_pts_type = kwargs['points_type']
+                else:
+                    print('Either topography or los blockage layer are missing!')
+                    print('Aborting the combined layer generation!')
             else:
                 print('Instance in self.measurements_dictionary for type'+ self.measurements_selector + ' is empty!')
-                print('Combined layer was not generated!')
+                print('Aborting the combined layer generation!')
         else:
             print('Either points_type was not provided or for the provided points_type there is no instance in self.measurements_dictionary!')
-            print('Combined layer was not generated!')
+            print('Aborting the combined layer generation!')
 
 
     def generate_los_blck_layer(self, **kwargs):
@@ -2351,19 +2356,27 @@ CLOSE""",
         --------
         add_measurements() : adding measurement points to the CPT class instance 
         """
-        if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
-            self.measurements_selector = kwargs['points_type']
+        if self.flags['topography_layer_generated']:
+            if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
+                self.measurements_selector = kwargs['points_type']
 
-        if self.measurement_type_selector(self.measurements_selector) is not None:        
-            self.export_measurements()
-            self.export_topography()
-            self.viewshed_analysis()
-            self.viewshed_processing()
-            self.flags['los_blck_layer_generated'] = True
-            del_folder_content(self.OUTPUT_DATA_PATH, self.FILE_EXTENSIONS)
+                if self.measurement_type_selector(self.measurements_selector) is not None:        
+                    self.export_measurements()
+                    self.export_topography()
+                    self.viewshed_analysis()
+                    self.viewshed_processing()
+                    self.flags['los_blck_layer_generated'] = True
+                    del_folder_content(self.OUTPUT_DATA_PATH, self.FILE_EXTENSIONS)
+                else:
+                    print('For points type \''+ self.measurements_selector + '\' there are no measurement points in the measurements dictionary!')
+                    print('Aborting the los blockage layer generation!')
+            else:                
+                print('Points type \''+ self.measurements_selector + '\' does not exist in the measurements dictionary!')
+                print('Aborting the los blockage layer generation!')
         else:
-            print('Variable self.measurements_'+ self.measurements_selector + ' is empty!')
-            print('LOS blockage layer was not generated!')
+            print('Topography layer not generates!')
+            print('Aborting the los blockage layer generation!')
+
 
     def viewshed_processing(self):
         """
@@ -2548,7 +2561,6 @@ CLOSE""",
         points_type : str
             A string indicating which measurement points to be
             used for the beam steering coordinates calculation.
-            A default value is set to 'initial'.
 
         Notes
         --------
@@ -2558,33 +2570,39 @@ CLOSE""",
         """
         # measurement point selector:
         
-        if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
+        if ('points_type' in kwargs and 
+            kwargs['points_type'] in self.POINTS_TYPE and 
+            kwargs['points_type'] in self.measurements_dictionary
+            ):
+
             measurement_pts = self.measurement_type_selector(kwargs['points_type'])
             self.measurements_selector = kwargs['points_type']
+
+            if measurement_pts is not None:
+                try:
+
+                    array_shape = (measurement_pts.shape[0], )  + self.mesh_utm.shape
+                    self.beam_coords = np.empty(array_shape, dtype=float)
+
+                    for i, pts in enumerate(measurement_pts):
+                        self.beam_coords[i] = self.generate_beam_coords(self.mesh_utm, pts)
+                    self.flags['beam_coords_generated'] = True
+
+                    # splitting beam coords to three arrays 
+                    nrows, ncols = self.x.shape
+                    self.azimuth_angle_array = self.beam_coords[:,:,0].T.reshape(nrows,ncols,len(measurement_pts))   
+                    self.elevation_angle_array = self.beam_coords[:,:,1].T.reshape(nrows,ncols,len(measurement_pts))
+                    self.range_array = self.beam_coords[:,:,2].T.reshape(nrows,ncols,len(measurement_pts))                
+                except:
+                    print('Something went wrong! Check measurement points')
+            else:
+                print('Instance in self.measurements_dictionary for type'+ self.measurements_selector + ' is empty!')
+                print('Aborting the beam steering coordinates generation for the mesh points!')
         else:
-            measurement_pts = self.measurement_type_selector(self.measurements_selector)        
+            print('Either points_type was not provided or for the provided points_type there is no instance in self.measurements_dictionary!')
+            print('Aborting the beam steering coordinates generation for the mesh points!')
 
-        if measurement_pts is not None:
-            try:
 
-                array_shape = (measurement_pts.shape[0], )  + self.mesh_utm.shape
-                self.beam_coords = np.empty(array_shape, dtype=float)
-
-                for i, pts in enumerate(measurement_pts):
-                    self.beam_coords[i] = self.generate_beam_coords(self.mesh_utm, pts)
-                self.flags['beam_coords_generated'] = True
-
-                # splitting beam coords to three arrays 
-                nrows, ncols = self.x.shape
-                self.azimuth_angle_array = self.beam_coords[:,:,0].T.reshape(nrows,ncols,len(measurement_pts))   
-                self.elevation_angle_array = self.beam_coords[:,:,1].T.reshape(nrows,ncols,len(measurement_pts))
-                self.range_array = self.beam_coords[:,:,2].T.reshape(nrows,ncols,len(measurement_pts))                
-
-            except:
-                print('Something went wrong! Check measurement points')
-        else:
-            print('Variable self.measurements_'+ self.measurements_selector + ' is empty!')
-            print('Beam steering coordinates not generated!')
 
     def measurement_type_selector(self, points_type):
         """
@@ -3353,7 +3371,85 @@ CLOSE""",
 
             return np.transpose(np.array([azimuth, elevation, distance_3D]))        
 
-
+    def export_layer(self, **kwargs):
+        # need to check if folder exists
+        if ('layer_type' in kwargs and 
+            kwargs['layer_type'] in self.LAYER_TYPE and 
+            self.layer_selector(kwargs['layer_type']) is not None
+            ):
+            layer = self.layer_selector(kwargs['layer_type'])
+            
+            if len(layer.shape) > 2:
+                layer = np.sum(layer, axis = 2)
+    
+            array_rescaled = (255.0 / layer.max() * (layer - layer.min())).astype(np.uint8)
+            array_rescaled = np.flip(array_rescaled, axis = 0)
+            image = Image.fromarray(np.uint8(plt.cm.RdBu_r(array_rescaled)*255))
+    
+            multi_band_array = np.array(image)
+            
+            rows = multi_band_array.shape[0]
+            cols = multi_band_array.shape[1]
+            bands = multi_band_array.shape[2]
+            
+            dst_filename = self.OUTPUT_DATA_PATH + kwargs['layer_type'] + '.tiff'
+            
+            x_pixels = rows  # number of pixels in x
+            y_pixels = cols  # number of pixels in y
+            driver = gdal.GetDriverByName('GTiff')
+            options = ['PHOTOMETRIC=RGB', 'PROFILE=GeoTIFF']
+            dataset = driver.Create(dst_filename,x_pixels, y_pixels, bands,gdal.GDT_Byte,options = options)
+            
+            origin_x = self.mesh_corners_utm[0][0]
+            origin_y = self.mesh_corners_utm[1][1]
+            pixel_width = self.MESH_RES
+            geotrans = (origin_x, pixel_width, 0, origin_y, 0, -pixel_width)
+    
+            proj = osr.SpatialReference()
+            proj.ImportFromEPSG(int(self.epsg_code))
+            proj = proj.ExportToWkt()
+    
+            for band in range(bands):
+                dataset.GetRasterBand(band + 1).WriteArray(multi_band_array[:,:,band])
+    
+    
+            dataset.SetGeoTransform(geotrans)
+            dataset.SetProjection(proj)
+            dataset.FlushCache()
+            dataset=None
+            
+            self.resize_tiff(dst_filename, 10)
+    
+                
+    @staticmethod        
+    def resize_tiff(file_path, resize_value):
+        original_file = gdal.Open(file_path)
+        single_band = original_file.GetRasterBand(1)
+        
+        y_pixels = single_band.YSize * resize_value
+        x_pixels = single_band.XSize * resize_value
+        bands = 4
+        
+        driver = gdal.GetDriverByName('GTiff')
+        options = ['PHOTOMETRIC=RGB', 'PROFILE=GeoTIFF']
+        modified_file = driver.Create(file_path,x_pixels, y_pixels,bands,gdal.GDT_Byte,options = options)
+        modified_file.SetProjection(original_file.GetProjection())
+        geotransform = list(original_file.GetGeoTransform())
+        
+        geotransform[1] /= resize_value
+        geotransform[5] /= resize_value
+        modified_file.SetGeoTransform(geotransform)
+        
+        for i in range(1,bands + 1):
+            single_band = original_file.GetRasterBand(i)
+            
+            data = single_band.ReadAsArray(buf_xsize=x_pixels, buf_ysize=y_pixels)  # Specify a larger buffer size when reading data
+            out_band = modified_file.GetRasterBand(i)
+            out_band.WriteArray(data)
+        
+        out_band.FlushCache()
+        out_band.ComputeStatistics(False)
+        #    modified_file.BuildOverviews('average', [2, 4, 8, 16, 32, 64]) 
     # def find_measurements(self):
     #         """
     #         Doc String
