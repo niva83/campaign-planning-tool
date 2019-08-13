@@ -3350,7 +3350,6 @@ CLOSE""",
                 y_array = np.array([meas_pt_pos[1]])
                 z_array = np.array([meas_pt_pos[2]])
 
-
             # calculating difference between lidar_pos and meas_pt_pos coordiantes
             dif_xyz = np.array([lidar_pos[0] - x_array, lidar_pos[1] - y_array, lidar_pos[2] - z_array])    
 
