@@ -299,6 +299,7 @@ class CPT():
 
     MY_DPI = 100
     FONT_SIZE = 10
+    __ZOOM = 10
 
     __rg_template = """LidarMode	insertMODE
 MaxDistance	insertMaxRange
@@ -3418,7 +3419,8 @@ CLOSE""",
             dataset.FlushCache()
             dataset=None
             
-            self.resize_tiff(dst_filename, 10)
+            self.resize_tiff(dst_filename, self.__ZOOM)
+            del_folder_content(self.OUTPUT_DATA_PATH, self.FILE_EXTENSIONS)
     
                 
     @staticmethod        
