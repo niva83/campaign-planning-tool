@@ -2309,10 +2309,20 @@ CLOSE""",
                 self.generate_los_blck_layer()
 
                 nrows, ncols = self.x.shape
-                self.combined_layer = self.elevation_angle_layer * self.range_layer * self.los_blck_layer
-                self.combined_layer = self.combined_layer * self.restriction_zones_layer.reshape((nrows,ncols,1))
-                self.flags['combined_layer_generated'] = True
-                self.combined_layer_pts_type = kwargs['points_type']
+                if (self.flags['los_blck_layer_generated'] and 
+                    self.flags['topography_layer_generated']
+                    ):
+
+                    self.combined_layer = self.elevation_angle_layer * self.range_layer * self.los_blck_layer
+
+                    if self.flags['landcover_layer_generated']:
+                        self.combined_layer = self.combined_layer * self.restriction_zones_layer.reshape((nrows,ncols,1))
+                        self.flags['combined_layer_generated'] = True
+                        self.combined_layer_pts_type = kwargs['points_type']
+                    else:
+                        print('Combined layer generated without landcover data!')
+                        self.flags['combined_layer_generated'] = True
+                        self.combined_layer_pts_type = kwargs['points_type']
             else:
                 print('Instance in self.measurements_dictionary for type'+ self.measurements_selector + ' is empty!')
                 print('Combined layer was not generated!')
@@ -2696,22 +2706,20 @@ CLOSE""",
         if self.flags['mesh_generated']:
             self.generate_orography_layer()
             self.generate_landcover_layer()
-            if self.flags['orography_layer_generated'] == True:
-                self.topography_layer = self.canopy_height_layer + self.orography_layer
-
-                if self.flags['landcover_layers_generated'] == False:
-                    print('Topography layer only generated using orography height since canopy height is not provided!')
+            if self.flags['orography_layer_generated']:
+                if self.flags['landcover_layers_generated']:
+                    self.topography_layer = self.canopy_height_layer + self.orography_layer
+                    self.flags['topography_layer_generated'] = True
                 else:
-                    print('Topography layer generated using orography and canopy height.')
-                self.flags['topography_layer_generated'] = True
+                    self.topography_layer = self.orography_layer
+                    self.flags['topography_layer_generated'] = True
+                    print('Canopy height missing!')
+                    print('Topography layer generated using only orography layer!')
             else:
                 print('Cannot generate topography layer following layers are missing:')
-                if self.flags['landcover_layers_generated'] == False:
-                    print('Canopy height')
-                if self.flags['orography_layer_generated'] == False:
-                    print('Orography height')
-        else:
-            print('Mesh not generated -> topographic layer cannot be generated ')
+                print('Orography height')
+                self.flags['topography_layer_generated'] = False
+
 
     def generate_orography_layer(self):
         """
