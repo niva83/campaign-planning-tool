@@ -525,83 +525,86 @@ CLOSE""",
     
         """
         if layer is not None:
-            if 'levels' in kwargs:
-                levels = kwargs['levels']
-            else:
-                min_value = np.min(layer)
-                max_value = np.max(layer)
-                increment = abs(max_value - min_value)/20
-                min_value = min_value
-                
-                levels = np.linspace(min_value, max_value, 20)
-                boundaries = np.linspace(min_value - increment/2, max_value + increment/2, 21)          
-        
-            if len(layer.shape) > 2:
-                layer = np.sum(layer, axis = 2)
-                levels = np.array(range(-1,int(np.max(layer)) + 1, 1))
-                boundaries = levels + 0.5
-        
-            fig, ax = plt.subplots(sharey = True, figsize=(800/self.MY_DPI, 800/self.MY_DPI), dpi=self.MY_DPI)
-            cmap = plt.cm.RdBu_r
-            cs = plt.pcolormesh(self.x, self.y, layer, cmap=cmap, alpha = 1)
-        
-        
-            cbar = plt.colorbar(cs,orientation='vertical', ticks=levels, boundaries=boundaries,fraction=0.047, pad=0.01)
-            if 'legend_label' in kwargs:
-                cbar.set_label(kwargs['legend_label'], fontsize = self.FONT_SIZE)
-                
+            if len(np.unique(layer)) > 1:
+                if 'levels' in kwargs:
+                    levels = kwargs['levels']
+                else:
+                    min_value = np.min(layer)
+                    max_value = np.max(layer)
+                    increment = abs(max_value - min_value)/20
+                    min_value = min_value
+                    
+                    levels = np.linspace(min_value, max_value, 20)
+                    boundaries = np.linspace(min_value - increment/2, max_value + increment/2, 21)          
             
-            if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
-                measurement_pts = self.measurement_type_selector(kwargs['points_type'])
-            else:
-                measurement_pts = self.measurement_type_selector(self.measurements_selector)        
-        
-            if measurement_pts is not None:
-                for i, pts in enumerate(measurement_pts):
-                    if i == 0:
-                        ax.scatter(pts[0], pts[1], marker='o', 
-                        facecolors='yellow', edgecolors='black', 
-                        s=80,zorder=1500, label = 'points: ' + self.measurements_selector)                    
-                    else:
-                        ax.scatter(pts[0], pts[1], marker='o',
-                        facecolors='yellow', edgecolors='black', 
-                        s=80,zorder=1500)
-        
-            if self.reachable_points is not None:
-                visible_points = measurement_pts[np.where(self.reachable_points>0)]
-                for i in range(0,len(visible_points)):
-                    if i == 0:
-                        ax.scatter(visible_points[i][0], visible_points[i][1], 
-                                marker='+', color='black', s=80,zorder=2000, label = "reachable")
-                    else:
-                        ax.scatter(visible_points[i][0], visible_points[i][1], 
-                                marker='+', color='black', s=80,zorder=2000)
-        
-            plt.xlabel('Easting [m]', fontsize = self.FONT_SIZE)
-            plt.ylabel('Northing [m]', fontsize = self.FONT_SIZE)
-        
-            if 'title' in kwargs:
-                plt.title(kwargs['title'], fontsize = self.FONT_SIZE)
-        
-            ax.set_aspect(1.0)
-        
-            if len(self.lidar_dictionary) > 0:
-                for i, lidar in enumerate(self.lidar_dictionary):
-                    lidar_pos = self.lidar_dictionary[lidar]['position']
-                    ax.scatter(lidar_pos[0], lidar_pos[1], 
-                                marker='s', 
-                                facecolors=self.COLOR_LIST[i], edgecolors='white',linewidth='2',
-                                s=100, zorder=2000, label = 'lidar: ' + lidar)
-        
-            if self.lidar_pos_1 is not None or self.lidar_pos_2 is not None or measurement_pts is not None:
-                ax.legend(loc='lower right', fontsize = self.FONT_SIZE)    
-        
-        
+                if len(layer.shape) > 2:
+                    layer = np.sum(layer, axis = 2)
+                    levels = np.array(range(-1,int(np.max(layer)) + 1, 1))
+                    boundaries = levels + 0.5
             
-            plt.show()
-        
-            if 'title' in kwargs and 'save_plot' in kwargs and kwargs['save_plot']:
-                    fig.savefig(self.OUTPUT_DATA_PATH + kwargs['title'] + '.pdf', bbox_inches='tight')
+                fig, ax = plt.subplots(sharey = True, figsize=(800/self.MY_DPI, 800/self.MY_DPI), dpi=self.MY_DPI)
+                cmap = plt.cm.RdBu_r
+                cs = plt.pcolormesh(self.x, self.y, layer, cmap=cmap, alpha = 1)
+            
+            
+                cbar = plt.colorbar(cs,orientation='vertical', ticks=levels, boundaries=boundaries,fraction=0.047, pad=0.01)
+                if 'legend_label' in kwargs:
+                    cbar.set_label(kwargs['legend_label'], fontsize = self.FONT_SIZE)
+                    
+                
+                if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
+                    measurement_pts = self.measurement_type_selector(kwargs['points_type'])
+                else:
+                    measurement_pts = self.measurement_type_selector(self.measurements_selector)        
+            
+                if measurement_pts is not None:
+                    for i, pts in enumerate(measurement_pts):
+                        if i == 0:
+                            ax.scatter(pts[0], pts[1], marker='o', 
+                            facecolors='yellow', edgecolors='black', 
+                            s=80,zorder=1500, label = 'points: ' + self.measurements_selector)                    
+                        else:
+                            ax.scatter(pts[0], pts[1], marker='o',
+                            facecolors='yellow', edgecolors='black', 
+                            s=80,zorder=1500)
+            
+                if self.reachable_points is not None:
+                    visible_points = measurement_pts[np.where(self.reachable_points>0)]
+                    for i in range(0,len(visible_points)):
+                        if i == 0:
+                            ax.scatter(visible_points[i][0], visible_points[i][1], 
+                                    marker='+', color='black', s=80,zorder=2000, label = "reachable")
+                        else:
+                            ax.scatter(visible_points[i][0], visible_points[i][1], 
+                                    marker='+', color='black', s=80,zorder=2000)
+            
+                plt.xlabel('Easting [m]', fontsize = self.FONT_SIZE)
+                plt.ylabel('Northing [m]', fontsize = self.FONT_SIZE)
+            
+                if 'title' in kwargs:
+                    plt.title(kwargs['title'], fontsize = self.FONT_SIZE)
+            
+                ax.set_aspect(1.0)
+            
+                if len(self.lidar_dictionary) > 0:
+                    for i, lidar in enumerate(self.lidar_dictionary):
+                        lidar_pos = self.lidar_dictionary[lidar]['position']
+                        ax.scatter(lidar_pos[0], lidar_pos[1], 
+                                    marker='s', 
+                                    facecolors=self.COLOR_LIST[i], edgecolors='white',linewidth='2',
+                                    s=100, zorder=2000, label = 'lidar: ' + lidar)
+            
+                if self.lidar_pos_1 is not None or self.lidar_pos_2 is not None or measurement_pts is not None:
+                    ax.legend(loc='lower right', fontsize = self.FONT_SIZE)    
+            
+            
+                
+                plt.show()
+            
+                if 'title' in kwargs and 'save_plot' in kwargs and kwargs['save_plot']:
+                        fig.savefig(self.OUTPUT_DATA_PATH + kwargs['title'] + '.pdf', bbox_inches='tight')
+            else:
+                print('Provided layer elements all have the same value equal to: ' + str(np.unique(layer)[0]))
         else:
             print('Provided layer does not exist!')
 
@@ -1381,11 +1384,13 @@ CLOSE""",
         
         Keyword paramaters
         ------------------
-        points_type : str
+        points_type : str, required
             A string indicating which measurement points
             should be consider for the trajectory optimization.
-        lidar_ids : list of str
+        lidar_ids : list of str, required
             A list of strings containing lidar ids.
+        sync : bool, optional
+            Indicates whether to sync trajectories or not
         
         Returns
         -------
@@ -1461,7 +1466,16 @@ CLOSE""",
 
                 trajectory.insert(loc=0, column='Point no.', value=np.array(range(1,len(trajectory) + 1)))
                 self.trajectory = trajectory
-                self.flags['trajectory_optimized'] = True                
+                self.flags['trajectory_optimized'] = True   
+             
+                print('Lidar instances:' + str(kwargs['lidar_ids']) + ' will be updated with the optimized trajectory')
+                for lidar in kwargs['lidar_ids']:
+                    self.update_lidar_instance(lidar_id = lidar, 
+                                            use_optimized_trajectory = True, 
+                                            points_type = kwargs['points_type'])
+
+                if 'sync' in kwargs and kwargs['sync']:
+                    self.sync_trajectory(**kwargs)                            
 
 
             else: 
@@ -1597,13 +1611,16 @@ CLOSE""",
         return time
 
     def export_measurement_scenario(self, **kwargs):
-        if ('lidar_id' in kwargs and kwargs['lidar_id'] in self.lidar_dictionary):
-            self.export_motion_config(**kwargs)
-            self.export_range_gate(**kwargs)
+        if ('lidar_id' in kwargs):
+            if (kwargs['lidar_id'] in self.lidar_dictionary):
+                self.export_motion_config(**kwargs)
+                self.export_range_gate(**kwargs)
+            else:
+                print('Lidar instance \'' + kwargs['lidar_id'] + '\' does not exist in the lidar dictionary!')
+                print('Aborting the operation!')
         else:
-            print('Lidar instance \'' + kwargs['lidar_id'] + '\' does not exist in the lidar dictionary!')
+            print('lidar_id not provided as a keyword argument')
             print('Aborting the operation!')
-
     def export_motion_config(self, **kwargs):
         # needs to check if output data folder exists!!!!
         if ('lidar_id' in kwargs and kwargs['lidar_id'] in self.lidar_dictionary):
@@ -3370,6 +3387,56 @@ CLOSE""",
             elevation = np.sign(z_array - lidar_pos[2]) * (elevation * (180 / np.pi))
 
             return np.transpose(np.array([azimuth, elevation, distance_3D]))        
+
+    def export_layout_to_kml(self, **kwargs):
+            # need to check if folder exists
+            if ('layer_type' in kwargs and 
+                kwargs['layer_type'] in self.LAYER_TYPE and 
+                self.layer_selector(kwargs['layer_type']) is not None
+                ):
+                layer = self.layer_selector(kwargs['layer_type'])
+                
+                if len(layer.shape) > 2:
+                    layer = np.sum(layer, axis = 2)
+        
+                array_rescaled = (255.0 / layer.max() * (layer - layer.min())).astype(np.uint8)
+                array_rescaled = np.flip(array_rescaled, axis = 0)
+                image = Image.fromarray(np.uint8(plt.cm.RdBu_r(array_rescaled)*255))
+        
+                multi_band_array = np.array(image)
+                
+                rows = multi_band_array.shape[0]
+                cols = multi_band_array.shape[1]
+                bands = multi_band_array.shape[2]
+                
+                dst_filename = self.OUTPUT_DATA_PATH + kwargs['layer_type'] + '.tiff'
+                
+                x_pixels = rows  # number of pixels in x
+                y_pixels = cols  # number of pixels in y
+                driver = gdal.GetDriverByName('GTiff')
+                options = ['PHOTOMETRIC=RGB', 'PROFILE=GeoTIFF']
+                dataset = driver.Create(dst_filename,x_pixels, y_pixels, bands,gdal.GDT_Byte,options = options)
+                
+                origin_x = self.mesh_corners_utm[0][0]
+                origin_y = self.mesh_corners_utm[1][1]
+                pixel_width = self.MESH_RES
+                geotrans = (origin_x, pixel_width, 0, origin_y, 0, -pixel_width)
+        
+                proj = osr.SpatialReference()
+                proj.ImportFromEPSG(int(self.epsg_code))
+                proj = proj.ExportToWkt()
+        
+                for band in range(bands):
+                    dataset.GetRasterBand(band + 1).WriteArray(multi_band_array[:,:,band])
+        
+        
+                dataset.SetGeoTransform(geotrans)
+                dataset.SetProjection(proj)
+                dataset.FlushCache()
+                dataset=None
+                
+                self.resize_tiff(dst_filename, self.__ZOOM)
+                del_folder_content(self.OUTPUT_DATA_PATH, self.FILE_EXTENSIONS)            
 
     def export_layer(self, **kwargs):
         # need to check if folder exists
