@@ -17,6 +17,11 @@ import os, shutil
 
 from random import shuffle
 
+# for converting YAML to XML
+import yaml
+from xml.dom.minidom import parseString
+import dicttoxml
+
 
 def del_folder_content(folder, exclude_file_extensions = None):
     """
@@ -193,7 +198,7 @@ class CPT():
         The maximum allowed elevation angle for a beam steering.
         The angle is expressed in deg.
         A default value is set to 5 deg.
-    MAX_NO_OF_RANGES : int
+    MAX_NO_OF_GATES : int
         The maximum number of range gates along each LOS.
         A default value is set to 100.
         Update the value according to the lidar specifications.
@@ -291,7 +296,7 @@ class CPT():
     MAX_ACCELERATION = 100 # in deg / s^2
     MAX_VELOCITY = 50 # in deg / s
     MAX_ELEVATION_ANGLE = 5 # in deg
-    MAX_NO_OF_RANGES = 100 # maximum number of range gates
+    MAX_NO_OF_GATES = 100 # maximum number of range gates
     MIN_INTERSECTING_ANGLE = 30 # in deg
     PULSE_LENGTH = 400 # in ns
     FFT_SIZE = 128 # no points
@@ -300,7 +305,66 @@ class CPT():
     MY_DPI = 100
     FONT_SIZE = 10
     __ZOOM = 10
+    __yaml_template = {'skeleton': 
+"""# This is the config file for the trajectory generation
+# for long-range WindScanners written in YAML
+#
+# YAML config template author: Nikola Vasiljevic
+# Template usage license: CC-BY-NC
 
+
+# Header
+coordinate_system: 'insertCOORDSYS'
+utm_zone: 'insertUTMzone'
+epsg_code: 'insertEPSGcode'
+number_of_lidars: insertNOlidars
+numer_of_measurement_scenarios: insertMOscenarios
+
+# Lidar position description
+lidar_positions:
+insertLIDARdetails
+
+# Measurement scenario description
+measurement_scenarios:
+    # Individual measurement scenario header
+insertMEASUREMENTscenarios""", 'scenario':
+"""
+    - scenario_id: 'insertScenarioID'
+      author: 'Unknown Artist'
+      number_of_transects: insertNOtransects
+      lidar_ids: insertLIDARids
+      synchronized: insertSYNC # 0 - no, 1 - yes
+      scan_type: insertSCANtype 
+      fft_size: insertFFTsize # no points
+      pulse_length: insertPULSElenght # in ns
+      accumulation_time: insertACCtime # in ms
+      min_range: insertMINrange # first range gate in m
+      max_range: insertMAXrange # last range gate in m
+insertTransects""", 'transect': 
+"""
+      transects:
+       #Individual transect header
+        - transect_no: 1 
+          transect_points : 
+insertTransectPoints""", 
+     'points': 
+"""
+            - point : insertPTid
+              easting : insertPTeasting 
+              northing: insertPTnorthing 
+              height: insertPTheight 
+              move_time: insertPTtiming 
+""", 'lidars': 
+"""
+lidar_positions:
+insertLIDARS
+""", 'lidar': 
+"""
+    - lidar_id: 'insertLIDARid' 
+      easting: insertLIDAReasting 
+      northing: insertLIDARnorthing 
+      height: insertLIDARheight 
+"""}
     __rg_template = """LidarMode	insertMODE
 MaxDistance	insertMaxRange
 FFTSize	insertFFTSize
@@ -382,7 +446,8 @@ P1005=0
 
 CLOSE""",
     "motion":
-    """I5111 = (insertMotionTime)*8388608/I10
+    """
+    I5111 = (insertMotionTime)*8388608/I10
     TA(insertHalfMotionTime)TM(1)
     X(insertAzimuth)Y(insertElevation)
     WHILE(I5111>0)
@@ -406,7 +471,8 @@ CLOSE""",
         P1984=P1983
         P1988=P1988+1
         P1983=0
-    END IF"""}
+    END IF
+    """}
 
     def __init__(self):
         # measurement positions / mesh / beam coords
@@ -1049,6 +1115,7 @@ CLOSE""",
                     sync_time = sync_time + [timing]
 
                 sync_time = np.max(np.asarray(sync_time).T, axis = 1)
+
                 
                 for lidar in kwargs['lidar_ids']:
                     self.lidar_dictionary[lidar]['motion_config']['Move time [ms]'] = sync_time
@@ -1611,6 +1678,17 @@ CLOSE""",
         return time
 
     def export_measurement_scenario(self, **kwargs):
+        if ('lidar_ids' in kwargs and set(kwargs['lidar_ids']).issubset(self.lidar_dictionary)):
+
+            for lidar in kwargs['lidar_ids']:
+                self.export_measurement_scenario_single(lidar_id = lidar)
+        
+            self.export_yaml(**kwargs)
+        else:
+            print('One or more lidar ids don\'t exist in the lidar dictionary')
+            print('Available lidar ids: ' + str(list(self.lidar_dictionary.keys())))
+
+    def export_measurement_scenario_single(self, **kwargs):
         if ('lidar_id' in kwargs):
             if (kwargs['lidar_id'] in self.lidar_dictionary):
                 self.export_motion_config(**kwargs)
@@ -1662,7 +1740,7 @@ CLOSE""",
                         motion_program = motion_program.replace("insertPRF", str(PRF))
 
 
-                        output_file = open(self.OUTPUT_DATA_PATH + kwargs['lidar_id'] + "_motion.PMC","w+")
+                        output_file = open(self.OUTPUT_DATA_PATH + kwargs['lidar_id'] + "_motion.pmc","w+")
                         output_file.write(motion_program)
                         output_file.close()
                     else:
@@ -1704,7 +1782,7 @@ CLOSE""",
                             no_los = len(range_gates)
 
                             no_used_ranges = len(range_gates)
-                            no_remain_ranges = self.MAX_NO_OF_RANGES - no_used_ranges
+                            no_remain_ranges = self.MAX_NO_OF_GATES - no_used_ranges
                             prequal_range_gates = np.linspace(self.MIN_RANGE, min(range_gates) , int(no_remain_ranges/2)).astype(int).tolist()
                             sequal_range_gates = np.linspace(max(range_gates) + self.MIN_RANGE, self.MAX_RANGE, int(no_remain_ranges/2)).astype(int).tolist()
                             range_gates = prequal_range_gates + range_gates + sequal_range_gates
@@ -1773,12 +1851,20 @@ CLOSE""",
         first_column = []
 
         for i in range(0, len(angular_displacement)):
-            if i != len(angular_displacement) - 1:
-                insert_str = str(i + 1) + '->' + str(i + 2)
+            if i == 0:
+                insert_str = str(len(angular_displacement)) + '->' + str(i + 1)
                 first_column = first_column + [insert_str]
             else:
-                insert_str = str(i + 1) + '->1' 
+                insert_str = str(i) + '->' + str(i+1) 
                 first_column = first_column + [insert_str]
+
+            # # old way
+            # if i != len(angular_displacement) - 1:
+            #     insert_str = str(i + 1) + '->' + str(i + 2)
+            #     first_column = first_column + [insert_str]
+            # else:
+            #     insert_str = str(i + 1) + '->1' 
+            #     first_column = first_column + [insert_str]
 
         motion_table.insert(loc=0, column='Step-stare order', value=first_column)
         return motion_table
@@ -1816,8 +1902,11 @@ CLOSE""",
 
     @classmethod
     def trajectory2displacement(cls, lidar_pos, trajectory, rollover = True):
-        angles_start = cls.generate_beam_coords(lidar_pos, trajectory, opt = 0)[:, (0,1)]
-        angles_stop = cls.generate_beam_coords(lidar_pos, np.roll(trajectory, -1, axis = 0), opt = 0)[:, (0,1)]
+        angles_start = cls.generate_beam_coords(lidar_pos, np.roll(trajectory, 1, axis = 0), opt = 0)[:, (0,1)]
+        # angles_start = cls.generate_beam_coords(lidar_pos, trajectory, opt = 0)[:, (0,1)]
+        # -1 performs shift-left for one element (originally used!)
+        # 1 performs shift-right for one element
+        angles_stop = cls.generate_beam_coords(lidar_pos, np.roll(trajectory, 0, axis = 0), opt = 0)[:, (0,1)]
         angular_displacement = abs(angles_start - angles_stop)
 
 
@@ -3517,6 +3606,88 @@ CLOSE""",
         
         out_band.FlushCache()
         out_band.ComputeStatistics(False)
+
+
+    def export_yaml(self, **kwargs):
+        lidar_dict_sub = dict((k, self.lidar_dictionary[k]) for k in kwargs['lidar_ids'] if k in self.lidar_dictionary)
+        # building header of YAML
+        yaml_file = self.__yaml_template['skeleton']
+        yaml_file = yaml_file.replace('insertCOORDSYS', 'UTM')
+        yaml_file = yaml_file.replace('insertUTMzone',  self.long_zone + self.lat_zone)
+        yaml_file = yaml_file.replace('insertEPSGcode',  self.epsg_code)
+        yaml_file = yaml_file.replace('insertNOlidars',  str(len(lidar_dict_sub)))
+        yaml_file = yaml_file.replace('insertMOscenarios',  '1')
+    
+    
+        # building lidar part of YAML
+        template_str = self.__yaml_template['lidar']
+        lidar_long_str = ""
+        lidar_ids = list(lidar_dict_sub.keys())
+        for lidar in lidar_ids:
+            lidar_str = template_str.replace('insertLIDARid', lidar)
+            lidar_pos = lidar_dict_sub[lidar]['position']
+            lidar_str = lidar_str.replace('insertLIDAReasting', str(lidar_pos[0]) )
+            lidar_str = lidar_str.replace('insertLIDARnorthing', str(lidar_pos[1]) )  
+            lidar_str = lidar_str.replace('insertLIDARheight', str(lidar_pos[2]) )
+            lidar_long_str = lidar_long_str + lidar_str
+        
+        yaml_file = yaml_file.replace('insertLIDARdetails', lidar_long_str)
+        
+        # building scenario part of YAML
+        scenario_yaml = self.__yaml_template['scenario']
+        scenario_yaml = scenario_yaml.replace('insertScenarioID', 'step-stare scenario')
+        scenario_yaml = scenario_yaml.replace('insertNOtransects', '1')
+        scenario_yaml = scenario_yaml.replace('insertLIDARids', str(list(lidar_dict_sub.keys())))
+        scenario_yaml = scenario_yaml.replace('insertSYNC', '1')
+        scenario_yaml = scenario_yaml.replace('insertSCANtype', 'step-stare')
+        scenario_yaml = scenario_yaml.replace('insertFFTsize', str(self.FFT_SIZE))
+        scenario_yaml = scenario_yaml.replace('insertPULSElenght', str(self.PULSE_LENGTH))
+        scenario_yaml = scenario_yaml.replace('insertACCtime', str(self.ACCUMULATION_TIME))    
+        scenario_yaml = scenario_yaml.replace('insertMINrange', str(self.MIN_RANGE))
+        scenario_yaml = scenario_yaml.replace('insertMAXrange', str(self.MAX_RANGE))   
+        scenario_yaml = scenario_yaml.replace('max_no_of_gates', str(self.MAX_NO_OF_GATES))
+        yaml_file = yaml_file.replace('insertMEASUREMENTscenarios', scenario_yaml)
+        
+        # building transect part of YAML
+        transect_yaml = self.__yaml_template['transect']
+        points_str = ""
+        
+        points = lidar_dict_sub[lidar_ids[0]]['trajectory'].values
+        timing = lidar_dict_sub[lidar_ids[0]]['motion_config'].values[:,-1]
+        
+        for i, point in enumerate(points):
+            points_yaml = self.__yaml_template['points']
+            points_yaml = points_yaml.replace('insertPTid', str(int(point[0])))
+            points_yaml = points_yaml.replace('insertPTeasting', str(point[1]))
+            points_yaml = points_yaml.replace('insertPTnorthing', str(point[2]))
+            points_yaml = points_yaml.replace('insertPTheight', str(point[3]))
+            points_yaml = points_yaml.replace('insertPTtiming', str(timing[i]))
+            points_str = points_str + points_yaml
+        transect_yaml = transect_yaml.replace('insertTransectPoints', points_str)
+        
+        yaml_file = yaml_file.replace('insertTransects', transect_yaml)
+
+        output_file = open(self.OUTPUT_DATA_PATH + "measurement_scenario.yaml","w+")
+        output_file.write(yaml_file)
+        output_file.close()
+
+        xml_file =  self.yaml2xml(self.OUTPUT_DATA_PATH + "measurement_scenario.yaml")
+
+        output_file = open(self.OUTPUT_DATA_PATH + "measurement_scenario.xml","w+")
+        output_file.write(xml_file)
+        output_file.close()
+    
+    @staticmethod
+    def yaml2xml(yaml_file_path):
+        with open(yaml_file_path, 'r') as stream:
+            yaml_file = yaml.safe_load(stream)
+    
+        xml_file = parseString(dicttoxml.dicttoxml(yaml_file,attr_type=False))
+        xml_file = xml_file.toprettyxml()
+        
+        return xml_file
+
+
         #    modified_file.BuildOverviews('average', [2, 4, 8, 16, 32, 64]) 
     # def find_measurements(self):
     #         """
@@ -3529,3 +3700,4 @@ CLOSE""",
     #         Doc String
     #         """
     #     pass        
+
