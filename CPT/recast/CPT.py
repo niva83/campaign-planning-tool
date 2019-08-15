@@ -563,6 +563,40 @@ CLOSE""",
   
         CPT.NO_LAYOUTS += 1
 
+    def set_path(self, path_str, **kwargs):
+        if kwargs['path_type'] == 'landcover':
+            try:
+                self.LANDCOVER_DATA_PATH = Path(r'%s' %path_str)
+                if self.LANDCOVER_DATA_PATH.exists():
+                    if self.LANDCOVER_DATA_PATH.is_file():
+                        print('Path ' + str(self.LANDCOVER_DATA_PATH) + 'set for landcover data')
+                        self.flags['landcover_path_set'] = True
+                    else:
+                        print('Provided path does not point to the landcover data!')
+                        self.flags['landcover_path_set'] = False
+                else:
+                    print('Provided path does not exist!')
+                    self.flags['landcover_path_set'] = False
+            except:
+                print('Uppsss something went wrong!!!')
+        elif kwargs['path_type'] == 'output':
+            try:
+                self.OUTPUT_DATA_PATH = Path(r'%s' %path_str)
+                if self.OUTPUT_DATA_PATH.exists():
+                    if self.OUTPUT_DATA_PATH.is_dir():
+                        print('Path ' + str(self.OUTPUT_DATA_PATH) + ' set for storing CPT outputs')
+                        self.flags['output_path_set'] = True
+                    else:
+                        print('Provided path does not point to directory!')
+                        self.flags['output_path_set'] = True
+                else:
+                    print('Provided path does not exist!')
+                    self.flags['landcover_path_set'] = False
+            except:
+                print('Uppsss something went wrong!!!')
+        else: 
+            print('Wrong inputs!')   
+
     def plot_layer(self, layer, **kwargs):
         """
         Plots individual GIS layers.
@@ -1745,8 +1779,11 @@ CLOSE""",
                         motion_program = motion_program.replace("insertTriggers", str(no_pulses))
                         motion_program = motion_program.replace("insertPRF", str(PRF))
 
+                        file_name_str = kwargs['lidar_id'] + "_motion.pmc"
+                        file_path = self.OUTPUT_DATA_PATH.joinpath(file_name_str) 
 
-                        output_file = open(self.OUTPUT_DATA_PATH + kwargs['lidar_id'] + "_motion.pmc","w+")
+
+                        output_file = open(file_path,"w+")
                         output_file.write(motion_program)
                         output_file.close()
                     else:
@@ -1795,7 +1832,9 @@ CLOSE""",
 
                             range_gate_file =  self.generate_range_gate_file(self.__rg_template, no_los, range_gates, lidar_mode, self.FFT_SIZE, self.ACCUMULATION_TIME)
 
-                            output_file = open(self.OUTPUT_DATA_PATH + kwargs['lidar_id'] + "_range_gates.txt","w+")
+                            file_name_str = kwargs['lidar_id'] + "_range_gates.txt"
+                            file_path = self.OUTPUT_DATA_PATH.joinpath(file_name_str) 
+                            output_file = open(file_path,"w+")
                             output_file.write(range_gate_file)
                             output_file.close()
                         else:
@@ -2518,7 +2557,9 @@ CLOSE""",
 
 
             for i in range(0,len(measurement_pts)):
-                los_blck_tmp  = np.loadtxt(self.OUTPUT_DATA_PATH + "los_blockage_" +str(i+1)+".asc", skiprows=6)
+                file_name_str = "los_blockage_" + str(i+1) + ".asc"
+                file_path = self.OUTPUT_DATA_PATH.joinpath(file_name_str) 
+                los_blck_tmp  = np.loadtxt(file_path.absolute().as_posix(), skiprows=6)
                 los_blck_tmp  = np.flip(los_blck_tmp, axis = 0)
                 self.los_blck_layer[:,:,i] = los_blck_tmp
             
@@ -2545,17 +2586,19 @@ CLOSE""",
         export_topography() : topography layer shapefile exporter
         export_measurements() : measurement points shapefile exporter
         """
+        if (self.flags['topography_exported'] and 
+            self.flags['measurements_exported'] and 
+            self.measurement_type_selector(self.measurements_selector) is not None
 
-        if os.path.exists(self.OUTPUT_DATA_PATH + 'topography.asc') and self.flags['topography_exported'] and self.flags['measurements_exported'] and self.flags['measurements_added'] and self.measurement_type_selector(self.measurements_selector) is not None:
+           ):
             measurement_pts = self.measurement_type_selector(self.measurements_selector)
-
             terrain_height = self.get_elevation(self.long_zone + self.lat_zone, measurement_pts)
             measurement_height = measurement_pts[:,2]
             height_diff = measurement_height - terrain_height
 
             for i in range(0,len(measurement_pts)):
                 wbt = whitebox.WhiteboxTools()
-                wbt.set_working_dir(self.OUTPUT_DATA_PATH)
+                wbt.set_working_dir(self.OUTPUT_DATA_PATH.absolute().as_posix())
                 wbt.verbose = False
                 wbt.viewshed('topography.asc',"measurement_pt_" +str(i+1)+".shp","los_blockage_" +str(i+1)+".asc",height_diff[i])
             self.flags['viewshed_analyzed'] = True
@@ -2579,7 +2622,9 @@ CLOSE""",
         """        
         if os.path.exists(self.OUTPUT_DATA_PATH) and self.flags['topography_layer_generated']:
             topography_array = np.flip(self.topography_layer,axis=0)
-            f = open(self.OUTPUT_DATA_PATH + 'topography.asc', 'w')
+            storing_file_path = self.OUTPUT_DATA_PATH.joinpath('topography.asc') 
+
+            f = open(storing_file_path, 'w')
             f.write("ncols " + str(topography_array.shape[0]) + "\n")
             f.write("nrows " + str(topography_array.shape[1]) + "\n")
             f.write("xllcorner " + str(self.mesh_corners_utm[0][0]) + "\n")
@@ -2610,8 +2655,9 @@ CLOSE""",
         viewshed_analysis() : the site viewshed analysis
         """
 
-        if os.path.exists(self.OUTPUT_DATA_PATH) and self.flags['measurements_added']: 
+        if self.flags['output_path_set'] and self.flags['measurements_added']: 
             pts = self.measurement_type_selector(self.measurements_selector)
+            
 
             pts_dict=[]
             for i,pt in enumerate(pts)  :
@@ -2620,7 +2666,10 @@ CLOSE""",
                 pts_df['geometry'] = pts_df.apply(lambda x: Point((float(x.E), float(x.N))), axis=1)
                 pts_df = geopandas.GeoDataFrame(pts_df, geometry='geometry')
                 pts_df.crs= "+init=epsg:" + self.epsg_code
-                pts_df.to_file(self.OUTPUT_DATA_PATH + 'measurement_pt_' + str(i + 1) + '.shp', driver='ESRI Shapefile')
+
+                file_name_str = 'measurement_pt_' + str(i + 1) + '.shp'
+                file_path = self.OUTPUT_DATA_PATH.joinpath(file_name_str) 
+                pts_df.to_file(file_path.absolute().as_posix(), driver='ESRI Shapefile')
 
                 pts_dict=[]
             self.flags['measurements_exported'] = True
@@ -2918,7 +2967,7 @@ CLOSE""",
         self.generate_canopy_height() : canopy height generation
         self.generate_restriction_zones() : restriction zone generation
         """   
-        if len(self.LANDCOVER_DATA_PATH) > 0:
+        if self.flags['landcover_path_set']:
             try:
                 self.crop_landcover_data()
                 self.import_landcover_data()
@@ -3034,7 +3083,9 @@ CLOSE""",
         """         
         if self.flags['landcover_map_clipped']:
             nrows, ncols = self.x.shape
-            im = gdal.Open(self.OUTPUT_DATA_PATH + 'landcover_cropped_utm.tif')
+            storing_file_path = self.OUTPUT_DATA_PATH.joinpath('landcover_cropped_utm.tif') 
+
+            im = gdal.Open(storing_file_path.absolute().as_posix())
             band = im.GetRasterBand(1)
             land_cover_array = np.flip(band.ReadAsArray(),axis=0)
             self.landcover_layer = land_cover_array
@@ -3062,13 +3113,12 @@ CLOSE""",
         self.generate_mesh() : mesh generation
         """               
         if self.flags['mesh_generated']:  
-            if len(self.LANDCOVER_DATA_PATH) > 0:
-                if len(self.OUTPUT_DATA_PATH)> 0:               
-                    input_image = gdal.Open(self.LANDCOVER_DATA_PATH, gdal.GA_ReadOnly)
-                    # projection = input_image.GetProjectionRef()
-                    # print(projection)
+            if self.flags['landcover_path_set']:
+                if self.flags['output_path_set']:               
+                    input_image = gdal.Open(self.LANDCOVER_DATA_PATH.absolute().as_posix(), gdal.GA_ReadOnly)
+                    storing_file_path = self.OUTPUT_DATA_PATH.joinpath('landcover_cropped_utm.tif') 
 
-                    clipped_map = gdal.Warp(self.OUTPUT_DATA_PATH + 'landcover_cropped_utm.tif', 
+                    clipped_map = gdal.Warp(storing_file_path.absolute().as_posix(), 
                                 input_image,format = 'GTiff',
                                 outputBounds=[self.mesh_corners_utm[0,0], self.mesh_corners_utm[0,1],
                                             self.mesh_corners_utm[1,0], self.mesh_corners_utm[1,1]],
@@ -3672,14 +3722,19 @@ CLOSE""",
         transect_yaml = transect_yaml.replace('insertTransectPoints', points_str)
         
         yaml_file = yaml_file.replace('insertTransects', transect_yaml)
-
-        output_file = open(self.OUTPUT_DATA_PATH + "measurement_scenario.yaml","w+")
+        
+        file_name_str = "measurement_scenario.yaml"
+        file_path = self.OUTPUT_DATA_PATH.joinpath(file_name_str) 
+        output_file = open(file_path,"w+")
         output_file.write(yaml_file)
         output_file.close()
 
-        xml_file =  self.yaml2xml(self.OUTPUT_DATA_PATH + "measurement_scenario.yaml")
 
-        output_file = open(self.OUTPUT_DATA_PATH + "measurement_scenario.xml","w+")
+        xml_file =  self.yaml2xml(file_path)
+
+        file_name_str = "measurement_scenario.xml"
+        file_path = self.OUTPUT_DATA_PATH.joinpath(file_name_str) 
+        output_file = open(file_path,"w+")
         output_file.write(xml_file)
         output_file.close()
     
