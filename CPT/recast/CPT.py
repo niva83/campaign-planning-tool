@@ -10,6 +10,7 @@ import pandas as pd
 import geopandas
 from shapely.geometry import Point
 import whitebox
+import simplekml as Kml
 
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -406,7 +407,6 @@ IF (P1005=1)
     I5111=10000*8388608/I10
         WHILE(I5111>0)
                 IF(P1004=1)
-                    CMD"#3j+"
                     IF (P1008=0)
                         F(P1011)
                         X(1st_azimuth)Y(1st_elevation)
@@ -569,7 +569,7 @@ CLOSE""",
                 self.LANDCOVER_DATA_PATH = Path(r'%s' %path_str)
                 if self.LANDCOVER_DATA_PATH.exists():
                     if self.LANDCOVER_DATA_PATH.is_file():
-                        print('Path ' + str(self.LANDCOVER_DATA_PATH) + 'set for landcover data')
+                        print('Path ' + str(self.LANDCOVER_DATA_PATH) + ' set for landcover data')
                         self.flags['landcover_path_set'] = True
                     else:
                         print('Provided path does not point to the landcover data!')
@@ -1777,7 +1777,7 @@ CLOSE""",
                         no_pulses = PRF * self.ACCUMULATION_TIME / 1000
                         motion_program = motion_program.replace("insertAccTime", str(self.ACCUMULATION_TIME))
                         motion_program = motion_program.replace("insertTriggers", str(no_pulses))
-                        motion_program = motion_program.replace("insertPRF", str(PRF))
+                        motion_program = motion_program.replace("insertPRF", str(int(PRF / 1000)))
 
                         file_name_str = kwargs['lidar_id'] + "_motion.pmc"
                         file_path = self.OUTPUT_DATA_PATH.joinpath(file_name_str) 
@@ -3533,55 +3533,106 @@ CLOSE""",
 
             return np.transpose(np.array([azimuth, elevation, distance_3D]))        
 
-    def export_layout_to_kml(self, **kwargs):
-            # need to check if folder exists
-            if ('layer_type' in kwargs and 
-                kwargs['layer_type'] in self.LAYER_TYPE and 
-                self.layer_selector(kwargs['layer_type']) is not None
-                ):
-                layer = self.layer_selector(kwargs['layer_type'])
+    # def export_layout_to_kml(self, **kwargs):
+    #         # need to check if folder exists
+    #         if ('layer_type' in kwargs and 
+    #             kwargs['layer_type'] in self.LAYER_TYPE and 
+    #             self.layer_selector(kwargs['layer_type']) is not None
+    #             ):
+    #             layer = self.layer_selector(kwargs['layer_type'])
                 
-                if len(layer.shape) > 2:
-                    layer = np.sum(layer, axis = 2)
+    #             if len(layer.shape) > 2:
+    #                 layer = np.sum(layer, axis = 2)
         
-                array_rescaled = (255.0 / layer.max() * (layer - layer.min())).astype(np.uint8)
-                array_rescaled = np.flip(array_rescaled, axis = 0)
-                image = Image.fromarray(np.uint8(plt.cm.RdBu_r(array_rescaled)*255))
+    #             array_rescaled = (255.0 / layer.max() * (layer - layer.min())).astype(np.uint8)
+    #             array_rescaled = np.flip(array_rescaled, axis = 0)
+    #             image = Image.fromarray(np.uint8(plt.cm.RdBu_r(array_rescaled)*255))
         
-                multi_band_array = np.array(image)
+    #             multi_band_array = np.array(image)
                 
-                rows = multi_band_array.shape[0]
-                cols = multi_band_array.shape[1]
-                bands = multi_band_array.shape[2]
+    #             rows = multi_band_array.shape[0]
+    #             cols = multi_band_array.shape[1]
+    #             bands = multi_band_array.shape[2]
                 
-                dst_filename = self.OUTPUT_DATA_PATH + kwargs['layer_type'] + '.tiff'
+    #             dst_filename = self.OUTPUT_DATA_PATH + kwargs['layer_type'] + '.tiff'
                 
-                x_pixels = rows  # number of pixels in x
-                y_pixels = cols  # number of pixels in y
-                driver = gdal.GetDriverByName('GTiff')
-                options = ['PHOTOMETRIC=RGB', 'PROFILE=GeoTIFF']
-                dataset = driver.Create(dst_filename,x_pixels, y_pixels, bands,gdal.GDT_Byte,options = options)
+    #             x_pixels = rows  # number of pixels in x
+    #             y_pixels = cols  # number of pixels in y
+    #             driver = gdal.GetDriverByName('GTiff')
+    #             options = ['PHOTOMETRIC=RGB', 'PROFILE=GeoTIFF']
+    #             dataset = driver.Create(dst_filename,x_pixels, y_pixels, bands,gdal.GDT_Byte,options = options)
                 
-                origin_x = self.mesh_corners_utm[0][0]
-                origin_y = self.mesh_corners_utm[1][1]
-                pixel_width = self.MESH_RES
-                geotrans = (origin_x, pixel_width, 0, origin_y, 0, -pixel_width)
+    #             origin_x = self.mesh_corners_utm[0][0]
+    #             origin_y = self.mesh_corners_utm[1][1]
+    #             pixel_width = self.MESH_RES
+    #             geotrans = (origin_x, pixel_width, 0, origin_y, 0, -pixel_width)
         
-                proj = osr.SpatialReference()
-                proj.ImportFromEPSG(int(self.epsg_code))
-                proj = proj.ExportToWkt()
+    #             proj = osr.SpatialReference()
+    #             proj.ImportFromEPSG(int(self.epsg_code))
+    #             proj = proj.ExportToWkt()
         
-                for band in range(bands):
-                    dataset.GetRasterBand(band + 1).WriteArray(multi_band_array[:,:,band])
+    #             for band in range(bands):
+    #                 dataset.GetRasterBand(band + 1).WriteArray(multi_band_array[:,:,band])
         
         
-                dataset.SetGeoTransform(geotrans)
-                dataset.SetProjection(proj)
-                dataset.FlushCache()
-                dataset=None
+    #             dataset.SetGeoTransform(geotrans)
+    #             dataset.SetProjection(proj)
+    #             dataset.FlushCache()
+    #             dataset=None
                 
-                self.resize_tiff(dst_filename, self.__ZOOM)
-                del_folder_content(self.OUTPUT_DATA_PATH, self.FILE_EXTENSIONS)            
+    #             self.resize_tiff(dst_filename, self.__ZOOM)
+    #             del_folder_content(self.OUTPUT_DATA_PATH, self.FILE_EXTENSIONS)
+
+    # def export_kml(self, **kwargs):
+
+    #     # first check if lidar_ids exist in kwargs
+    #     # and in lidar_dictionary
+    #     if('lidar_ids' in kwargs and 
+    #         set(kwargs['lidar_ids']).issubset(self.lidar_dictionary)
+    #         ):
+
+    #         kml = simplekml.Kml()
+
+    #         lidar_pos_utm = [self.lidar_dictionary[lidar]['position'] for lidar in kwargs['lidar_ids']]
+    #         lidar_pos_utm = np.asarray(lidar_pos_utm)
+    #         lidar_pos_geo = self.utm2geo(lidar_pos_utm, self.long_zone, self.hemisphere)
+    #         for i,lidar in enumerate(kwargs['lidar_ids']):
+    #             kml.newpoint(name = lidar, coords=[(lidar_pos_geo[0], lidar_pos_geo[1], lidar_pos_geo[2])])
+
+    #         trajectories = [self.lidar_dictionary[lidar]['trajectory'].values 
+    #                         for lidar in kwargs['lidar_ids']]
+    #         trajectories = np.asarray(trajectories)
+    #         trajectories_lengths = [len(single) for single in trajectories]
+
+    #         if trajectories_length[1:] == trajectories_length[:-1]:
+    #             if np.all(np.all(trajectories == trajectories[0,:], axis = 0)):
+    #                 flag = True
+                    
+    #                 trajectory_geo = self.utm2geo(trajectories[0][:,1:], self.long_zone, self.hemisphere)
+    #                 trajectory_geo_tuple = [tuple(l) for l in trajectory_geo]
+    #                 kml.newlinestring(name="Trajectory", 
+    #                                   description="An optimized trajectory through a set of measurement points",
+    #                                   coords=trajectory_geo_tuple)
+    #             else:
+    #                 flag = False
+    #                 print('Trajectories are not the same')
+    #         else:
+    #             flag = False
+    #             print('Trajectories are not the same')               
+        
+
+        # second check if for the selected lidar_ids
+        # key[trajectory] is the same
+        # otherwise they are not measuring at the same pts
+
+        # if this pass check then to the kml add
+        # lidars as pts and trajectory as the path
+
+        # once this is done, next check if users provided
+        # kwarg['layers'], and if yes whether it is a list
+        # next iterate over the list and for each layer
+        # that exisits export it and add it to the kml
+
 
     def export_layer(self, **kwargs):
         # need to check if folder exists
@@ -3603,8 +3654,9 @@ CLOSE""",
             rows = multi_band_array.shape[0]
             cols = multi_band_array.shape[1]
             bands = multi_band_array.shape[2]
-            
-            dst_filename = self.OUTPUT_DATA_PATH + kwargs['layer_type'] + '.tiff'
+            file_name_str = kwargs['layer_type'] + '.tif'
+            file_path = self.OUTPUT_DATA_PATH.joinpath(file_name_str)
+            dst_filename = file_path.absolute().as_posix()
             
             x_pixels = rows  # number of pixels in x
             y_pixels = cols  # number of pixels in y
