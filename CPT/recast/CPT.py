@@ -658,8 +658,8 @@ CLOSE""",
                     cbar.set_label(kwargs['legend_label'], fontsize = self.FONT_SIZE)
                     
                 
-                if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
-                    measurement_pts = self.measurement_type_selector(kwargs['points_type'])
+                if 'points_id' in kwargs and kwargs['points_id'] in self.POINTS_TYPE:
+                    measurement_pts = self.measurement_type_selector(kwargs['points_id'])
                 else:
                     measurement_pts = self.measurement_type_selector(self.measurements_selector)        
             
@@ -742,9 +742,9 @@ CLOSE""",
         plot : matplotlib
         
         """
-        if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
-            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
-            pts_str = kwargs['points_type']
+        if 'points_id' in kwargs and kwargs['points_id'] in self.POINTS_TYPE:
+            measurement_pts = self.measurement_type_selector(kwargs['points_id'])
+            pts_str = kwargs['points_id']
         else:
             measurement_pts = self.measurement_type_selector('initial')
             pts_str = 'initial'
@@ -848,8 +848,8 @@ CLOSE""",
             ax.scatter(self.lidar_pos_2[0], self.lidar_pos_2[1], marker = 'o', 
             facecolors='white', edgecolors='black',s=60,zorder=2000, label = "lidar_2")
 
-            if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
-                measurement_pts = self.measurement_type_selector(kwargs['points_type'])
+            if 'points_id' in kwargs and kwargs['points_id'] in self.POINTS_TYPE:
+                measurement_pts = self.measurement_type_selector(kwargs['points_id'])
             else:
                 measurement_pts = self.measurement_type_selector(self.measurements_selector)        
 
@@ -946,7 +946,7 @@ CLOSE""",
 
         Keyword Arguments
         -----------------
-        points_type : str
+        points_id : str
             A string indicating to what variable 
             measurement points should be added.
             A default value is set to 'initial'.
@@ -981,8 +981,8 @@ CLOSE""",
             print('Cannot add measurement points without specificing UTM zone first!')
 
         if self.flags['utm_set'] and self.check_measurement_positions(kwargs['measurements']):
-            if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
-                self.measurements_selector = kwargs['points_type']
+            if 'points_id' in kwargs and kwargs['points_id'] in self.POINTS_TYPE:
+                self.measurements_selector = kwargs['points_id']
             print('Adding ' + self.measurements_selector + ' measurement points!')
 
             if len(kwargs['measurements'].shape) == 2:
@@ -1021,7 +1021,7 @@ CLOSE""",
 
         Keyword Arguments
         -----------------
-        points_type : str
+        points_id : str
             A string indicating what type of measurements are 
             added to the measurements dictionary.
         points : ndarray, required
@@ -1043,14 +1043,14 @@ CLOSE""",
         Correct longitudinal zone!
         UTM zone set
         >>> layout.add_measurement_instances(points = np.array([[576697, 4845753, 395 + 80], 
-        [577979, 4844819, 478 + 80],]), points_type = 'initial')
+        [577979, 4844819, 478 + 80],]), points_id = 'initial')
         Measurement points 'initial' added to the measurements dictionary!
         Measurements dictionary contains 1 different measurement type(s).
 
         """
         if self.flags['utm_set']:
-            if 'points_type' in kwargs:
-                if kwargs['points_type'] in self.POINTS_TYPE:
+            if 'points_id' in kwargs:
+                if kwargs['points_id'] in self.POINTS_TYPE:
                     if 'points' in kwargs:
                         if len(kwargs['points'].shape) == 2 and kwargs['points'].shape[1] == 3:
 
@@ -1058,13 +1058,13 @@ CLOSE""",
                                                     columns = ["Easting [m]", "Northing [m]","Height asl [m]"])
 
                             points_pd.insert(loc=0, column='Point no.', value=np.array(range(1,len(points_pd) + 1)))
-                            pts_dict = {kwargs['points_type']: points_pd}
+                            pts_dict = {kwargs['points_id']: points_pd}
                             self.measurements_dictionary.update(pts_dict)
 
-                            print('Measurement points \'' + kwargs['points_type'] + '\' added to the measurements dictionary!')
+                            print('Measurement points \'' + kwargs['points_id'] + '\' added to the measurements dictionary!')
                             print('Measurements dictionary contains ' + str(len(self.measurements_dictionary)) + ' different measurement type(s).')
                             self.flags['measurements_added'] = True
-                            self.measurements_selector = kwargs['points_type']
+                            self.measurements_selector = kwargs['points_id']
                         else:
                             print('Incorrect position information, cannot add measurements!')
                             print('Input measurement points must be a numpy array of shape (n,3) where n is number of points!')
@@ -1081,9 +1081,9 @@ CLOSE""",
     def update_reachable_points(self, **kwargs):
 
         
-        if ('points_type' in kwargs and 
-            kwargs['points_type'] in self.POINTS_TYPE and 
-            self.measurements_dictionary[kwargs['points_type']] is not None
+        if ('points_id' in kwargs and 
+            kwargs['points_id'] in self.POINTS_TYPE and 
+            self.measurements_dictionary[kwargs['points_id']] is not None
         ):
             if ('lidar_ids' in kwargs and set(kwargs['lidar_ids']).issubset(self.lidar_dictionary)):
                 flag = True
@@ -1111,9 +1111,9 @@ CLOSE""",
                     print('Run self.update_lidar_instance(lidar_id = name) to a single lidar instance!')
 
                 if flag:
-                    if kwargs['points_type'] == measurement_id[0]:
+                    if kwargs['points_id'] == measurement_id[0]:
                         print('Finding reachable points which are common for lidar instances:' + str(kwargs['lidar_ids']))
-                        measurement_pts = self.measurement_type_selector(kwargs['points_type'])
+                        measurement_pts = self.measurement_type_selector(kwargs['points_id'])
                         self.measurement_selector = 'reachable'
                         all_ones = np.full(len(measurement_pts),1)
                         for lidar in kwargs['lidar_ids']:
@@ -1122,14 +1122,14 @@ CLOSE""",
                         pts_ind = np.where(all_ones == 1)
                         print('Updating self.measurements_dictionary instance \'reachable\' with common reachable points')
                         self.add_measurement_instances(points = measurement_pts[pts_ind], 
-                                                       points_type = 'reachable')
+                                                       points_id = 'reachable')
                         print('Optimizing trajectory through the common reachable points for lidar instances:' + str(kwargs['lidar_ids']))
-                        self.optimize_trajectory(points_type = 'reachable', 
+                        self.optimize_trajectory(points_id = 'reachable', 
                                                  lidar_ids = kwargs['lidar_ids'])
                                               
                         print('Lidar instances:' + str(kwargs['lidar_ids']) + ' will be updated with the common reachable points and optimized trajectory')
                         for lidar in kwargs['lidar_ids']:
-                            self.update_lidar_instance(lidar_id = lidar, use_optimized_trajectory = True, points_type = 'reachable')
+                            self.update_lidar_instance(lidar_id = lidar, use_optimized_trajectory = True, points_id = 'reachable')
 
                         self.sync_trajectory(**kwargs)                            
                         
@@ -1187,7 +1187,7 @@ CLOSE""",
 
         Keyword arguments
         -----------------
-        points_type : str
+        points_id : str
             ...
 
         Returns
@@ -1252,9 +1252,9 @@ CLOSE""",
             [0, 0, 0, 0, 0]]))
 
         """
-        if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
-            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
-            self.measurements_selector = kwargs['points_type']
+        if 'points_id' in kwargs and kwargs['points_id'] in self.POINTS_TYPE:
+            measurement_pts = self.measurement_type_selector(kwargs['points_id'])
+            self.measurements_selector = kwargs['points_id']
         else:
             measurement_pts = self.measurement_type_selector(self.measurements_selector)        
 
@@ -1409,9 +1409,9 @@ CLOSE""",
             [0. , 7.4, 1. ]])
 
         """
-        if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
-            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
-            self.measurements_selector = kwargs['points_type']
+        if 'points_id' in kwargs and kwargs['points_id'] in self.POINTS_TYPE:
+            measurement_pts = self.measurement_type_selector(kwargs['points_id'])
+            self.measurements_selector = kwargs['points_id']
         else:
             measurement_pts = self.measurement_type_selector(self.measurements_selector)
         measure_pt_height = abs(measurement_pts[:,2] -  self.get_elevation(self.long_zone + self.lat_zone, measurement_pts))
@@ -1459,7 +1459,7 @@ CLOSE""",
                 measurements_optimized = np.append(discs_selected, points_uncovered, axis = 0)
                 terrain_height = self.get_elevation(self.long_zone + self.lat_zone, measurements_optimized)
                 measurements_optimized[:, 2] = terrain_height + np.average(measure_pt_height)
-                self.add_measurement_instances(points = measurements_optimized, points_type = 'optimized')
+                self.add_measurement_instances(points = measurements_optimized, points_id = 'optimized')
 
             # if we cover all the points then
             # the optimized measurements are
@@ -1468,14 +1468,14 @@ CLOSE""",
                 measurements_optimized = discs_selected
                 terrain_height = self.get_elevation(self.long_zone + self.lat_zone, measurements_optimized)
                 measurements_optimized[:, 2] = terrain_height + np.average(measure_pt_height)
-                self.add_measurement_instances(points = measurements_optimized, points_type = 'optimized')
+                self.add_measurement_instances(points = measurements_optimized, points_id = 'optimized')
 
             # in case when none of the measurement
             # points are covered by this method than
             # the optimized points should be equal to
             # the original measurements points
             # if len(measurements_optimized) == len(measurement_pts):
-            #     self.add_measurement_instances(points = measurement_pts, points_type = 'optimized')
+            #     self.add_measurement_instances(points = measurement_pts, points_id = 'optimized')
                 
         else:
             print("No measurement positions added, nothing to optimize!")
@@ -1491,7 +1491,7 @@ CLOSE""",
         
         Keyword paramaters
         ------------------
-        points_type : str, required
+        points_id : str, required
             A string indicating which measurement points
             should be consider for the trajectory optimization.
         lidar_ids : list of str, required
@@ -1525,17 +1525,17 @@ CLOSE""",
         --------
         """        
         # selecting points which will be used for optimization
-        if ('points_type' in kwargs and
-             kwargs['points_type'] in self.POINTS_TYPE and
-             kwargs['points_type'] in self.measurements_dictionary and
-             len(self.measurements_dictionary[kwargs['points_type']]) > 0
+        if ('points_id' in kwargs and
+             kwargs['points_id'] in self.POINTS_TYPE and
+             kwargs['points_id'] in self.measurements_dictionary and
+             len(self.measurements_dictionary[kwargs['points_id']]) > 0
             ):
             if ('lidar_ids' in kwargs and
                  set(kwargs['lidar_ids']).issubset(self.lidar_dictionary)
                 ):
 
-                measurement_pts = self.measurements_dictionary[kwargs['points_type']].values[:, 1:].tolist()
-                self.measurements_selector = kwargs['points_type']
+                measurement_pts = self.measurements_dictionary[kwargs['points_id']].values[:, 1:].tolist()
+                self.measurements_selector = kwargs['points_id']
                 sync_time_list = []
                 for i in range(0,len(measurement_pts)):
     
@@ -1579,7 +1579,7 @@ CLOSE""",
                 for lidar in kwargs['lidar_ids']:
                     self.update_lidar_instance(lidar_id = lidar, 
                                             use_optimized_trajectory = True, 
-                                            points_type = kwargs['points_type'])
+                                            points_id = kwargs['points_id'])
 
                 if 'sync' in kwargs and kwargs['sync']:
                     self.sync_trajectory(**kwargs)                            
@@ -1606,7 +1606,7 @@ CLOSE""",
         
         Keyword paramaters
         ------------------
-        points_type : str
+        points_id : str
             A string indicating which measurement points
             should be consider for the trajectory optimization.
         lidar_ids : list of str
@@ -1639,15 +1639,15 @@ CLOSE""",
         Examples
         --------
         """
-        if ('points_type' in kwargs and
-             kwargs['points_type'] in self.POINTS_TYPE and
-             kwargs['points_type'] in self.measurements_dictionary and
-             len(self.measurements_dictionary[kwargs['points_type']]) > 0
+        if ('points_id' in kwargs and
+             kwargs['points_id'] in self.POINTS_TYPE and
+             kwargs['points_id'] in self.measurements_dictionary and
+             len(self.measurements_dictionary[kwargs['points_id']]) > 0
             ):
             if ('lidar_ids' in kwargs and
                  set(kwargs['lidar_ids']).issubset(self.lidar_dictionary)
                 ):
-                points = self.measurements_dictionary[kwargs['points_type']].values[:, 1:].tolist()
+                points = self.measurements_dictionary[kwargs['points_id']].values[:, 1:].tolist()
 
                 if start is None:
                     shuffle(points)
@@ -1916,7 +1916,7 @@ CLOSE""",
         use_reachable_points : boolean, optional
             Indicates whether to update the lidar instance
             only considering the reachable points.
-        gis_layer_id : str, optional
+        layer_id : str, optional
             String indicating which GIS layer to use
             for the instance update.
             The argument value can be either 'combined or 'second_lidar'.
@@ -1937,8 +1937,8 @@ CLOSE""",
         will consider all the measurement points during the instance update.
 
         If 'only_reachable_points' is set to True, the method requires that the
-        'gis_layer_id' points to either 'combined' or 'second_lidar' layer. If
-        'gis_layer_id' is not provided the method will use 'combined' layer.
+        'layer_id' points to either 'combined' or 'second_lidar' layer. If
+        'layer_id' is not provided the method will use 'combined' layer.
 
         If 'use_optimized_trajectory' is set to True, it is required that the 
         method self.optimize_trajectory was run prior the current method, 
@@ -1954,11 +1954,11 @@ CLOSE""",
 
         """
 
-        if ('points_type' in kwargs and 
-            kwargs['points_type'] in self.POINTS_TYPE and 
-            kwargs['points_type'] in self.measurements_dictionary
+        if ('points_id' in kwargs and 
+            kwargs['points_id'] in self.POINTS_TYPE and 
+            kwargs['points_id'] in self.measurements_dictionary
             ):
-            kwargs.update({'points_type' : kwargs['points_type']})
+            kwargs.update({'points_id' : kwargs['points_id']})
             kwargs.update({'lidar_id' : ''})
 
 
@@ -1985,12 +1985,12 @@ CLOSE""",
         -----------------
         lidar_id : str, required
             String which identifies the lidar instance to be updated.
-        points_type : str, optional
+        points_id : str, optional
             Indicates which points to be used to update the lidar instace.
         use_reachable_points : boolean, optional
             Indicates whether to update the lidar instance
             only considering the reachable points.
-        gis_layer_id : str, optional
+        layer_id : str, optional
             String indicating which GIS layer to use
             for the instance update.
             The argument value can be either 'combined or 'second_lidar'.
@@ -2011,8 +2011,8 @@ CLOSE""",
         will consider all the measurement points during the instance update.
 
         If 'only_reachable_points' is set to True, the method requires that the
-        'gis_layer_id' points to either 'combined' or 'second_lidar' layer. If
-        'gis_layer_id' is not provided the method will use 'combined' layer.
+        'layer_id' points to either 'combined' or 'second_lidar' layer. If
+        'layer_id' is not provided the method will use 'combined' layer.
 
         If 'use_optimized_trajectory' is set to True, it is required that the 
         method self.optimize_trajectory was run prior the current method, 
@@ -2027,12 +2027,12 @@ CLOSE""",
         --------
 
         """
-        if ('points_type' in kwargs and 
-            kwargs['points_type'] in self.POINTS_TYPE and 
-            kwargs['points_type'] in self.measurements_dictionary
+        if ('points_id' in kwargs and 
+            kwargs['points_id'] in self.POINTS_TYPE and 
+            kwargs['points_id'] in self.measurements_dictionary
             ):
-            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
-            self.measurements_selector = kwargs['points_type']
+            measurement_pts = self.measurement_type_selector(kwargs['points_id'])
+            self.measurements_selector = kwargs['points_id']
 
             if len(measurement_pts) > 0:
                 if 'lidar_id' in kwargs and kwargs['lidar_id'] in self.lidar_dictionary:
@@ -2050,12 +2050,12 @@ CLOSE""",
                         
                         if  (
                                 self.lidar_dictionary[kwargs['lidar_id']]['lidar_inside_mesh'] and
-                                'gis_layer_id' in kwargs and
-                                (kwargs['gis_layer_id'] == 'combined' or 
-                                kwargs['gis_layer_id'] == 'second_lidar_placement') and
-                                self.layer_selector(kwargs['gis_layer_id']) is not None
+                                'layer_id' in kwargs and
+                                (kwargs['layer_id'] == 'combined' or 
+                                kwargs['layer_id'] == 'second_lidar_placement') and
+                                self.layer_selector(kwargs['layer_id']) is not None
                             ):
-                            layer = self.layer_selector(kwargs['gis_layer_id'])
+                            layer = self.layer_selector(kwargs['layer_id'])
                             i, j = self.find_mesh_point_index(self.lidar_dictionary[kwargs['lidar_id']]['position'])
                             self.lidar_dictionary[kwargs['lidar_id']]['reachable_points'] = layer[i,j,:]                        
                         elif (
@@ -2149,7 +2149,7 @@ CLOSE""",
             3D array data are expressed in meters.
         mesh_extent : int, optional
             mesh extent in Easting and Northing in meters.
-        points_type : str, optional
+        points_id : str, optional
 
         
         Returns
@@ -2182,9 +2182,9 @@ CLOSE""",
         array([[-1000, -1000],
             [ 1000,  1000]])            
         """
-        if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
-            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
-            self.measurements_selector = kwargs['points_type']
+        if 'points_id' in kwargs and kwargs['points_id'] in self.POINTS_TYPE:
+            measurement_pts = self.measurement_type_selector(kwargs['points_id'])
+            self.measurements_selector = kwargs['points_id']
         else:
             measurement_pts = self.measurement_type_selector(self.measurements_selector)
 
@@ -2264,7 +2264,7 @@ CLOSE""",
                     lidar_position = self.lidar_dictionary[kwargs['lidar_id']]['position']
                     self.generate_intersecting_angle_layer(lidar_position, measurement_pts)
                     self.flags['intersecting_angle_layer_generated'] = True
-                    self.update_lidar_instance(lidar_id = kwargs['lidar_id'], points_type = self.measurements_selector)
+                    self.update_lidar_instance(lidar_id = kwargs['lidar_id'], points_id = self.measurements_selector)
                     self.second_lidar_layer = self.combined_layer * self.intersecting_angle_layer
                     # reachable_points = self.lidar_dictionary[kwargs['lidar_id']]['reachable_points']
                     # self.second_lidar_layer = self.combined_layer * self.intersecting_angle_layer * reachable_points
@@ -2316,11 +2316,11 @@ CLOSE""",
         add_measurements() : adding measurement points to the CPT class instance 
         """
 
-        if ('points_type' in kwargs and 
-            kwargs['points_type'] in self.POINTS_TYPE and 
-            kwargs['points_type'] in self.measurements_dictionary
+        if ('points_id' in kwargs and 
+            kwargs['points_id'] in self.POINTS_TYPE and 
+            kwargs['points_id'] in self.measurements_dictionary
             ):
-            self.measurements_selector = kwargs['points_type']
+            self.measurements_selector = kwargs['points_id']
 
             if len(self.measurement_type_selector(self.measurements_selector)) > 0:
                 print('Generating combined layer for ' + self.measurements_selector + ' measurement points!')
@@ -2341,11 +2341,11 @@ CLOSE""",
                     if self.flags['landcover_layer_generated']:
                         self.combined_layer = self.combined_layer * self.restriction_zones_layer.reshape((nrows,ncols,1))
                         self.flags['combined_layer_generated'] = True
-                        self.combined_layer_pts_type = kwargs['points_type']
+                        self.combined_layer_pts_type = kwargs['points_id']
                     else:
                         print('Combined layer generated without landcover data!')
                         self.flags['combined_layer_generated'] = True
-                        self.combined_layer_pts_type = kwargs['points_type']
+                        self.combined_layer_pts_type = kwargs['points_id']
                 else:
                     print('Either topography or los blockage layer are missing!')
                     print('Aborting the combined layer generation!')
@@ -2353,7 +2353,7 @@ CLOSE""",
                 print('Instance in self.measurements_dictionary for type'+ self.measurements_selector + ' is empty!')
                 print('Aborting the combined layer generation!')
         else:
-            print('Either points_type was not provided or for the provided points_type there is no instance in self.measurements_dictionary!')
+            print('Either points_id was not provided or for the provided points_id there is no instance in self.measurements_dictionary!')
             print('Aborting the combined layer generation!')
 
 
@@ -2378,8 +2378,8 @@ CLOSE""",
         add_measurements() : adding measurement points to the CPT class instance 
         """
         if self.flags['topography_layer_generated']:
-            if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
-                self.measurements_selector = kwargs['points_type']
+            if 'points_id' in kwargs and kwargs['points_id'] in self.POINTS_TYPE:
+                self.measurements_selector = kwargs['points_id']
 
                 if self.measurement_type_selector(self.measurements_selector) is not None:        
                     self.export_measurements()
@@ -2589,7 +2589,7 @@ CLOSE""",
 
         Keyword Arguments
         -----------------
-        points_type : str
+        points_id : str
             A string indicating which measurement points to be
             used for the beam steering coordinates calculation.
 
@@ -2601,13 +2601,13 @@ CLOSE""",
         """
         # measurement point selector:
         
-        if ('points_type' in kwargs and 
-            kwargs['points_type'] in self.POINTS_TYPE and 
-            kwargs['points_type'] in self.measurements_dictionary
+        if ('points_id' in kwargs and 
+            kwargs['points_id'] in self.POINTS_TYPE and 
+            kwargs['points_id'] in self.measurements_dictionary
             ):
 
-            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
-            self.measurements_selector = kwargs['points_type']
+            measurement_pts = self.measurement_type_selector(kwargs['points_id'])
+            self.measurements_selector = kwargs['points_id']
 
             if measurement_pts is not None:
                 try:
@@ -2630,18 +2630,18 @@ CLOSE""",
                 print('Instance in self.measurements_dictionary for type'+ self.measurements_selector + ' is empty!')
                 print('Aborting the beam steering coordinates generation for the mesh points!')
         else:
-            print('Either points_type was not provided or for the provided points_type there is no instance in self.measurements_dictionary!')
+            print('Either points_id was not provided or for the provided points_id there is no instance in self.measurements_dictionary!')
             print('Aborting the beam steering coordinates generation for the mesh points!')
 
 
 
-    def measurement_type_selector(self, points_type):
+    def measurement_type_selector(self, points_id):
         """
         Selects measurement type.
 
         Parameters
         ----------
-        points_type : str
+        points_id : str
             A string indicating which measurement points to be returned
 
         Returns
@@ -2657,15 +2657,15 @@ CLOSE""",
         This method is used during the generation of the beam steering coordinates.
         """        
 
-        if points_type == 'initial':
+        if points_id == 'initial':
             return np.asarray(self.measurements_dictionary['initial'].values[:, 1:].tolist())
-        elif points_type == 'optimized':
+        elif points_id == 'optimized':
             return np.asarray(self.measurements_dictionary['optimized'].values[:, 1:].tolist())
-        elif points_type == 'reachable':
+        elif points_id == 'reachable':
             return np.asarray(self.measurements_dictionary['reachable'].values[:, 1:].tolist())
-        elif points_type == 'identified':
+        elif points_id == 'identified':
             return np.asarray(self.measurements_dictionary['identified'].values[:, 1:].tolist())
-        elif points_type == 'misc':
+        elif points_id == 'misc':
             return np.asarray(self.measurements_dictionary['misc'].values[:, 1:].tolist())
         else:
             return None
