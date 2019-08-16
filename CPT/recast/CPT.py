@@ -309,7 +309,7 @@ class CPT():
 
     MY_DPI = 100
     FONT_SIZE = 10
-    __ZOOM = 10
+    ZOOM = 10
     __yaml_template = {'skeleton': 
 """# This is the config file for the trajectory generation
 # for long-range WindScanners written in YAML
@@ -3726,7 +3726,7 @@ CLOSE""",
             dataset.FlushCache()
             dataset=None
             
-            self.resize_tiff(dst_filename, self.__ZOOM)
+            self.resize_tiff(dst_filename, self.ZOOM)
             del_folder_content(self.OUTPUT_DATA_PATH, self.FILE_EXTENSIONS)
     
                 
