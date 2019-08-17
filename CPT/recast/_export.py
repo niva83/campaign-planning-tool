@@ -1,5 +1,224 @@
-class Exporters:
-    def export_yaml(self, **kwargs):
+import numpy as np
+from osgeo import gdal, osr, ogr, gdal_array
+import yaml # installation via conda
+from xml.dom.minidom import parseString
+import dicttoxml # installation via conda available
+import simplekml
+import matplotlib.pyplot as plt
+from PIL import Image
+
+# for working with files and folders
+from pathlib import Path
+import os, shutil
+
+def del_folder_content(folder, exclude_file_extensions = None):
+    """
+    Deletes all files in a folder except specific file extensions.
+    
+    Parameters
+    ----------
+    folder : str
+        A path to the folder which files will be deleted.
+    exclude_file_extensions : array
+        A array containing strings representing file extensions
+        which will not be deleted.
+    """
+    for file in os.listdir(folder):
+        file_path = os.path.join(folder, file)
+        _, file_extension = os.path.splitext(file)
+        try:
+            if exclude_file_extensions is not None:
+                if os.path.isfile(file_path) and file_extension not in exclude_file_extensions:
+                    os.unlink(file_path)
+                #elif os.path.isdir(file_path): shutil.rmtree(file_path)                    
+            else:
+                if os.path.isfile(file_path):
+                    os.unlink(file_path)
+                #elif os.path.isdir(file_path): shutil.rmtree(file_path)
+        except Exception as e:
+            print(e)
+
+class Export():
+    """
+    A class containing methods for exporting CPT results.
+
+    Methods
+    ------
+    export_kml(**kwargs)
+        Exports campaign design as as a Google compatible KML file.
+    export_layer(**kwargs)
+        Exports a specific GIS layer as GeoTIFF image.
+    export_measurement_scenario(**kwargs)
+        Exports measurement scenarios for given lidars.
+
+    """
+
+    __yaml_template = {'skeleton': 
+"""# This is the config file for the trajectory generation
+# for long-range WindScanners written in YAML
+#
+#
+
+# Header
+coordinate_system: 'insertCOORDSYS'
+utm_zone: 'insertUTMzone'
+epsg_code: 'insertEPSGcode'
+number_of_lidars: insertNOlidars
+numer_of_measurement_scenarios: insertMOscenarios
+
+# Lidar position description
+lidar_positions:
+insertLIDARdetails
+
+# Measurement scenario description
+measurement_scenarios:
+    # Individual measurement scenario header
+insertMEASUREMENTscenarios""", 'scenario':
+"""
+    - scenario_id: 'insertScenarioID'
+      author: 'CPT'
+      number_of_transects: insertNOtransects
+      lidar_ids: insertLIDARids
+      synchronized: insertSYNC # 0 - no, 1 - yes
+      scan_type: insertSCANtype 
+      fft_size: insertFFTsize # no points
+      pulse_length: insertPULSElenght # in ns
+      accumulation_time: insertACCtime # in ms
+      min_range: insertMINrange # first range gate in m
+      max_range: insertMAXrange # last range gate in m
+insertTransects""", 'transect': 
+"""
+      transects:
+       #Individual transect header
+        - transect_no: 1 
+          transect_points : 
+insertTransectPoints""", 
+     'points': 
+"""
+            - point : insertPTid
+              easting : insertPTeasting 
+              northing: insertPTnorthing 
+              height: insertPTheight 
+              move_time: insertPTtiming # in ms
+""", 'lidars': 
+"""
+lidar_positions:
+insertLIDARS
+""", 'lidar': 
+"""
+    - lidar_id: 'insertLIDARid' 
+      easting: insertLIDAReasting 
+      northing: insertLIDARnorthing 
+      height: insertLIDARheight 
+"""}
+    __rg_template = """LidarMode	insertMODE
+MaxDistance	insertMaxRange
+FFTSize	insertFFTSize
+insertRangeGates"""
+
+    __pmc_template =  {'skeleton' : 
+"""CLOSE
+END GATHER
+DELETE GATHER
+DELETE TRACE
+
+
+OPEN PROG 1983 CLEAR
+P1988=0
+P1983=0
+P1000=1
+M372=0
+P1015=0
+M1000=0
+P1001=-3000
+P1007=1
+P1004=1
+I5192=1
+I5187=1
+I5188=0
+I322=insertPRF
+
+CMD"#3HMZ"
+
+#1->-8192X
+#2->8192X+8192Y
+
+
+IF (P1005=1)
+    I5111=10000*8388608/I10
+        WHILE(I5111>0)
+                IF(P1004=1)
+                    IF (P1008=0)
+                        F(P1011)
+                        X(1st_azimuth)Y(1st_elevation)
+                    ENDIF
+                END IF
+            P1004=0
+        END WHILE
+ENDIF
+P1000=2
+WHILE(P1001!=-1999)
+    insertMeasurements
+
+    IF(P1001=-78)
+        CMD"#3j/"
+        P1001=-1999
+    ENDIF
+
+ENDWHILE
+CMD"#3j/"
+F30
+X0Y0
+
+WHILE(M133=0 OR M233=0)
+END WHILE
+
+; CLEARING ALL VARIABLES
+P1000=0
+M372=0
+P1015=0
+M1000=0
+P1007=0
+P1004=0
+P1002=0
+P1003=0
+P1011=0
+P1001=0
+P1013=0
+P1008=0
+P1010=0
+P1005=0
+
+CLOSE""",
+    "motion":
+    """
+    I5111 = (insertMotionTime)*8388608/I10
+    TA(insertHalfMotionTime)TM(1)
+    X(insertAzimuth)Y(insertElevation)
+    WHILE(I5111>0)
+    END WHILE
+    WHILE(M133=0 OR M233=0)
+    END WHILE
+
+    CMD"#3j^insertTriggers"
+    I5111 = (insertAccTime)*8388608/I10
+    WHILE(I5111>0)
+    END WHILE
+
+    WHILE(M333=0)
+    END WHILE
+
+    Dwell(1)
+    IF(P1983>0)
+        I5111=P1983*8388608/I10
+        WHILE(I5111>0)
+        END WHILE
+        P1984=P1983
+        P1988=P1988+1
+        P1983=0
+    END IF
+    """}
+    def __export_yaml(self, **kwargs):
         lidar_dict_sub = dict((k, self.lidar_dictionary[k]) for k in kwargs['lidar_ids'] if k in self.lidar_dictionary)
         # building header of YAML
         yaml_file = self.__yaml_template['skeleton']
@@ -77,18 +296,18 @@ class Exporters:
         if ('lidar_ids' in kwargs and set(kwargs['lidar_ids']).issubset(self.lidar_dictionary)):
 
             for lidar in kwargs['lidar_ids']:
-                self.export_measurement_scenario_single(lidar_id = lidar)
+                self.__export_measurement_scenario_single(lidar_id = lidar)
         
-            self.export_yaml(**kwargs)
+            self.__export_yaml(**kwargs)
         else:
             print('One or more lidar ids don\'t exist in the lidar dictionary')
             print('Available lidar ids: ' + str(list(self.lidar_dictionary.keys())))
 
-    def export_measurement_scenario_single(self, **kwargs):
+    def __export_measurement_scenario_single(self, **kwargs):
         if ('lidar_id' in kwargs):
             if (kwargs['lidar_id'] in self.lidar_dictionary):
-                self.export_motion_config(**kwargs)
-                self.export_range_gate(**kwargs)
+                self.__export_motion_config(**kwargs)
+                self.__export_range_gate(**kwargs)
             else:
                 print('Lidar instance \'' + kwargs['lidar_id'] + '\' does not exist in the lidar dictionary!')
                 print('Aborting the operation!')
@@ -96,7 +315,7 @@ class Exporters:
             print('lidar_id not provided as a keyword argument')
             print('Aborting the operation!')
 
-    def export_motion_config(self, **kwargs):
+    def __export_motion_config(self, **kwargs):
         # needs to check if output data folder exists!!!!
         if ('lidar_id' in kwargs and kwargs['lidar_id'] in self.lidar_dictionary):
             if self.lidar_dictionary[kwargs['lidar_id']]['motion_config'] is not None:
@@ -151,7 +370,7 @@ class Exporters:
             print('something')
             print('Aborting the operation!')
 
-    def export_range_gate(self, **kwargs):
+    def __export_range_gate(self, **kwargs):
         if ('lidar_id' in kwargs and kwargs['lidar_id'] in self.lidar_dictionary):
             if self.lidar_dictionary[kwargs['lidar_id']]['motion_config'] is not None:
                 if len(self.lidar_dictionary[kwargs['lidar_id']]['motion_config']) == len(self.lidar_dictionary[kwargs['lidar_id']]['probing_coordinates']):
@@ -178,7 +397,7 @@ class Exporters:
                             sequal_range_gates = np.linspace(max(range_gates) + self.MIN_RANGE, self.MAX_RANGE, int(no_remain_ranges/2)).astype(int).tolist()
                             range_gates = prequal_range_gates + range_gates + sequal_range_gates
 
-                            range_gate_file =  self.generate_range_gate_file(self.__rg_template, no_los, range_gates, lidar_mode, self.FFT_SIZE, self.ACCUMULATION_TIME)
+                            range_gate_file =  self.__generate_range_gate_file(self.__rg_template, no_los, range_gates, lidar_mode, self.FFT_SIZE, self.ACCUMULATION_TIME)
 
                             file_name_str = kwargs['lidar_id'] + "_range_gates.txt"
                             file_path = self.OUTPUT_DATA_PATH.joinpath(file_name_str) 
@@ -325,12 +544,12 @@ class Exporters:
             dataset.FlushCache()
             dataset=None
             
-            self.resize_tiff(dst_filename, self.__ZOOM)
+            self.__resize_tiff(dst_filename, self.ZOOM)
             del_folder_content(self.OUTPUT_DATA_PATH, self.FILE_EXTENSIONS)
     
                 
     @staticmethod        
-    def resize_tiff(file_path, resize_value):
+    def __resize_tiff(file_path, resize_value):
         original_file = gdal.Open(file_path)
         single_band = original_file.GetRasterBand(1)
         
@@ -364,4 +583,27 @@ class Exporters:
             yaml_file = yaml.safe_load(stream)
         xml_file = parseString(dicttoxml.dicttoxml(yaml_file,attr_type=False))
         xml_file = xml_file.toprettyxml()        
-        return xml_file
+        return xml_file    
+
+    @staticmethod
+    def __generate_range_gate_file(template_str, no_los, range_gates, lidar_mode, fft_size, accumulation_time):
+        range_gate_file = template_str
+        range_gate_file = range_gate_file.replace("insertMODE", str(lidar_mode))
+        range_gate_file = range_gate_file.replace("insertMaxRange", str(max(range_gates)))
+        range_gate_file = range_gate_file.replace("insertFFTSize", str(fft_size))
+
+        rows = ""
+        range_gate_row = "\t".join(list(map(str, range_gates)))
+
+        for i in range(0, no_los):
+            row_temp = str(i+1) + '\t' + str(accumulation_time) + '\t'
+            row_temp = row_temp + range_gate_row
+
+            if i < no_los - 1:
+                row_temp = row_temp + '\n'
+            rows = rows + row_temp
+
+        range_gate_file = range_gate_file.replace("insertRangeGates", rows)
+
+        return range_gate_file
+    
