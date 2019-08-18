@@ -461,7 +461,7 @@ class OptimizeTrajectory():
         --------
         The optimization of the trajectory is performed by applying the adapted 
         traveling salesman problem to the measurement point set while varing the
-        starting point of the trajectory. This secures the shortest trajectory. 
+        starting point of the trajecRtory. This secures the shortest trajectory. 
 
         References
         ----------
@@ -475,7 +475,9 @@ class OptimizeTrajectory():
         # selecting points which will be used for optimization
         if 'points_id' in kwargs:
             if kwargs['points_id'] in self.measurements_dictionary:
-                measurement_pts = self.measurements_dictionary[kwargs['points_id']].values[:, 1:].tolist()
+                measurement_pts = self.measurement_type_selector(
+                                                           kwargs['points_id']
+                                                                )
                 if len(measurement_pts) > 0:
                     self.measurements_selector = kwargs['points_id']
                     sync_time_list = []
