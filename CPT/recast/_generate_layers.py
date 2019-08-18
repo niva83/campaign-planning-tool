@@ -86,6 +86,37 @@ def between_beams_angle(azimuth_1, azimuth_2):
     return bba
 
 class LayersGIS():
+    """
+    Class containing methods for performing geometrical calculationas 
+    and generation of various GIS layer.
+
+    Methods
+    ------
+    find_mesh_points_index(point)
+        For a given input point returns indexes of the closest point
+        in the generated mesh.
+    generate_beam_coords(lidar_pos, meas_pt_pos, opt=1):
+        Generates beam steering coordinates in spherical coordinate system from 
+        multiple lidar positions to a single measurement point and vice verse.
+    generate_mesh(**kwargs)
+        Generates a rectangular horizontal mesh containing equally spaced points.
+    generate_combined_layer(**kwargs)
+        Generates the combined layer which is used 
+        for the positioning of the first lidars.
+    generate_second_lidar_layer(**kwargs)
+        Generates the combined layer which is used
+        for the positioning of the first lidars.
+    get_elevation(utm_zone, pts_utm)
+        Fetch elevation from the SRTM database for 
+        a number of points described by in the UTM coordinates.
+    layer_selector(layer_type)
+        Selects GIS layer according to the provided type.
+    set_utm_zone(utm_zone)
+        Sets EPSG code, latitudinal and longitudinal zones to the CPT instance. 
+    utm2geo(points_utm, long_zone, hemisphere)
+        Converts an array of points in the UTM coord system to
+        an array of point in the GEO coord system.
+    """
 
     @staticmethod
     def generate_beam_coords(lidar_pos, meas_pt_pos, opt=1):
@@ -120,7 +151,9 @@ class LayersGIS():
 
 
             # calculating difference between lidar_pos and meas_pt_pos coordiantes
-            dif_xyz = np.array([x_array - meas_pt_pos[0], y_array - meas_pt_pos[1], z_array - meas_pt_pos[2]])    
+            dif_xyz = np.array([x_array - meas_pt_pos[0], 
+                                y_array - meas_pt_pos[1], 
+                                z_array - meas_pt_pos[2]])    
 
             # distance between lidar and measurement point in space
             distance_3D = np.sum(dif_xyz**2,axis=0)**(1./2)
@@ -129,14 +162,16 @@ class LayersGIS():
             distance_2D = np.sum(np.abs([dif_xyz[0],dif_xyz[1]])**2,axis=0)**(1./2)
 
             # in radians
-            azimuth = np.arctan2(meas_pt_pos[0] - x_array, meas_pt_pos[1] - y_array)
+            azimuth = np.arctan2(meas_pt_pos[0] - x_array, 
+                                 meas_pt_pos[1] - y_array)
             # conversion to metrological convention
             azimuth = (360 + azimuth * (180 / np.pi)) % 360
 
             # in radians
             elevation = np.arccos(distance_2D / distance_3D)
             # conversion to metrological convention
-            elevation = np.sign(meas_pt_pos[2] - z_array) * (elevation * (180 / np.pi))
+            elevation = (np.sign(meas_pt_pos[2] - z_array) 
+                         * (elevation * (180 / np.pi)))
 
             return np.transpose(np.array([azimuth, elevation, distance_3D]))
         else:
@@ -150,7 +185,9 @@ class LayersGIS():
                 z_array = np.array([meas_pt_pos[2]])
 
             # calculating difference between lidar_pos and meas_pt_pos coordiantes
-            dif_xyz = np.array([lidar_pos[0] - x_array, lidar_pos[1] - y_array, lidar_pos[2] - z_array])    
+            dif_xyz = np.array([lidar_pos[0] - x_array, 
+                                lidar_pos[1] - y_array, 
+                                lidar_pos[2] - z_array])    
 
             # distance between lidar and measurement point in space
             distance_3D = np.sum(dif_xyz**2,axis=0)**(1./2)
@@ -166,7 +203,8 @@ class LayersGIS():
             # in radians
             elevation = np.arccos(distance_2D / distance_3D)
             # conversion to metrological convention
-            elevation = np.sign(z_array - lidar_pos[2]) * (elevation * (180 / np.pi))
+            elevation = (np.sign(z_array - lidar_pos[2]) 
+                         * (elevation * (180 / np.pi)))
 
             return np.transpose(np.array([azimuth, elevation, distance_3D]))   
 
@@ -178,79 +216,68 @@ class LayersGIS():
         Parameters
         ----------
         utm_zone : str
-            A string representing an UTM grid zone, containing digits (from 1 to 60) 
-            indicating the longitudinal zone followed by a character ('C' to 'X' excluding 'O') corresponding to the latitudinal zone.
+            A string representing an UTM grid zone, containing digits (1 to 60) 
+            indicating the longitudinal zone followed by a character (from 'C' 
+            to 'X' excluding 'O') corresponding to the latitudinal zone.
         
         Returns
         -------
         out : bool
-            A boolean indicating True or False .
-        
-        Examples
-        --------
-        If UTM zone and grid code exist.
-        >>> __utm2epsg('31V') 
-        True
-
-        If UTM zone and/or grid code don't exist.
-        >>> __utm2epsg('61Z')
-        False
+            A boolean indicating True or False.        
         """ 
         flag = False
-        lat_zones = ['C','D','E','F','G','H','J','K','L','M','N','P','Q','R','S','T','U','V','W','X']
+        lat_zones = ['C','D','E','F','G','H',
+                     'J','K','L','M','N','P',
+                     'Q','R','S','T','U','V','W','X']
         try:
-
             lat_zone = utm_zone[-1].upper() # in case users put lower case 
             long_zone = int(utm_zone[:-1])
             if lat_zone in lat_zones:
                 print('Correct latitudinal zone!')
                 flag = True
             else:
-                print('Incorrect latitudinal zone!\nEnter a correct latitudinal zone!')
+                print('Incorrect latitudinal zone!\
+                       \nEnter a correct latitudinal zone!')
                 flag = False
             
             if long_zone >= 1 and long_zone <= 60:
                 print('Correct longitudinal zone!')
                 flag = True and flag
             else:
-                print('Incorrect longitudinal zone!\nEnter a correct longitudinal zone!')
+                print('Incorrect longitudinal zone!\
+                      \nEnter a correct longitudinal zone!')
                 flag = False
         except:
             flag = False
-            print('Wrong input!\nHint: there should not be spaces between longitudinal and latitudinal zones when expressing the UTM zone!')
+            print('Wrong input!\nHint: there should not be spaces' 
+                  + 'between longitudinal and latitudinal zones'
+                  + 'when expressing the UTM zone!')
         return flag
 
     @staticmethod
     def __which_hemisphere(utm_zone):
         """
-        Returns whether UTM grid zone belongs to the Northern or Southern hemisphere. 
+        Returns whether UTM grid zone belongs to the Northern 
+        or Southern hemisphere. 
 
         Parameters
         ----------
         utm_zone : str
-            A string representing an UTM grid zone, containing digits (from 1 to 60) 
-            indicating the longitudinal zone followed by a character ('C' to 'X' excluding 'O') 
-            corresponding to the latitudinal zone.
+            A string representing an UTM grid zone, containing digits (1 to 60) 
+            indicating the longitudinal zone followed by a character (from 'C' 
+            to 'X' excluding 'O') corresponding to the latitudinal zone.
         
         Returns
         -------
         out : str
             A string indicating North or South hemisphere.
-        
-        Examples
-        --------
-        If UTM grid zone exists:
-        >>> __utm2epsg('31V') 
-        'North'
 
-        >>> __utm2epsg('31C') 
-        'South'        
-
-        If UTM grid zone doesn't exist:
-        >>> __utm2epsg('61Z')
         """
  
-        lat_zones = ['C','D','E','F','G','H','J','K','L','M','N','P','Q','R','S','T','U','V','W','X']
+        lat_zones = ['C','D','E','F','G','H',
+                     'J','K','L','M','N','P',
+                     'Q','R','S','T','U','V','W','X']
+
         lat_zone = utm_zone[-1].upper() # in case users put lower case 
         if int(utm_zone[:-1]) >= 1 and int(utm_zone[:-1]) <= 60:
             if lat_zone in lat_zones[10:]:
@@ -270,9 +297,9 @@ class LayersGIS():
         Parameters
         ----------
         utm_zone : str
-            A string representing an UTM grid zone, containing digits (from 1 to 60) 
-            indicating the longitudinal zone followed by a character ('C' to 'X' excluding 'O') 
-            corresponding to the latitudinal zone.        
+            A string representing an UTM grid zone, containing digits (1 to 60) 
+            indicating the longitudinal zone followed by a character (from 'C' 
+            to 'X' excluding 'O') corresponding to the latitudinal zone.
         Returns
         -------
         out : str
@@ -288,7 +315,9 @@ class LayersGIS():
         >>> __utm2epsg('61Z')
         None
         """
-        lat_zones = ['C','D','E','F','G','H','J','K','L','M','N','P','Q','R','S','T','U','V','W','X']
+        lat_zones = ['C','D','E','F','G','H',
+                     'J','K','L','M','N','P',
+                     'Q','R','S','T','U','V','W','X']
         lat_zone = utm_zone[-1].upper() # in case users put lower case 
         if int(utm_zone[:-1]) >= 1 and int(utm_zone[:-1]) <= 60:
             if lat_zone in lat_zones[10:]:
@@ -299,29 +328,17 @@ class LayersGIS():
                 return 'Wrong latitudinal zone'
         else:
             return 'Wrong longitudinal zone'
+
     def set_utm_zone(self, utm_zone):
         """
-        Sets latitudinal and longitudinal zones and EPSG code to the CPT instance. 
+        Sets EPSG code, latitudinal and longitudinal zones to the CPT instance. 
         
         Parameters
         ----------
-        utm_zone : str, optional
-            A string representing an UTM grid zone, containing digits (from 1 to 60) 
-            indicating the longitudinal zone followed by a character ('C' to 'X' excluding 'O') 
-            corresponding to the latitudinal zone.
-
-        Returns
-        -------
-        self.long_zone : str
-            A string representing longitudinal zone of the UTM grid zone.
-        self.lat_zone : str
-            A character representing latitudinal zone of the UTM grid zone.
-        self.epsg_code : str
-            A string representing EPSG code.
-        self.hemisphere : str
-            A string indicating north or south hemisphere.            
-        self.flags['utm_set'] : bool
-            Sets the key 'utm' in the flag dictionary to True.                
+        utm_zone : str
+            A string representing an UTM grid zone, containing digits (1 to 60) 
+            indicating the longitudinal zone followed by a character (from 'C' 
+            to 'X' excluding 'O') corresponding to the latitudinal zone.
         """
         if self.__check_utm_zone(utm_zone):
             self.long_zone = utm_zone[:-1]
@@ -355,20 +372,18 @@ class LayersGIS():
         points_geo : ndarray
             nD array containing data with `float` or `int` type corresponding 
             to latitude, longitude and height coordinates of points.
-        
-        Examples
-        --------
-        >>> points_utm = np.array([[317733, 6175124, 100], [316516, 6175827, 100], [316968, 6174561, 100]])
-        >>> utm2geo(points_utm, '33', 'north')
-        array([[ 55.68761863,  12.10043705, 100.        ],
-            [ 55.69346874,  12.0806343 , 100.        ],
-            [ 55.68227857,  12.08866043, 100.        ]])        
         """
-        geo_projection = Proj("+proj=utm +zone=" + long_zone + " +" + hemisphere + " +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
+        geo_projection = Proj("+proj=utm +zone=" 
+                              + long_zone 
+                              + " +" + hemisphere 
+                              + " +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
 
-        points_geo = np.array(list(reversed(geo_projection(points_utm[:,0], points_utm[:,1],inverse=True))))
-        points_geo = np.append(points_geo, np.array([points_utm[:,2]]),axis = 0).transpose()
-
+        points_geo = reversed(geo_projection(points_utm[:,0], 
+                                             points_utm[:,1],inverse=True))
+        points_geo = np.array(list(points_geo))
+        points_geo = np.append(points_geo, 
+                               np.array([points_utm[:,2]]),
+                               axis = 0).transpose()
         return points_geo
 
     @classmethod
@@ -380,8 +395,9 @@ class LayersGIS():
         Parameters
         ----------
         utm_zone : str
-            A string representing an UTM grid zone, containing digits (from 1 to 60) 
-            indicating the longitudinal zone followed by a character ('C' to 'X' excluding 'O') corresponding to the latitudinal zone.
+            A string representing an UTM grid zone, containing digits (1 to 60) 
+            indicating the longitudinal zone followed by a character (from 'C' 
+            to 'X' excluding 'O') corresponding to the latitudinal zone.
         pts_utm : ndarray
             nD array containing data with `float` or `int` type corresponding 
             to Easting and Northing coordinates of points.
@@ -396,11 +412,11 @@ class LayersGIS():
         --------
         It is required that the computer running this method 
         has an access to the Internet since the terrain height
-        information are obtained from the SRTM DEM database [1, 2].
+        information are obtained from the SRTM DEM database [1].
 
         References
         ----------
-        .. [1] Missing reference ....
+        .. [1] https://www2.jpl.nasa.gov/srtm/cbanddataproducts.html
 
         See also
         --------
@@ -415,7 +431,10 @@ class LayersGIS():
             elevation_data = srtm.get_data()
 
             # this works if multiple points are provided but fails if single one is given
-            elevation = np.asarray([elevation_data.get_elevation(pt[0],pt[1]) if elevation_data.get_elevation(pt[0],pt[1]) != None and elevation_data.get_elevation(pt[0],pt[1]) != np.nan else 0 for pt in pts_geo])
+            elevation = np.asarray([elevation_data.get_elevation(pt[0],pt[1]) 
+            if (elevation_data.get_elevation(pt[0],pt[1]) != None) 
+                and (elevation_data.get_elevation(pt[0],pt[1]) != np.nan)
+                else 0 for pt in pts_geo])
             elevation[np.isnan(elevation)] = cls.NO_DATA_VALUE
             return elevation
         else:
@@ -448,9 +467,6 @@ class LayersGIS():
             Second lidar placement
             Aerial image
             Misc layer
-        Notes
-        -----
-        This method is used during the generation of the beam steering coordinates.
         """        
 
         if layer_type == 'orography':
@@ -497,8 +513,9 @@ class LayersGIS():
             3D array data are expressed in meters.
         mesh_extent : int, optional
             mesh extent in Easting and Northing in meters.
-        points_id : str, optional
-
+        points_id : str
+            A string indicating which measurement points to be
+            used as the input for the optimization.
         
         Returns
         -------
@@ -539,8 +556,7 @@ class LayersGIS():
             self.MESH_EXTENT = int(
                                    int(self.MESH_EXTENT / self.MESH_RES) 
                                    * self.MESH_RES)
-            # self.mesh_corners_utm = np.array([self.mesh_center[:2] - self.MESH_EXTENT, 
-            #                                 self.mesh_center[:2] + self.MESH_EXTENT])
+
             self.mesh_corners_utm = np.array([self.mesh_center - self.MESH_EXTENT, 
                                             self.mesh_center + self.MESH_EXTENT])
             self.mesh_corners_geo = self.utm2geo(self.mesh_corners_utm, 
@@ -572,8 +588,22 @@ class LayersGIS():
 
     def find_mesh_point_index(self, point):
         """
-        Finds index of the closest point in a set
-        to the test point
+        For a given input point returns indexes of the closest point
+        in the generated mesh.
+
+        Parameters
+        ----------
+        point : ndarray
+            nD array containing coordinates of the test point
+
+        Returns
+        -------
+        i : int
+            Index i of the closest matching point in the mesh.
+            Index i correspond to the x axis.
+        j : int 
+            Index j of the closest matching point in the mesh.
+            Index j correspond to the y axis.
         """
         dist_2D = np.sum((self.mesh_utm[:,(0,1)] - point[:2])**2, axis=1)
         index = np.argmin(dist_2D)
@@ -616,11 +646,13 @@ class LayersGIS():
             if measurement_pts is not None:
                 try:
 
-                    array_shape = (measurement_pts.shape[0], )  + self.mesh_utm.shape
+                    array_shape = (measurement_pts.shape[0], ) + self.mesh_utm.shape
                     self.beam_coords = np.empty(array_shape, dtype=float)
 
                     for i, pts in enumerate(measurement_pts):
-                        self.beam_coords[i] = self.generate_beam_coords(self.mesh_utm, pts)
+                        self.beam_coords[i] = self.generate_beam_coords(
+                                                                self.mesh_utm
+                                                                , pts)
                     self.flags['beam_coords_generated'] = True
 
                     # splitting beam coords to three arrays 
@@ -631,11 +663,16 @@ class LayersGIS():
                 except:
                     print('Something went wrong! Check measurement points')
             else:
-                print('Instance in self.measurements_dictionary for type'+ self.measurements_selector + ' is empty!')
-                print('Aborting the beam steering coordinates generation for the mesh points!')
+                print('Instance in self.measurements_dictionary for type'
+                      + self.measurements_selector 
+                      + ' is empty!')
+                print('Aborting the beam steering coordinates' 
+                      +'generation for the mesh points!')
         else:
-            print('Either points_id was not provided or for the provided points_id there is no instance in self.measurements_dictionary!')
-            print('Aborting the beam steering coordinates generation for the mesh points!')
+            print('points_id was not provided or '
+                  + 'for the provided points_id there is no instance'
+                  + 'in self.measurements_dictionary!')
+            print('Aborting the operation!')
 
     def __generate_elevation_restriction_layer(self):
         """
@@ -649,10 +686,16 @@ class LayersGIS():
         """        
         if self.flags['beam_coords_generated'] == True:
             self.elevation_angle_layer = np.copy(self.elevation_angle_array)
-            self.elevation_angle_layer[np.where((self.elevation_angle_layer <= self.MAX_ELEVATION_ANGLE))] = 1
-            self.elevation_angle_layer[np.where((self.elevation_angle_layer > self.MAX_ELEVATION_ANGLE))] = 0
+            good_indexes = np.where((self.elevation_angle_layer 
+                                        <= self.MAX_ELEVATION_ANGLE))
+            bad_indexes = np.where((self.elevation_angle_layer 
+                                        > self.MAX_ELEVATION_ANGLE))                                        
+            self.elevation_angle_layer[good_indexes] = 1
+            self.elevation_angle_layer[bad_indexes] = 0
         else:
-            print('No beams coordinated generated, run self.gerate_beam_coords_mesh(str) first!')    
+            print('No beams coordinated generated!'
+                  + '\nRun self.gerate_beam_coords_mesh(str) first!'
+                  + 'Aborting the operation!')    
 
     def __generate_range_restriction_layer(self):
         """
@@ -666,8 +709,10 @@ class LayersGIS():
         """
         if self.flags['beam_coords_generated'] == True:
             self.range_layer = np.copy(self.range_array)
-            self.range_layer[np.where((self.range_layer <= self.AVERAGE_RANGE))] = 1
-            self.range_layer[np.where((self.range_layer > self.AVERAGE_RANGE))] = 0          
+            good_indexes = np.where((self.range_layer <= self.AVERAGE_RANGE))
+            bad_indexes = np.where((self.range_layer > self.AVERAGE_RANGE))
+            self.range_layer[good_indexes] = 1
+            self.range_layer[bad_indexes] = 0          
         else:
             print('No beams coordinated generated!\n Run self.gerate_beam_coords_mesh() first!')
 
@@ -687,7 +732,7 @@ class LayersGIS():
 
         References
         ----------
-        .. [1] Missing reference ...
+        .. [1] https://github.com/tkrajina/srtm.py
 
         See also
         --------
@@ -698,13 +743,18 @@ class LayersGIS():
             nrows, ncols = self.x.shape
             elevation_data = srtm.get_data()
 
-            self.mesh_utm[:,2] = np.asarray([elevation_data.get_elevation(x[0],x[1]) if elevation_data.get_elevation(x[0],x[1]) != None and elevation_data.get_elevation(x[0],x[1]) != np.nan else 0 for x in self.mesh_geo])
+            self.mesh_utm[:,2] = np.asarray([
+                elevation_data.get_elevation(x[0],x[1]) 
+                if (elevation_data.get_elevation(x[0],x[1]) != None) 
+                and (elevation_data.get_elevation(x[0],x[1]) != np.nan) else 0 
+                for x in self.mesh_geo])
 
             self.mesh_geo[:,2] = self.mesh_utm[:,2]
             self.orography_layer = self.mesh_utm[:,2].reshape(nrows, ncols)
             self.flags['orography_layer_generated'] = True
         else:
             print('Mesh not generated -> orography layer cannot be generated ')
+
     def __crop_landcover_data(self):
         """
         Crops the CORINE landcover data to the mesh area.
@@ -715,10 +765,12 @@ class LayersGIS():
         and that the mesh is generated before calling this method.
 
         Currently the method only works with the CORINE data [1].
+        The CORINE dataset that needs to be download is :
+        'Corine Land Cover - 100 meter 	2018 	Raster 	100m GeoTiff'
 
         References
         ----------
-        .. [1] Missing reference ....
+        .. [1] https://land.copernicus.eu/pan-european/corine-land-cover
 
         See also
         --------
@@ -759,7 +811,7 @@ class LayersGIS():
 
         References
         ----------
-        .. [1] Missing reference ....
+        .. [1] https://land.copernicus.eu/pan-european/corine-land-cover
 
         See also
         --------
@@ -787,14 +839,14 @@ class LayersGIS():
 
         Currently the method only works with the CORINE data [1].
 
-        The method converts specific CLC codes[2], corresponding to specific 
+        The method converts specific CLC codes[1], corresponding to specific 
         landcover types such as for example water body, to the zones which
         are restricted for the lidar installation. 
 
         References
         ----------
-        .. [1] Missing reference ....
-        .. [2] Missing reference ....
+        .. [1] https://land.copernicus.eu/pan-european/corine-land-cover
+
 
         See also
         --------
@@ -803,19 +855,26 @@ class LayersGIS():
         """           
         if self.flags['landcover_layer_generated']:        
             self.restriction_zones_layer = np.copy(self.landcover_layer)
-            self.restriction_zones_layer[np.where((self.restriction_zones_layer < 23))] = 1
-            self.restriction_zones_layer[np.where((self.restriction_zones_layer > 25) &
-                                                (self.restriction_zones_layer < 35))] = 1
-            self.restriction_zones_layer[np.where((self.restriction_zones_layer > 44))] = 1
 
-            self.restriction_zones_layer[np.where((self.restriction_zones_layer >= 23) & 
-                                                (self.restriction_zones_layer <= 25))] = 0
+            self.restriction_zones_layer[np.where(
+                                       self.restriction_zones_layer < 23)] = 1
+            self.restriction_zones_layer[np.where(
+                                     (self.restriction_zones_layer > 25) 
+                                   & (self.restriction_zones_layer < 35))] = 1
+            self.restriction_zones_layer[np.where(
+                                      self.restriction_zones_layer > 44)] = 1
 
-            self.restriction_zones_layer[np.where((self.restriction_zones_layer >= 35) & 
-                                                (self.restriction_zones_layer <= 44))] = 0
+            self.restriction_zones_layer[np.where(
+                                     (self.restriction_zones_layer >= 23) 
+                                   & (self.restriction_zones_layer <= 25))] = 0
+
+            self.restriction_zones_layer[np.where(
+                                     (self.restriction_zones_layer >= 35) 
+                                   & (self.restriction_zones_layer <= 44))] = 0
             self.flags['restriction_zones_generated'] = True
         else:
-            print('No landcover layer generated -> exclusion zones layer not generated!')
+            print('No landcover layer generated!')
+            print('Aborting the operation!')
 
     def __generate_canopy_height(self):
         """
@@ -825,18 +884,12 @@ class LayersGIS():
         Notes
         --------
         It is necessary that the base landcover layer is generated.
+        Currently the method only works with the CORINE data.
 
-        Currently the method only works with the CORINE data [1].
-
-        The method converts specific CLC codes[2], corresponding to forest, 
+        The method converts specific CLC codes, corresponding to forest, 
         to the canopy height. 
         
         It simply adds 20 m for CLC codes correspoding to forest.
-
-        References
-        ----------
-        .. [1] Missing reference ....
-        .. [2] Missing reference ....
 
         See also
         --------
@@ -846,11 +899,16 @@ class LayersGIS():
 
         if self.flags['landcover_layer_generated']:
             self.canopy_height_layer = np.copy(self.landcover_layer)
-            self.canopy_height_layer[np.where(self.canopy_height_layer < 23)] = 0
-            self.canopy_height_layer[np.where(self.canopy_height_layer == 23)] = 20
-            self.canopy_height_layer[np.where(self.canopy_height_layer == 24)] = 20
-            self.canopy_height_layer[np.where(self.canopy_height_layer == 25)] = 20
-            self.canopy_height_layer[np.where(self.canopy_height_layer >  25)] = 0
+            self.canopy_height_layer[np.where(
+                                            self.canopy_height_layer < 23)] = 0
+            self.canopy_height_layer[np.where(
+                                          self.canopy_height_layer == 23)] = 20
+            self.canopy_height_layer[np.where(
+                                          self.canopy_height_layer == 24)] = 20
+            self.canopy_height_layer[np.where(
+                                          self.canopy_height_layer == 25)] = 20
+            self.canopy_height_layer[np.where(
+                                           self.canopy_height_layer >  25)] = 0
             self.flags['canopy_height_generated'] = True
         else:
             print('No landcover layer generated -> canopy height layer not generated!')
@@ -894,7 +952,8 @@ class LayersGIS():
                 self.__generate_restriction_zones()
                 self.flags['landcover_layers_generated'] = True
             except:
-                print('Seems that the path to the landcover data or landcover data is not valid!')
+                print('The landcover data does not exist!')
+                print('Aborting the operation!')
                 self.flags['landcover_layers_generated'] = False
         else:
             print('Path to landcover data not provided!')
@@ -926,7 +985,8 @@ class LayersGIS():
             self.__generate_landcover_layer()
             if self.flags['orography_layer_generated']:
                 if self.flags['landcover_layers_generated']:
-                    self.topography_layer = self.canopy_height_layer + self.orography_layer
+                    self.topography_layer = (self.canopy_height_layer 
+                                             + self.orography_layer)
                     self.flags['topography_layer_generated'] = True
                 else:
                     self.topography_layer = self.orography_layer
@@ -940,7 +1000,7 @@ class LayersGIS():
 
     def __export_topography(self):
         """
-        Exports the topography layer a ASCI shapefile.
+        Exports the topography layer as a ASCI shapefile.
         
         Notes
         --------
@@ -955,7 +1015,8 @@ class LayersGIS():
         add_measurements() : adding measurement points to the CPT class instance 
         __viewshed_analysis() : the site viewshed analysis
         """        
-        if os.path.exists(self.OUTPUT_DATA_PATH) and self.flags['topography_layer_generated']:
+        if (os.path.exists(self.OUTPUT_DATA_PATH) 
+            and self.flags['topography_layer_generated']):
             topography_array = np.flip(self.topography_layer,axis=0)
             storing_file_path = self.OUTPUT_DATA_PATH.joinpath('topography.asc') 
 
@@ -1004,7 +1065,8 @@ class LayersGIS():
 
                 file_name_str = 'measurement_pt_' + str(i + 1) + '.shp'
                 file_path = self.OUTPUT_DATA_PATH.joinpath(file_name_str) 
-                pts_df.to_file(file_path.absolute().as_posix(), driver='ESRI Shapefile')
+                pts_df.to_file(file_path.absolute().as_posix(), 
+                               driver='ESRI Shapefile')
 
                 pts_dict=[]
             self.flags['measurements_exported'] = True
@@ -1036,7 +1098,8 @@ class LayersGIS():
 
            ):
             measurement_pts = self.measurement_type_selector(self.measurements_selector)
-            terrain_height = self.get_elevation(self.long_zone + self.lat_zone, measurement_pts)
+            terrain_height = self.get_elevation(self.long_zone 
+                                              + self.lat_zone, measurement_pts)
             measurement_height = measurement_pts[:,2]
             height_diff = measurement_height - terrain_height
 
@@ -1044,7 +1107,10 @@ class LayersGIS():
                 wbt = whitebox.WhiteboxTools()
                 wbt.set_working_dir(self.OUTPUT_DATA_PATH.absolute().as_posix())
                 wbt.verbose = False
-                wbt.viewshed('topography.asc',"measurement_pt_" +str(i+1)+".shp","los_blockage_" +str(i+1)+".asc",height_diff[i])
+                wbt.viewshed("topography.asc",
+                             "measurement_pt_" +str(i+1)+".shp",
+                             "los_blockage_" +str(i+1)+".asc",
+                             height_diff[i])
             self.flags['viewshed_analyzed'] = True
 
     def __viewshed_processing(self):
@@ -1076,7 +1142,8 @@ class LayersGIS():
             for i in range(0,len(measurement_pts)):
                 file_name_str = "los_blockage_" + str(i+1) + ".asc"
                 file_path = self.OUTPUT_DATA_PATH.joinpath(file_name_str) 
-                los_blck_tmp  = np.loadtxt(file_path.absolute().as_posix(), skiprows=6)
+                los_blck_tmp  = np.loadtxt(file_path.absolute().as_posix(),
+                                           skiprows=6)
                 los_blck_tmp  = np.flip(los_blck_tmp, axis = 0)
                 self.los_blck_layer[:,:,i] = los_blck_tmp
             
@@ -1086,6 +1153,16 @@ class LayersGIS():
         """
         Generates the los blockage layer by performing 
         viewshed analysis for the selected site.
+
+        Parameters
+        ----------
+        See keyword arguments
+
+        Keyword Arguments
+        -----------------
+        points_id : str
+            A string indicating which measurement points to be
+            used as the input for the method.        
         
         Notes
         --------
@@ -1112,12 +1189,18 @@ class LayersGIS():
                     self.__viewshed_analysis()
                     self.__viewshed_processing()
                     self.flags['los_blck_layer_generated'] = True
-                    del_folder_content(self.OUTPUT_DATA_PATH, self.FILE_EXTENSIONS)
+                    del_folder_content(self.OUTPUT_DATA_PATH,
+                                       self.FILE_EXTENSIONS)
                 else:
-                    print('For points type \''+ self.measurements_selector + '\' there are no measurement points in the measurements dictionary!')
+                    print('For points type \''
+                           + self.measurements_selector 
+                           + '\' there are no measurement points ' 
+                           + 'in the measurements dictionary!')
                     print('Aborting the los blockage layer generation!')
             else:                
-                print('Points type \''+ kwargs['points_id'] + '\' does not exist in the measurements dictionary!')
+                print('Points type \''
+                      + kwargs['points_id'] 
+                      + '\' does not exist in the measurements dictionary!')
                 print('Aborting the los blockage layer generation!')
         else:
             print('Topography layer not generates!')
@@ -1126,7 +1209,17 @@ class LayersGIS():
     def generate_combined_layer(self, **kwargs):
         """
         Generates the combined layer which is used
-        for the positioning of lidars.
+        for the positioning of the first lidars.
+
+        Parameters
+        ----------
+        See keyword arguments
+
+        Keyword Arguments
+        -----------------
+        points_id : str
+            A string indicating which measurement points to be
+            used as the input for the method.        
         
         Notes
         --------
@@ -1146,9 +1239,13 @@ class LayersGIS():
             kwargs['points_id'] in self.measurements_dictionary
             ):
             self.measurements_selector = kwargs['points_id']
+            measurement_pts = self.measurement_type_selector(self.measurements_selector)
 
-            if len(self.measurement_type_selector(self.measurements_selector)) > 0:
-                print('Generating combined layer for ' + self.measurements_selector + ' measurement points!')
+            if measurement_pts is not None:
+                print('Generating combined layer for ' 
+                       + self.measurements_selector 
+                       + ' measurement points!')
+
                 self.generate_mesh()
                 self.__generate_topographic_layer()
                 self.__generate_beam_coords_mesh(**kwargs)
@@ -1161,31 +1258,53 @@ class LayersGIS():
                     self.flags['topography_layer_generated']
                     ):
 
-                    self.combined_layer = self.elevation_angle_layer * self.range_layer * self.los_blck_layer
+                    self.combined_layer = (self.elevation_angle_layer 
+                                           * self.range_layer 
+                                           * self.los_blck_layer)
 
                     if self.flags['landcover_layer_generated']:
-                        self.combined_layer = self.combined_layer * self.restriction_zones_layer.reshape((nrows,ncols,1))
+                        self.combined_layer = (self.combined_layer 
+                        * self.restriction_zones_layer.reshape((nrows,
+                                                                ncols,1)))
                         self.flags['combined_layer_generated'] = True
                         self.combined_layer_pts_type = kwargs['points_id']
+                        print('Combined layer generated with landcover data!')
                     else:
-                        print('Combined layer generated without landcover data!')
                         self.flags['combined_layer_generated'] = True
                         self.combined_layer_pts_type = kwargs['points_id']
+                        print('Combined layer generated without landcover data!')
                 else:
                     print('Either topography or los blockage layer are missing!')
                     print('Aborting the combined layer generation!')
             else:
-                print('Instance in self.measurements_dictionary for type'+ self.measurements_selector + ' is empty!')
+                print('Instance in self.measurements_dictionary for type'
+                       + self.measurements_selector + ' is empty!')
                 print('Aborting the combined layer generation!')
         else:
-            print('Either points_id was not provided or for the provided points_id there is no instance in self.measurements_dictionary!')
+            print('Either points_id was not provided' 
+                  +' or for the provided points_id there is ' 
+                  + 'no instance in self.measurements_dictionary!')
             print('Aborting the combined layer generation!')
 
-    def __generate_intersecting_angle_layer(self, lidar_position, measurement_pts):
+    def __generate_intersecting_angle_layer(self, lidar_pos, measurement_pts):
+        """
+        Generates intersecting angle layer.
+        
+        Parameters
+        ----------
+        lidar_pos : ndarray
+            nD array containing data with `float` or `int` type
+            corresponding to x, y and z coordinates of a lidar position.
+            nD array data are expressed in meters.
+        measurement_pts : ndarray
+            nD array containing data with `float` or `int` type
+            corresponding to x, y and z coordinates of measurement points. 
+            nD array data are expressed in meters.
 
+        """
         nrows, ncols = self.x.shape
         no_pts = len(measurement_pts)
-        azimuths_1 = self.generate_beam_coords(lidar_position,measurement_pts,0)[:,0]
+        azimuths_1 = self.generate_beam_coords(lidar_pos,measurement_pts,0)[:,0]
         azimuths_2 = self.azimuth_angle_array
 
         self.intersecting_angle_layer = np.empty((nrows, ncols, no_pts), dtype=float)
@@ -1200,18 +1319,40 @@ class LayersGIS():
             self.intersecting_angle_layer[:,:,i] = tmp
 
     def generate_second_lidar_layer(self, **kwargs):
+        """
+        Generates the combined layer which is used
+        for the positioning of the first lidars.
+
+        Parameters
+        ----------
+        See keyword arguments
+
+        Keyword Arguments
+        -----------------
+        lidar_id : str
+            A string indicating which lidar should be used as a first lidar
+            in order to generate a layer for positioning of the second lidar.
+
+        Notes
+        --------
+        Before calling this method, combined layer must be previously generated
+        """
+        
         self.measurements_selector = self.combined_layer_pts_type
         measurement_pts = self.measurement_type_selector(self.measurements_selector)
-        if len(measurement_pts) > 0:
+        if measurement_pts is not None:
             if 'lidar_id' in kwargs:
                 if kwargs['lidar_id'] in self.lidar_dictionary:
                     # storing id of the lidar used to generate second lidar placement layer
                     self.first_lidar_id = kwargs['lidar_id']
                     lidar_position = self.lidar_dictionary[kwargs['lidar_id']]['position']
-                    self.__generate_intersecting_angle_layer(lidar_position, measurement_pts)
+                    self.__generate_intersecting_angle_layer(lidar_position, 
+                                                             measurement_pts)
                     self.flags['intersecting_angle_layer_generated'] = True
-                    self.update_lidar_instance(lidar_id = kwargs['lidar_id'], points_id = self.measurements_selector)
-                    self.second_lidar_layer = self.combined_layer * self.intersecting_angle_layer
+                    self.update_lidar_instance(lidar_id = kwargs['lidar_id'], 
+                                        points_id = self.measurements_selector)
+                    self.second_lidar_layer = (self.combined_layer 
+                                               * self.intersecting_angle_layer)
                     # reachable_points = self.lidar_dictionary[kwargs['lidar_id']]['reachable_points']
                     # self.second_lidar_layer = self.combined_layer * self.intersecting_angle_layer * reachable_points
                     self.flags['second_lidar_layer'] = True

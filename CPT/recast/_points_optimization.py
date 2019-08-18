@@ -63,6 +63,8 @@ class OptimizeMeasurements():
         Keyword Arguments
         -----------------
         points_id : str
+            A string indicating which measurement points to be
+            used as the input for the optimization.
 
         Returns
         -------
