@@ -10,6 +10,7 @@ layout.PULSE_LENGTH = 200 # in ns
 layout.FFT_SIZE = 64 # no points
 layout.ACCUMULATION_TIME = 1000 # in ms
 layout.ZOOM = 5
+# layout.REP_RADIUS = 10000
 
 # setting path to the folder 
 # where to store the output data
@@ -39,28 +40,29 @@ points = np.array([
 ])
 layout.add_measurement_instances(points = points, points_id = 'initial')
 layout.generate_mesh()
+layout.optimize_measurements(points_id = 'initial')
+layout.plot_optimization()
+
+# layout.generate_combined_layer(points_id = 'initial')
+
+# layout.add_lidar_instance(position = np.array([578886, 4847688, 179]),
+#                           lidar_id = 'brise')
+
+# layout.plot_layer(layout.layer_selector('combined'), 
+#                   title = 'Lidar placement map' , 
+#                   legend_label = 'Reachable points []')
+
+# layout.generate_second_lidar_layer(lidar_id = 'brise')
+
+# layout.add_lidar_instance(position = np.array([580460, 4846018, 220]), 
+#                           lidar_id = 'sirocco')       
+
+# layout.plot_layer(layout.layer_selector('second_lidar_placement'), 
+#                   title = 'Lidar placement map' , 
+#                   legend_label = 'Reachable points []')                                     
+
+# layout.optimize_trajectory(lidar_ids = ['brise', 'sirocco'], points_id = 'initial', sync = True)
 
 
-layout.generate_combined_layer(points_id = 'initial')
-
-layout.add_lidar_instance(position = np.array([578886, 4847688, 179]),
-                          lidar_id = 'brise')
-
-layout.plot_layer(layout.layer_selector('combined'), 
-                  title = 'Lidar placement map' , 
-                  legend_label = 'Reachable points []')
-
-layout.generate_second_lidar_layer(lidar_id = 'brise')
-
-layout.add_lidar_instance(position = np.array([580460, 4846018, 220]), 
-                          lidar_id = 'sirocco')       
-
-layout.plot_layer(layout.layer_selector('second_lidar_placement'), 
-                  title = 'Lidar placement map' , 
-                  legend_label = 'Reachable points []')                                     
-
-layout.optimize_trajectory(lidar_ids = ['brise', 'sirocco'], points_id = 'initial', sync = True)
-
-
-layout.export_kml(lidar_ids = ['brise', 'sirocco'], layer_ids = ['combined', 'second_lidar_placement'])
-layout.export_measurement_scenario(lidar_ids = ['brise', 'sirocco'])
+# layout.export_kml(lidar_ids = ['brise', 'sirocco'], layer_ids = ['combined', 'second_lidar_placement'])
+# layout.export_measurement_scenario(lidar_ids = ['brise', 'sirocco'])

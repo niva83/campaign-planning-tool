@@ -347,7 +347,7 @@ class LayersGIS():
                     print('For points type \''+ self.measurements_selector + '\' there are no measurement points in the measurements dictionary!')
                     print('Aborting the los blockage layer generation!')
             else:                
-                print('Points type \''+ self.measurements_selector + '\' does not exist in the measurements dictionary!')
+                print('Points type \''+ kwargs['points_id'] + '\' does not exist in the measurements dictionary!')
                 print('Aborting the los blockage layer generation!')
         else:
             print('Topography layer not generates!')

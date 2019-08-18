@@ -40,7 +40,8 @@ def array_difference(A,B):
 
     D = np.setdiff1d(A.view(dtype), B.view(dtype))
 
-    # This last bit is optional if you're okay with "C" being a structured array...
+    # This last bit is optional if you're okay with "C"
+    # being a structured array...
     # C = C.view(A.dtype).reshape(-1, ncols)
     if len(D) == 0:
         return np.array([])
@@ -50,38 +51,32 @@ def array_difference(A,B):
 
 
 class OptimizeMeasurements():
-    def generate_disc_matrix(self, **kwargs):
+    def __generate_disc_matrix(self, **kwargs):
         """
-        Generates mid points between any combination of two measurement points 
-        which act as disc centers. The mid points are tested which measurement
-        points they are covering producing so-called disc-covering matrix used
-        in the measurement point optimization method.
+        Generates mid points between any combination of 
+        two measurement points which act as disc centers. 
 
         Parameters
         ----------
-        self.measurements_initial : ndarray
-            An initial set of measurement points provided as nD array.
-        self.REP_RADIUS : int
-            MEASNET's representativness radius of measurements.
-            The radius is expressed in meters.
-            A default value is set to 500 m.
+        see keyword arguments
 
-        Keyword arguments
+        Keyword Arguments
         -----------------
         points_id : str
-            ...
 
         Returns
         -------
         discs : ndarray
-            An array of mid points between all combinations of two measurement points.
+            An array of mid points between all combinations of two 
+            measurement points.
         matrix : ndarray
-            A binary matrix indicating which measurement points are covered by each disc.
+            A binary matrix indicating which measurement points are 
+            covered by each disc.
             The matrix shape is (len(discs), len(measurements_initial)).
-            The value 1 indicates that a measurement point is covered or by a disc.
-            The value 0 indicates that a measurement point is not covered or by a disc.
-            The matrix is sorted decending order, having a row with a maximum number of 1
-            positioned at the top.
+            The value 1 indicates that a point is covered a disc.
+            The value 0 indicates that a point is not covered by a disc.
+            The matrix is sorted in decending order, having a row with a maximum 
+            number of 1 (i.e. covered discs) positioned at the top.
 
         See also
         --------
@@ -89,10 +84,11 @@ class OptimizeMeasurements():
 
         Notes
         --------
-        generate_disc_matrix() method is used to generate necessary inputs for the
-        greedy implementation of the disc covering problem which optimizes the 
-        measurement points for the field campaign. It is required that measurement
-        points are added to the class instance before calling this method.
+        generate_disc_matrix() method is used to generate necessary inputs for 
+        the greedy implementation of the disc covering problem which optimizes 
+        the measurement points for the field campaign. It is required that 
+        measurement points are added to the measurement dictionary before 
+        calling this method.
 
         References
         ----------
@@ -101,22 +97,29 @@ class OptimizeMeasurements():
            Computational Geometry, Volume 60, Pages 8-18, 2017,
            https://doi.org/10.1016/j.comgeo.2016.04.002.
 
-        Examples
-        --------
-
         """
         if 'points_id' in kwargs and kwargs['points_id'] in self.POINTS_TYPE:
             measurement_pts = self.measurement_type_selector(kwargs['points_id'])
             self.measurements_selector = kwargs['points_id']
     
             if measurement_pts is not None:
-                points_combination = np.asarray(list(combinations(list(measurement_pts[:,(0,1)]), 2)))    
-                discs = (points_combination[:,0] + points_combination[:,1]) / 2
+                # find discs in 2D (horizontal plane!)
+                points_list = list(measurement_pts[:,(0,1)])
+                points_combination_list = list(combinations(points_list, 2))
+                points_combination_array = np.asarray(points_combination_list)
+                 
+                discs = (points_combination_array[:,0] 
+                         + points_combination_array[:,1]) / 2
 
-                temp = np.asarray(list(product(list(discs), list(measurement_pts[:,(0,1)]))))
-                distances =  np.linalg.norm(temp[:,0] - temp[:,1], axis = 1)
+                discs_pts_list = list(product(list(discs), points_list))
+                discs_pts_array = np.asarray(discs_pts_list)
+                # calculate distances between points and disc centers
+                distances =  np.linalg.norm(discs_pts_array[:,0] 
+                                            - discs_pts_array[:,1], 
+                                            axis = 1)
+                # converts calculated distances to 0 or 1 depending on REP_RAD
                 distances = np.where(distances <= self.REP_RADIUS, 1, 0)
-                
+                # converts a flat array to matrix 
                 matrix = np.asarray(np.split(distances,len(discs)))
 
                 # removing discs which cover same points
@@ -125,28 +128,56 @@ class OptimizeMeasurements():
                 discs = discs[unique_discs[1]]
 
                 # remove discs which cover only one point
+                # because it is better to use the existing point
+                # instead of a disc which center probably does 
+                # not coincides with the point location
                 ind = np.where(np.sum(matrix,axis = 1) > 1)
                 matrix = matrix[ind]
                 discs = discs[ind]
 
-
                 total_covered_points = np.sum(matrix,axis = 1)
 
+                # sorts matrix in the descending order
+                # discs that cover max no of points located on top
                 matrix = matrix[(-1*total_covered_points).argsort()]
                 discs = discs[(-1*total_covered_points).argsort()]
 
-
-
-                # adding 0 m for elevation of each disc
-                discs = np.append(discs.T, np.array([np.zeros(len(discs))]),axis=0).T
+                # adding 0 m for elevation of each disc so 
+                # disc positions match shape of measurement points
+                discs = np.append(discs.T, 
+                                  np.array([np.zeros(len(discs))]),axis=0).T
                 return discs, matrix
             else:
                 print("No measurement points -> nothing to optimize!")
+                return None, None
         else:
-            print("There is no instance in the measurement point dictionary for the given points_id!")
+            print("There is no instance in the measurement point \
+                   dictionary for the given points_id!")
+            return None, None
 
     @staticmethod
-    def find_unique_indexes(matrix):
+    def __find_unique_indexes(matrix):
+        """
+        Finds which discs cover at unique points
+        and which dont.
+        
+        Parameters
+        ----------
+        matrix : ndarray
+            A binary matrix indicating which measurement points are 
+            covered by each disc.
+            The matrix shape is (len(discs), len(measurements_initial)).
+            The value 1 indicates that a point is covered a disc.
+            The value 0 indicates that a point is not covered by a disc.
+            The matrix is sorted in decending order, having a row with a maximum 
+            number of 1 (i.e. covered discs) positioned at the top.
+        
+        Returns
+        -------
+        unique_indexes : list 
+            A list of integers containing indexes of discs 
+        none_unique_indexes : list 
+        """
 
         unique_indexes = []
         none_unique_indexes = []
@@ -166,8 +197,33 @@ class OptimizeMeasurements():
         return unique_indexes, none_unique_indexes
 
     @classmethod
-    def minimize_discs(cls, matrix,disc):
-        unique_indexes, none_unique_indexes = cls.find_unique_indexes(matrix)
+    def __minimize_discs(cls, matrix,disc):
+        """
+        Minimizes number of discs which cover set of points
+        
+        Parameters
+        ----------
+        discs : ndarray
+            An array of mid points between all combinations of two 
+            measurement points.
+        matrix : ndarray
+            A binary matrix indicating which measurement points are 
+            covered by each disc.
+            The matrix shape is (len(discs), len(measurements_initial)).
+            The value 1 indicates that a point is covered a disc.
+            The value 0 indicates that a point is not covered by a disc.
+            The matrix is sorted in decending order, having a row with a maximum 
+            number of 1 (i.e. covered discs) positioned at the top.
+        
+        Returns
+        -------
+        A minimum subset of discs which cover points.
+        
+        Notes
+        --------
+        Discs which cover only one point are removed.
+        """
+        unique_indexes, none_unique_indexes = cls.__find_unique_indexes(matrix)
         if len(none_unique_indexes) > 0:
 
             disc_unique = disc[unique_indexes]
@@ -219,19 +275,26 @@ class OptimizeMeasurements():
         
         Parameters
         ----------
-        
+        see keyword arguments
+
+        Keyword Arguments
+        -----------------
+        points_id : str
+            A string indicating which measurement points to be
+            used as the input for the optimization.
         Returns
         -------
-        self.measurements_optimized : ndarray
-            An nD array of optimized measurements positions.
+        Optimized positions will be stored in the measurement dictionary
+        as 'optimized' instance.
         
         See also
         --------
-        generate_disc_matrix : method which calculates inputs for optimize_measurements()
+        generate_disc_matrix() : method which calculates this method inputs
 
         Notes
         --------
-        A greedy implementation of the disc covering problem for a set of measurement points.
+        A greedy implementation of the disc covering problem for 
+        a set of measurement points.
 
         References
         ----------
@@ -239,92 +302,107 @@ class OptimizeMeasurements():
            Approximation algorithms for the unit disk cover problem in 2D and 3D,
            Computational Geometry, Volume 60, Pages 8-18, 2017,
            https://doi.org/10.1016/j.comgeo.2016.04.002.
-
-        Examples
-        --------
-        >>> layout = CPT()
-        >>> layout.set_utm_zone('31V')
-        Correct latitudinal zone!
-        Correct longitudinal zone!
-        UTM zone set
-        >>> layout.REP_RADIUS = 2
-        >>> measurements_initial = np.array([[1,3,3],[2,1,4],[5,2,1],[0,7.4,1],[7.4,4,1]]) 
-        >>> layout.add_measurements(measurements = measurements_initial)
-        >>> layout.optimize_measurements()
-        >>> layout.measurements_optimized
-        array([[1.5, 2. , 0. ],
-            [3.5, 1.5, 0. ],
-            [6.2, 3. , 0. ],
-            [0. , 7.4, 1. ]])
-
         """
-        if 'points_id' in kwargs and kwargs['points_id'] in self.POINTS_TYPE:
-            measurement_pts = self.measurement_type_selector(kwargs['points_id'])
-            self.measurements_selector = kwargs['points_id']
-        else:
-            measurement_pts = self.measurement_type_selector(self.measurements_selector)
-        measure_pt_height = abs(measurement_pts[:,2] -  self.get_elevation(self.long_zone + self.lat_zone, measurement_pts))
+        if 'points_id' in kwargs:
+            if kwargs['points_id'] in self.POINTS_TYPE:
+                measurement_pts = self.measurement_type_selector(
+                                                           kwargs['points_id'])
+                if measurement_pts is not None:
+                    height_total = measurement_pts[:,2]
+                    height_terrain = self.get_elevation(self.long_zone 
+                                                        + self.lat_zone, 
+                                                        measurement_pts)
+                    measurement_height = abs(height_total - height_terrain)
+                    measurement_height_mean = np.average(measurement_height)
 
 
-        if measurement_pts is not None:
-            print('Optimizing ' + self.measurements_selector + ' measurement points!')
-            discs, matrix = self.generate_disc_matrix()
+                    print('Optimizing ' 
+                            + self.measurements_selector 
+                            + ' measurement points!')
+                    discs, matrix = self.__generate_disc_matrix(**kwargs)
 
+                    points_uncovered = measurement_pts
+                    points_covered_total = np.zeros((0,3), measurement_pts.dtype)
 
-            points_uncovered = measurement_pts
-            points_covered_total = np.zeros((0,3), measurement_pts.dtype)
-            # discs_selected = np.zeros((0,3))
-            i = 0
-            j = len(points_uncovered)
-            disc_indexes = []
-            while i <= (len(discs) - 1) and j > 0 :
-                indexes = np.where(matrix[i] == 1 )
-                # matrix = matrix * (1 - matrix[i])
-                points_covered = measurement_pts[indexes]
-                points_new = array_difference(points_covered, points_covered_total)
+                    i = 0
+                    j = len(points_uncovered)
+                    disc_indexes = []
+                    while i <= (len(discs) - 1) and j > 0 :
+                        indexes = np.where(matrix[i] == 1 )
+                        # matrix = matrix * (1 - matrix[i])
+                        points_covered = measurement_pts[indexes]
+                        points_new = array_difference(points_covered, 
+                                                        points_covered_total)
 
-                if len(points_new) > 0:
-                    points_covered_total = np.append(points_covered_total, points_new,axis=0)
-                    # discs_selected = np.append(discs_selected, np.array([discs[i]]),axis=0)
-                    disc_indexes = disc_indexes + [i]
-                points_uncovered = array_difference(points_uncovered, points_covered)
-                i += 1
-                j = len(points_uncovered)
+                        if len(points_new) > 0:
+                            points_covered_total = np.append(
+                                                        points_covered_total, 
+                                                        points_new,
+                                                        axis=0)
 
-            # makes subset of discs and matrix
-            discs_selected = discs[disc_indexes]
-            matrix_selected = matrix[disc_indexes]
+                            disc_indexes = disc_indexes + [i]
+                        points_uncovered = array_difference(
+                                                            points_uncovered, 
+                                                            points_covered)
+                        i += 1
+                        j = len(points_uncovered)
 
-            # minimize number of discs
-            if len(discs_selected) > 1:
-                discs_selected = self.minimize_discs(matrix_selected,discs_selected)
-            self.disc_temp = discs_selected
-            # if we don't cover all the points
-            # remaining uncovered points must be
-            # added to the array
-            self.uncovered = points_uncovered
-            self.covered = points_covered_total
-            if len(points_uncovered) > 0:
-                measurements_optimized = np.append(discs_selected, points_uncovered, axis = 0)
-                terrain_height = self.get_elevation(self.long_zone + self.lat_zone, measurements_optimized)
-                measurements_optimized[:, 2] = terrain_height + np.average(measure_pt_height)
-                self.add_measurement_instances(points = measurements_optimized, points_id = 'optimized')
+                    # makes subset of discs and matrix
+                    discs_selected = discs[disc_indexes]
+                    matrix_selected = matrix[disc_indexes]
 
-            # if we cover all the points then
-            # the optimized measurements are
-            # are equal to the disc centers
+                    # minimize number of discs
+                    if len(discs_selected) > 1:
+                        discs_selected = self.__minimize_discs(
+                                                            matrix_selected,
+                                                            discs_selected)
+                    self.disc_temp = discs_selected
+                    # if we don't cover all the points remaining 
+                    # uncovered points must be added to the array
+                    self.uncovered = points_uncovered
+                    self.covered = points_covered_total
+                    if len(points_uncovered) > 0:
+                        measurements_optimized = np.append(discs_selected, 
+                                                            points_uncovered, 
+                                                            axis = 0)
+                        terrain_height = self.get_elevation(self.long_zone 
+                                                            + self.lat_zone, 
+                                                    measurements_optimized)
+                        measurements_optimized[:, 2] = (terrain_height 
+                                                    + measurement_height_mean)
+                        self.add_measurement_instances(
+                                            points = measurements_optimized, 
+                                            points_id = 'optimized')
+
+                    # if we cover all the points then
+                    # the optimized measurements are
+                    # are equal to the disc centers
+                    else:
+                        measurements_optimized = discs_selected
+                        terrain_height = self.get_elevation(self.long_zone
+                                                            + self.lat_zone, 
+                                                    measurements_optimized)
+                        measurements_optimized[:, 2] = (terrain_height 
+                                                    + measurement_height_mean)
+                        self.add_measurement_instances(
+                                            points = measurements_optimized, 
+                                            points_id = 'optimized')
+
+                    # in case when none of the measurement
+                    # points are covered by this method than
+                    # the optimized points should be equal to
+                    # the original measurements points
+                    # if len(measurements_optimized) == len(measurement_pts):
+                    #     self.add_measurement_instances(points = measurement_pts, points_id = 'optimized')
+                        
+                else:
+                    print("No measurement positions added to \
+                            measurenet dictionary")
+                    print('Aborting the operation!')
             else:
-                measurements_optimized = discs_selected
-                terrain_height = self.get_elevation(self.long_zone + self.lat_zone, measurements_optimized)
-                measurements_optimized[:, 2] = terrain_height + np.average(measure_pt_height)
-                self.add_measurement_instances(points = measurements_optimized, points_id = 'optimized')
-
-            # in case when none of the measurement
-            # points are covered by this method than
-            # the optimized points should be equal to
-            # the original measurements points
-            # if len(measurements_optimized) == len(measurement_pts):
-            #     self.add_measurement_instances(points = measurement_pts, points_id = 'optimized')
-                
+                print(kwargs['points_id'] + "does not exist in the measurement \
+                      point dictionary!")
+                print('Aborting the operation!')
         else:
-            print("No measurement positions added, nothing to optimize!")    
+            print('\'points_id\' not provided as a keyword argument!')
+            print('Aborting the operation!')
