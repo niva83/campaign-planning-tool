@@ -192,6 +192,7 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
         self.motion_table = None
         self.motion_program = None
         self.range_gate_file = None
+        self.legend_label = None
         
         # lidar positions
         self.lidar_dictionary = {}
@@ -219,6 +220,7 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
         self.intersecting_angle_layer = None
         self.second_lidar_layer = None
         self.aerial_layer = None
+        self.layer_creation_info = {}
         
 
         # Flags as you code
@@ -328,35 +330,65 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
         Measurements dictionary contains 1 different measurement type(s).
 
         """
-        if self.flags['utm_set']:
-            if 'points_id' in kwargs:
-                if kwargs['points_id'] in self.POINTS_TYPE:
-                    if 'points' in kwargs:
-                        if len(kwargs['points'].shape) == 2 and kwargs['points'].shape[1] == 3:
+        rules = np.array([self.flags['utm_set'],
+                          'points_id' in kwargs,
+                          kwargs['points_id'] in self.POINTS_TYPE,
+                          'points' in kwargs])
+        print_statements = np.array(['- UTM zone is not set',
+                                     '- points_id is not in kwargs',
+                                     '- points_id is not in self.POINTS_TYPE',
+                                     '- points is not in kwargs'])
+        if np.all(rules):
+            if len(kwargs['points'].shape) == 2 and kwargs['points'].shape[1] == 3:
 
-                            points_pd = pd.DataFrame(kwargs['points'], 
-                                                    columns = ["Easting [m]", "Northing [m]","Height asl [m]"])
+                points_pd = pd.DataFrame(kwargs['points'], 
+                                        columns = ["Easting [m]", "Northing [m]","Height asl [m]"])
 
-                            points_pd.insert(loc=0, column='Point no.', value=np.array(range(1,len(points_pd) + 1)))
-                            pts_dict = {kwargs['points_id']: points_pd}
-                            self.measurements_dictionary.update(pts_dict)
+                points_pd.insert(loc=0, column='Point no.', value=np.array(range(1,len(points_pd) + 1)))
+                pts_dict = {kwargs['points_id']: points_pd}
+                self.measurements_dictionary.update(pts_dict)
 
-                            print('Measurement points \'' + kwargs['points_id'] + '\' added to the measurements dictionary!')
-                            print('Measurements dictionary contains ' + str(len(self.measurements_dictionary)) + ' different measurement type(s).')
-                            self.flags['measurements_added'] = True
-                            self.measurements_selector = kwargs['points_id']
-                        else:
-                            print('Incorrect position information, cannot add measurements!')
-                            print('Input measurement points must be a numpy array of shape (n,3) where n is number of points!')
-                    else:
-                        print('Measurement points not specified, cannot add points!')
-                else:
-                    print('Measurement point type not permitted!')
-                    print('Allowed types are: \'initial\', \'optimized\', \'reachable\', \'identified\' and \'misc\'')
+                print('Measurement points \'' + kwargs['points_id'] + '\' added to the measurements dictionary!')
+                print('Measurements dictionary contains ' + str(len(self.measurements_dictionary)) + ' different measurement type(s).')
+                self.flags['measurements_added'] = True
+                self.measurements_selector = kwargs['points_id']
             else:
-                print('Measurement points\' type not provided, cannot add measurement points!')
+                print('Incorrect position information, cannot add measurements!')
+                print('Input measurement points must be a numpy array of shape (n,3) where n is number of points!')
         else:
-            print('UTM zone not specified, cannot add measurement points!')
+            print('Measurement points not added to the dictionary because:')
+            print(*print_statements[np.where(rules == False)], sep = "\n")     
+            
+
+        # if self.flags['utm_set']:
+        #     if 'points_id' in kwargs:
+        #         if kwargs['points_id'] in self.POINTS_TYPE:
+        #             if 'points' in kwargs:
+        #                 if len(kwargs['points'].shape) == 2 and kwargs['points'].shape[1] == 3:
+
+        #                     points_pd = pd.DataFrame(kwargs['points'], 
+        #                                             columns = ["Easting [m]", "Northing [m]","Height asl [m]"])
+
+        #                     points_pd.insert(loc=0, column='Point no.', value=np.array(range(1,len(points_pd) + 1)))
+        #                     pts_dict = {kwargs['points_id']: points_pd}
+        #                     self.measurements_dictionary.update(pts_dict)
+
+        #                     print('Measurement points \'' + kwargs['points_id'] + '\' added to the measurements dictionary!')
+        #                     print('Measurements dictionary contains ' + str(len(self.measurements_dictionary)) + ' different measurement type(s).')
+        #                     self.flags['measurements_added'] = True
+        #                     self.measurements_selector = kwargs['points_id']
+        #                 else:
+        #                     print('Incorrect position information, cannot add measurements!')
+        #                     print('Input measurement points must be a numpy array of shape (n,3) where n is number of points!')
+        #             else:
+        #                 print('Measurement points not specified, cannot add points!')
+        #         else:
+        #             print('Measurement point type not permitted!')
+        #             print('Allowed types are: \'initial\', \'optimized\', \'reachable\', \'identified\' and \'misc\'')
+        #     else:
+        #         print('Measurement points\' type not provided, cannot add measurement points!')
+        # else:
+        #     print('UTM zone not specified, cannot add measurement points!')
 
     def measurement_type_selector(self, points_id):
         """
@@ -551,6 +583,8 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
                                                       'lidar_inside_mesh' : False,
                                                       'measurement_id' : None,
                                                       'measurement_points' : None,
+                                                      'layer_id': None,
+                                                      'linked_lidar' : None,
                                                       'reachable_points' : None,
                                                       'trajectory' : None,
                                                       'probing_coordinates' : None,
@@ -726,7 +760,13 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
                             ):
                             layer = self.layer_selector(kwargs['layer_id'])
                             i, j = self.find_mesh_point_index(self.lidar_dictionary[kwargs['lidar_id']]['position'])
-                            self.lidar_dictionary[kwargs['lidar_id']]['reachable_points'] = layer[i,j,:]                        
+                            self.lidar_dictionary[kwargs['lidar_id']]['reachable_points'] = layer[i,j,:]
+                            self.lidar_dictionary[kwargs['lidar_id']]['layer_id'] =  kwargs['layer_id']
+                            if kwargs['layer_id'] == 'second_lidar_placement':
+                                linked_lidar = self.layer_creation_info['second_lidar_placement']['lidars_id']
+
+                                self.lidar_dictionary[kwargs['lidar_id']]['linked_lidar'] = linked_lidar
+
                         elif (
                             self.lidar_dictionary[kwargs['lidar_id']]['lidar_inside_mesh'] and 
                             self.layer_selector('combined') is not None

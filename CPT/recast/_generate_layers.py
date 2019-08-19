@@ -109,7 +109,7 @@ class LayersGIS():
     get_elevation(utm_zone, pts_utm)
         Fetch elevation from the SRTM database for 
         a number of points described by in the UTM coordinates.
-    layer_selector(layer_type)
+    layer_selector(layer_id)
         Selects GIS layer according to the provided type.
     set_utm_zone(utm_zone)
         Sets EPSG code, latitudinal and longitudinal zones to the CPT instance. 
@@ -440,14 +440,14 @@ class LayersGIS():
         else:
            return None
 
-    def layer_selector(self, layer_type):
+    def layer_selector(self, layer_id):
         """
         Selects GIS layer according to the provided type.
 
         Parameters
         ----------
-        layer_type : str
-            A string indicating which layer to be returned
+        layer_id : str
+            A string indicating which layer to be returned.
 
         Returns
         -------
@@ -469,32 +469,69 @@ class LayersGIS():
             Misc layer
         """        
 
-        if layer_type == 'orography':
+        if layer_id == 'orography':
+            self.legend_label = 'Height asl [m]'
             return self.orography_layer
-        elif layer_type == 'landcover':
+        elif layer_id == 'landcover':
+            self.legend_label = 'CLC code'
             return self.landcover_layer
-        elif layer_type == 'canopy_height':
+        elif layer_id == 'canopy_height':
             return self.canopy_height_layer
-        elif layer_type == 'topography':
+            self.legend_label = 'Height agl [m]'
+        elif layer_id == 'topography':
+            self.legend_label = 'Height asl [m]'
             return self.topography_layer
-        elif layer_type == 'restriction_zones':
+        elif layer_id == 'restriction_zones':
+            self.legend_label = '0 - forbiden, 1 - allowed'
             return self.restriction_zones_layer
-        elif layer_type == 'elevation_angle_contrained':
+        elif layer_id == 'elevation_angle_contrained':
+            self.legend_label = 'Number of reseachable points []'
             return self.elevation_angle_layer
-        elif layer_type == 'range_contrained':
+        elif layer_id == 'range_contrained':
+            self.legend_label = 'Number of reseachable points []'
             return self.range_layer
-        elif layer_type == 'los_blockage':
+        elif layer_id == 'los_blockage':
+            self.legend_label = 'Number of reseachable points []'
             return self.los_blck_layer
-        elif layer_type == 'combined':
+        elif layer_id == 'combined':
+            self.legend_label = 'Number of reseachable points []'
             return self.combined_layer
-        elif layer_type == 'intersecting_angle_contrained':
+        elif layer_id == 'intersecting_angle_contrained':
+            self.legend_label = 'Number of reseachable points []'
             return self.intersecting_angle_layer
-        elif layer_type == 'second_lidar_placement':
+        elif layer_id == 'second_lidar_placement':
+            self.legend_label = 'Number of reseachable points []'
             return self.second_lidar_layer        
-        elif layer_type == 'misc':
+        elif layer_id == 'misc':
+            self.legend_label = '???'
             return self.misc_layer
         else:
             return None            
+
+    def __update_layer_dict(self, layer_id, 
+                                  points_id = None,
+                                  lidars_id = None, 
+                                  message = '' ):
+        """
+        Updates layer dictionary with information about layer creation.
+        
+        Parameters
+        ----------
+            layer_id : str
+                String indicating which layer info is being updated.
+            points_id : str
+                String indicating points used during the layer generation.
+            lidars_id : str
+                String indicating lidar(s) used during the layer generation.
+            message : str
+                String storing message related to the layer generation.        
+        """        
+        dict_input = {layer_id:{
+                                'points_id': points_id,     
+                                'lidars_id': lidars_id,
+                                'message' : message
+                                }}
+        self.layer_creation_info.update(dict_input)
 
     def generate_mesh(self, **kwargs):
         """
@@ -633,48 +670,78 @@ class LayersGIS():
         before calling this method.
 
         """
-        # measurement point selector:
+        rules = ['points_id' in kwargs, 
+                 kwargs['points_id'] in self.POINTS_TYPE,
+                 kwargs['points_id'] in self.measurements_dictionary
+                 ]
         
-        if ('points_id' in kwargs and 
-            kwargs['points_id'] in self.POINTS_TYPE and 
-            kwargs['points_id'] in self.measurements_dictionary
-            ):
-
+        if all(rules):
             measurement_pts = self.measurement_type_selector(kwargs['points_id'])
             self.measurements_selector = kwargs['points_id']
+            array_shape = (measurement_pts.shape[0], ) + self.mesh_utm.shape
+            self.beam_coords = np.empty(array_shape, dtype=float)
 
-            if measurement_pts is not None:
-                try:
+            for i, pts in enumerate(measurement_pts):
+                self.beam_coords[i] = self.generate_beam_coords(self.mesh_utm, 
+                                                                pts)
+            self.flags['beam_coords_generated'] = True
 
-                    array_shape = (measurement_pts.shape[0], ) + self.mesh_utm.shape
-                    self.beam_coords = np.empty(array_shape, dtype=float)
-
-                    for i, pts in enumerate(measurement_pts):
-                        self.beam_coords[i] = self.generate_beam_coords(
-                                                                self.mesh_utm
-                                                                , pts)
-                    self.flags['beam_coords_generated'] = True
-
-                    # splitting beam coords to three arrays 
-                    nrows, ncols = self.x.shape
-                    self.azimuth_angle_array = self.beam_coords[:,:,0].T.reshape(nrows,ncols,len(measurement_pts))   
-                    self.elevation_angle_array = self.beam_coords[:,:,1].T.reshape(nrows,ncols,len(measurement_pts))
-                    self.range_array = self.beam_coords[:,:,2].T.reshape(nrows,ncols,len(measurement_pts))                
-                except:
-                    print('Something went wrong! Check measurement points')
-            else:
-                print('Instance in self.measurements_dictionary for type'
-                      + self.measurements_selector 
-                      + ' is empty!')
-                print('Aborting the beam steering coordinates' 
-                      +'generation for the mesh points!')
+            # splitting beam coords to three arrays 
+            nrows, ncols = self.x.shape
+            self.azimuth_angle_array = self.beam_coords[:,:,0].T.reshape(nrows,
+                                                    ncols,len(measurement_pts))   
+            self.elevation_angle_array = self.beam_coords[:,:,1].T.reshape(nrows,
+                                                    ncols,len(measurement_pts))
+            self.range_array = self.beam_coords[:,:,2].T.reshape(nrows,ncols,
+                                                          len(measurement_pts))
         else:
-            print('points_id was not provided or '
-                  + 'for the provided points_id there is no instance'
-                  + 'in self.measurements_dictionary!')
-            print('Aborting the operation!')
+            print('One of the following condtions was not satisfied:')
+            print('\tpoints_id not in kwargs')
+            print('\tpoints_id not in self.POINTS_TYPE')
+            print('\tempty key for given points_id in measurement dictionary')
+      
 
-    def __generate_elevation_restriction_layer(self):
+
+        # if ('points_id' in kwargs and 
+        #     kwargs['points_id'] in self.POINTS_TYPE and 
+        #     kwargs['points_id'] in self.measurements_dictionary
+        #     ):
+
+        #     measurement_pts = self.measurement_type_selector(kwargs['points_id'])
+        #     self.measurements_selector = kwargs['points_id']
+
+        #     if measurement_pts is not None:
+        #         try:
+
+        #             array_shape = (measurement_pts.shape[0], ) + self.mesh_utm.shape
+        #             self.beam_coords = np.empty(array_shape, dtype=float)
+
+        #             for i, pts in enumerate(measurement_pts):
+        #                 self.beam_coords[i] = self.generate_beam_coords(
+        #                                                         self.mesh_utm
+        #                                                         , pts)
+        #             self.flags['beam_coords_generated'] = True
+
+        #             # splitting beam coords to three arrays 
+        #             nrows, ncols = self.x.shape
+        #             self.azimuth_angle_array = self.beam_coords[:,:,0].T.reshape(nrows,ncols,len(measurement_pts))   
+        #             self.elevation_angle_array = self.beam_coords[:,:,1].T.reshape(nrows,ncols,len(measurement_pts))
+        #             self.range_array = self.beam_coords[:,:,2].T.reshape(nrows,ncols,len(measurement_pts))                
+        #         except:
+        #             print('Something went wrong! Check measurement points')
+        #     else:
+        #         print('Instance in self.measurements_dictionary for type'
+        #               + self.measurements_selector 
+        #               + ' is empty!')
+        #         print('Aborting the beam steering coordinates' 
+        #               +'generation for the mesh points!')
+        # else:
+        #     print('points_id was not provided or '
+        #           + 'for the provided points_id there is no instance'
+        #           + 'in self.measurements_dictionary!')
+        #     print('Aborting the operation!')
+
+    def __generate_elevation_restriction_layer(self, **kwargs):
         """
         Generates elevation restricted GIS layer.
 
@@ -692,12 +759,14 @@ class LayersGIS():
                                         > self.MAX_ELEVATION_ANGLE))                                        
             self.elevation_angle_layer[good_indexes] = 1
             self.elevation_angle_layer[bad_indexes] = 0
+            self.__update_layer_dict('elevation_angle_contrained',
+                                      kwargs['points_id'])
         else:
             print('No beams coordinated generated!'
                   + '\nRun self.gerate_beam_coords_mesh(str) first!'
                   + 'Aborting the operation!')    
 
-    def __generate_range_restriction_layer(self):
+    def __generate_range_restriction_layer(self, **kwargs):
         """
         Generates range restricted GIS layer.
 
@@ -712,7 +781,9 @@ class LayersGIS():
             good_indexes = np.where((self.range_layer <= self.AVERAGE_RANGE))
             bad_indexes = np.where((self.range_layer > self.AVERAGE_RANGE))
             self.range_layer[good_indexes] = 1
-            self.range_layer[bad_indexes] = 0          
+            self.range_layer[bad_indexes] = 0
+            self.__update_layer_dict('range_contrained',
+                                      kwargs['points_id'])                      
         else:
             print('No beams coordinated generated!\n Run self.gerate_beam_coords_mesh() first!')
 
@@ -752,6 +823,7 @@ class LayersGIS():
             self.mesh_geo[:,2] = self.mesh_utm[:,2]
             self.orography_layer = self.mesh_utm[:,2].reshape(nrows, ncols)
             self.flags['orography_layer_generated'] = True
+            self.__update_layer_dict('orography')                        
         else:
             print('Mesh not generated -> orography layer cannot be generated ')
 
@@ -872,6 +944,7 @@ class LayersGIS():
                                      (self.restriction_zones_layer >= 35) 
                                    & (self.restriction_zones_layer <= 44))] = 0
             self.flags['restriction_zones_generated'] = True
+            self.__update_layer_dict('restriction_zones')
         else:
             print('No landcover layer generated!')
             print('Aborting the operation!')
@@ -910,6 +983,7 @@ class LayersGIS():
             self.canopy_height_layer[np.where(
                                            self.canopy_height_layer >  25)] = 0
             self.flags['canopy_height_generated'] = True
+            self.__update_layer_dict('canopy_height')
         else:
             print('No landcover layer generated -> canopy height layer not generated!')
 
@@ -951,6 +1025,7 @@ class LayersGIS():
                 self.__generate_canopy_height()
                 self.__generate_restriction_zones()
                 self.flags['landcover_layers_generated'] = True
+                self.__update_layer_dict('landcover')
             except:
                 print('The landcover data does not exist!')
                 print('Aborting the operation!')
@@ -988,9 +1063,17 @@ class LayersGIS():
                     self.topography_layer = (self.canopy_height_layer 
                                              + self.orography_layer)
                     self.flags['topography_layer_generated'] = True
+                    self.__update_layer_dict('topography',
+                                              None,
+                                              None,
+                                             'orography + canopy')
                 else:
                     self.topography_layer = self.orography_layer
                     self.flags['topography_layer_generated'] = True
+                    self.__update_layer_dict('topography',
+                                              None,
+                                              None,
+                                             'orography height only')       
                     print('Canopy height missing!')
                     print('Topography layer generated using only orography layer!')
             else:
@@ -1191,6 +1274,8 @@ class LayersGIS():
                     self.flags['los_blck_layer_generated'] = True
                     del_folder_content(self.OUTPUT_DATA_PATH,
                                        self.FILE_EXTENSIONS)
+                    self.__update_layer_dict('los_blockage',
+                                              kwargs['points_id'])                             
                 else:
                     print('For points type \''
                            + self.measurements_selector 
@@ -1233,60 +1318,108 @@ class LayersGIS():
         --------
         add_measurements() : adding measurement points to the CPT class instance 
         """
-
-        if ('points_id' in kwargs and 
-            kwargs['points_id'] in self.POINTS_TYPE and 
-            kwargs['points_id'] in self.measurements_dictionary
-            ):
+        rules = ['points_id' in kwargs, 
+                 kwargs['points_id'] in self.POINTS_TYPE,
+                 kwargs['points_id'] in self.measurements_dictionary
+                 ]
+        
+        if all(rules):
+            measurement_pts = self.measurement_type_selector(kwargs['points_id'])
             self.measurements_selector = kwargs['points_id']
-            measurement_pts = self.measurement_type_selector(self.measurements_selector)
+            print('Generating combined layer for ' 
+                    + self.measurements_selector 
+                    + ' measurement points!')
 
-            if measurement_pts is not None:
-                print('Generating combined layer for ' 
-                       + self.measurements_selector 
-                       + ' measurement points!')
+            self.generate_mesh()
+            self.__generate_topographic_layer()
+            self.__generate_beam_coords_mesh(**kwargs)
+            self.__generate_range_restriction_layer(**kwargs)
+            self.__generate_elevation_restriction_layer(**kwargs)
+            self.__generate_los_blck_layer(**kwargs)
+            self.__update_layer_dict('combined', kwargs['points_id'])
 
-                self.generate_mesh()
-                self.__generate_topographic_layer()
-                self.__generate_beam_coords_mesh(**kwargs)
-                self.__generate_range_restriction_layer()
-                self.__generate_elevation_restriction_layer()
-                self.__generate_los_blck_layer(**kwargs)
+            nrows, ncols = self.x.shape
+            if (self.flags['los_blck_layer_generated'] and 
+                self.flags['topography_layer_generated']
+                ):
 
-                nrows, ncols = self.x.shape
-                if (self.flags['los_blck_layer_generated'] and 
-                    self.flags['topography_layer_generated']
-                    ):
+                self.combined_layer = (self.elevation_angle_layer 
+                                        * self.range_layer 
+                                        * self.los_blck_layer)
 
-                    self.combined_layer = (self.elevation_angle_layer 
-                                           * self.range_layer 
-                                           * self.los_blck_layer)
-
-                    if self.flags['landcover_layer_generated']:
-                        self.combined_layer = (self.combined_layer 
-                        * self.restriction_zones_layer.reshape((nrows,
-                                                                ncols,1)))
-                        self.flags['combined_layer_generated'] = True
-                        self.combined_layer_pts_type = kwargs['points_id']
-                        print('Combined layer generated with landcover data!')
-                    else:
-                        self.flags['combined_layer_generated'] = True
-                        self.combined_layer_pts_type = kwargs['points_id']
-                        print('Combined layer generated without landcover data!')
+                if self.flags['landcover_layer_generated']:
+                    self.combined_layer = (self.combined_layer 
+                    * self.restriction_zones_layer.reshape((nrows,
+                                                            ncols,1)))
+                    self.flags['combined_layer_generated'] = True
+                    self.combined_layer_pts_type = kwargs['points_id']
+                    print('Combined layer generated with landcover data!')
                 else:
-                    print('Either topography or los blockage layer are missing!')
-                    print('Aborting the combined layer generation!')
+                    self.flags['combined_layer_generated'] = True
+                    self.combined_layer_pts_type = kwargs['points_id']
+                    print('Combined layer generated without landcover data!')
             else:
-                print('Instance in self.measurements_dictionary for type'
-                       + self.measurements_selector + ' is empty!')
-                print('Aborting the combined layer generation!')
-        else:
-            print('Either points_id was not provided' 
-                  +' or for the provided points_id there is ' 
-                  + 'no instance in self.measurements_dictionary!')
-            print('Aborting the combined layer generation!')
+                print('Either topography or los blockage layer are missing!')
+                print('Aborting the combined layer generation!')   
+        return rules         
 
-    def __generate_intersecting_angle_layer(self, lidar_pos, measurement_pts):
+        # if ('points_id' in kwargs and 
+        #     kwargs['points_id'] in self.POINTS_TYPE and 
+        #     kwargs['points_id'] in self.measurements_dictionary
+        #     ):
+        #     self.measurements_selector = kwargs['points_id']
+        #     measurement_pts = self.measurement_type_selector(self.measurements_selector)
+
+        #     if measurement_pts is not None:
+        #         print('Generating combined layer for ' 
+        #                + self.measurements_selector 
+        #                + ' measurement points!')
+
+        #         self.generate_mesh()
+        #         self.__generate_topographic_layer()
+        #         self.__generate_beam_coords_mesh(**kwargs)
+        #         self.__generate_range_restriction_layer(**kwargs)
+        #         self.__generate_elevation_restriction_layer(**kwargs)
+        #         self.__generate_los_blck_layer(**kwargs)
+        #         self.__update_layer_dict('combined', kwargs['points_id'])
+
+        #         nrows, ncols = self.x.shape
+        #         if (self.flags['los_blck_layer_generated'] and 
+        #             self.flags['topography_layer_generated']
+        #             ):
+
+        #             self.combined_layer = (self.elevation_angle_layer 
+        #                                    * self.range_layer 
+        #                                    * self.los_blck_layer)
+
+        #             if self.flags['landcover_layer_generated']:
+        #                 self.combined_layer = (self.combined_layer 
+        #                 * self.restriction_zones_layer.reshape((nrows,
+        #                                                         ncols,1)))
+        #                 self.flags['combined_layer_generated'] = True
+        #                 self.combined_layer_pts_type = kwargs['points_id']
+        #                 print('Combined layer generated with landcover data!')
+        #             else:
+        #                 self.flags['combined_layer_generated'] = True
+        #                 self.combined_layer_pts_type = kwargs['points_id']
+        #                 print('Combined layer generated without landcover data!')
+        #         else:
+        #             print('Either topography or los blockage layer are missing!')
+        #             print('Aborting the combined layer generation!')
+        #     else:
+        #         print('Instance in self.measurements_dictionary for type'
+        #                + self.measurements_selector + ' is empty!')
+        #         print('Aborting the combined layer generation!')
+        # else:
+        #     print('Either points_id was not provided' 
+        #           +' or for the provided points_id there is ' 
+        #           + 'no instance in self.measurements_dictionary!')
+        #     print('Aborting the combined layer generation!')
+
+    def __generate_intersecting_angle_layer(self, 
+                                            lidar_pos, 
+                                            measurement_pts, 
+                                            **kwargs):
         """
         Generates intersecting angle layer.
         
@@ -1317,6 +1450,10 @@ class LayersGIS():
             tmp[np.where(tmp < 30)] = 0
             tmp[np.where(tmp >= 30)] = 1
             self.intersecting_angle_layer[:,:,i] = tmp
+        self.__update_layer_dict('intersecting_angle_contrained', 
+                                 self.combined_layer_pts_type,
+                                 kwargs['lidar_id']
+                                 )
 
     def generate_second_lidar_layer(self, **kwargs):
         """
@@ -1347,15 +1484,22 @@ class LayersGIS():
                     self.first_lidar_id = kwargs['lidar_id']
                     lidar_position = self.lidar_dictionary[kwargs['lidar_id']]['position']
                     self.__generate_intersecting_angle_layer(lidar_position, 
-                                                             measurement_pts)
+                                                             measurement_pts,
+                                                             **kwargs)
                     self.flags['intersecting_angle_layer_generated'] = True
                     self.update_lidar_instance(lidar_id = kwargs['lidar_id'], 
-                                        points_id = self.measurements_selector)
+                                        points_id = self.measurements_selector,
+                                        layer_id = 'combined')
                     self.second_lidar_layer = (self.combined_layer 
                                                * self.intersecting_angle_layer)
                     # reachable_points = self.lidar_dictionary[kwargs['lidar_id']]['reachable_points']
                     # self.second_lidar_layer = self.combined_layer * self.intersecting_angle_layer * reachable_points
                     self.flags['second_lidar_layer'] = True
+                    print("Temp")
+                    self.__update_layer_dict('second_lidar_placement', 
+                                            self.combined_layer_pts_type,
+                                            kwargs['lidar_id']
+                                            )                    
                 else:
                     print('Lidar does not exist in self.lidar dict, halting operation!')
             else:

@@ -48,24 +48,25 @@ layout.generate_combined_layer(points_id = 'optimized')
 layout.add_lidar_instance(position = np.array([578886, 4847688, 179]),
                           lidar_id = 'brise')
 
-layout.plot_layer(layout.layer_selector('combined'), 
-                  title = 'Lidar placement map' , 
-                  legend_label = 'Reachable points []')
+# layout.plot_layer(layout.layer_selector('combined'), 
+#                   title = 'Lidar placement map' , 
+#                   legend_label = 'Reachable points []')
 
 layout.generate_second_lidar_layer(lidar_id = 'brise')
 
 layout.add_lidar_instance(position = np.array([580460, 4846018, 220]), 
                           lidar_id = 'sirocco')       
 
-layout.plot_layer(layout.layer_selector('second_lidar_placement'), 
-                  title = 'Lidar placement map' , 
-                  legend_label = 'Reachable points []')                                     
+layout.plot_layer(layer_id = 'landcover', 
+                  title = 'Lidar placement map')                                     
 
-layout.optimize_trajectory(lidar_ids = ['brise', 'sirocco'], points_id = 'optimized', sync = True)
+# layout.optimize_trajectory(lidar_ids = ['brise', 'sirocco'], points_id = 'optimized', sync = True)
 
 
-layout.export_kml(lidar_ids = ['brise', 'sirocco'], 
-                  layer_ids = ['combined', 
-                               'second_lidar_placement', 
-                               'range_contrained'])
-layout.export_measurement_scenario(lidar_ids = ['brise', 'sirocco'])
+# layout.export_kml(lidar_ids = ['brise', 'sirocco'], 
+#                   layer_ids = ['combined', 
+#                                'second_lidar_placement', 
+#                                'range_contrained'])
+# layout.export_measurement_scenario(lidar_ids = ['brise', 'sirocco'])
+
+print(layout.legend_label)
