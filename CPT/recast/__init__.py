@@ -332,11 +332,12 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
         """
         rules = np.array([self.flags['utm_set'],
                           'points_id' in kwargs,
-                          kwargs['points_id'] in self.POINTS_TYPE,
+                          (kwargs['points_id'] in self.POINTS_TYPE 
+                          if 'points_id' in kwargs else False),                          
                           'points' in kwargs])
         print_statements = np.array(['- UTM zone is not set',
                                      '- points_id is not in kwargs',
-                                     '- points_id is not in self.POINTS_TYPE',
+                                     '- given points_id is not in self.POINTS_TYPE',
                                      '- points is not in kwargs'])
         if np.all(rules):
             if len(kwargs['points'].shape) == 2 and kwargs['points'].shape[1] == 3:
