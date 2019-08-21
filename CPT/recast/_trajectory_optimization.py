@@ -61,11 +61,11 @@ class OptimizeTrajectory():
 
     Methods
     ------
+    optimize_trajectory(**kwargs)
+        Finding a shortest trajectory through the set of measurement points.
     generate_trajectory(lidar_pos, trajectory)
         Generates step-stare trajectory based on the lidar position and 
         trajectory points.
-    optimize_trajectory(**kwargs):
-        Finding a shortest trajectory through the set of measurement points.
     """
 
 
@@ -456,7 +456,7 @@ class OptimizeTrajectory():
                  for lidar in kwargs['lidar_ids']])
                  ):
                 points_id = self.lidar_dictionary[kwargs['lidar_ids'][0]]['points_id']
-                measurement_pts = self.measurement_type_selector(points_id)
+                measurement_pts = self.points_selector(points_id)
 
                 if 'only_common_points' in kwargs and kwargs['only_common_points']:                     
                     common_points = np.prod(np.array([
@@ -467,7 +467,7 @@ class OptimizeTrajectory():
                     measurement_pts = measurement_pts[common_points_indexes]
 
                 if len(measurement_pts) > 0:
-                    self.measurements_selector = points_id
+                    self.points_id = points_id
                     sync_time_list = []
                     for i in range(0,len(measurement_pts)):
                         trajectory = self.__tsp(kwargs['lidar_ids'],

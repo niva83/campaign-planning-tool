@@ -569,10 +569,10 @@ class LayersGIS():
         of 5000 meters will be considered.      
         """
         if 'points_id' in kwargs and kwargs['points_id'] in self.POINTS_TYPE:
-            measurement_pts = self.measurement_type_selector(kwargs['points_id'])
-            self.measurements_selector = kwargs['points_id']
+            measurement_pts = self.points_selector(kwargs['points_id'])
+            self.points_id = kwargs['points_id']
         else:
-            measurement_pts = self.measurement_type_selector(self.measurements_selector)
+            measurement_pts = self.points_selector(self.points_id)
 
         if 'mesh_extent' in kwargs:
             self.MESH_EXTENT = kwargs['mesh_extent']
@@ -676,8 +676,8 @@ class LayersGIS():
                  ]
         
         if all(rules):
-            measurement_pts = self.measurement_type_selector(kwargs['points_id'])
-            self.measurements_selector = kwargs['points_id']
+            measurement_pts = self.points_selector(kwargs['points_id'])
+            self.points_id = kwargs['points_id']
             array_shape = (measurement_pts.shape[0], ) + self.mesh_utm.shape
             self.beam_coords = np.empty(array_shape, dtype=float)
 
@@ -707,8 +707,8 @@ class LayersGIS():
         #     kwargs['points_id'] in self.measurements_dictionary
         #     ):
 
-        #     measurement_pts = self.measurement_type_selector(kwargs['points_id'])
-        #     self.measurements_selector = kwargs['points_id']
+        #     measurement_pts = self.points_selector(kwargs['points_id'])
+        #     self.points_id = kwargs['points_id']
 
         #     if measurement_pts is not None:
         #         try:
@@ -731,7 +731,7 @@ class LayersGIS():
         #             print('Something went wrong! Check measurement points')
         #     else:
         #         print('Instance in self.measurements_dictionary for type'
-        #               + self.measurements_selector 
+        #               + self.points_id 
         #               + ' is empty!')
         #         print('Aborting the beam steering coordinates' 
         #               +'generation for the mesh points!')
@@ -1135,7 +1135,7 @@ class LayersGIS():
         """
 
         if self.flags['output_path_set'] and self.flags['measurements_added']: 
-            pts = self.measurement_type_selector(self.measurements_selector)
+            pts = self.points_selector(self.points_id)
             
 
             pts_dict=[]
@@ -1177,10 +1177,10 @@ class LayersGIS():
         """
         if (self.flags['topography_exported'] and 
             self.flags['measurements_exported'] and 
-            self.measurement_type_selector(self.measurements_selector) is not None
+            self.points_selector(self.points_id) is not None
 
            ):
-            measurement_pts = self.measurement_type_selector(self.measurements_selector)
+            measurement_pts = self.points_selector(self.points_id)
             terrain_height = self.get_elevation(self.long_zone 
                                               + self.lat_zone, measurement_pts)
             measurement_height = measurement_pts[:,2]
@@ -1215,7 +1215,7 @@ class LayersGIS():
         """        
 
         if self.flags['viewshed_analyzed']:
-            measurement_pts = self.measurement_type_selector(self.measurements_selector)
+            measurement_pts = self.points_selector(self.points_id)
             nrows, ncols = self.x.shape
             no_pts = len(measurement_pts)
 
@@ -1264,9 +1264,9 @@ class LayersGIS():
         """
         if self.flags['topography_layer_generated']:
             if 'points_id' in kwargs and kwargs['points_id'] in self.POINTS_TYPE:
-                self.measurements_selector = kwargs['points_id']
+                self.points_id = kwargs['points_id']
 
-                if self.measurement_type_selector(self.measurements_selector) is not None:        
+                if self.points_selector(self.points_id) is not None:        
                     self.__export_measurements()
                     self.__export_topography()
                     self.__viewshed_analysis()
@@ -1278,7 +1278,7 @@ class LayersGIS():
                                               kwargs['points_id'])                             
                 else:
                     print('For points type \''
-                           + self.measurements_selector 
+                           + self.points_id 
                            + '\' there are no measurement points ' 
                            + 'in the measurements dictionary!')
                     print('Aborting the los blockage layer generation!')
@@ -1324,10 +1324,10 @@ class LayersGIS():
                  ]
         
         if all(rules):
-            measurement_pts = self.measurement_type_selector(kwargs['points_id'])
-            self.measurements_selector = kwargs['points_id']
+            measurement_pts = self.points_selector(kwargs['points_id'])
+            self.points_id = kwargs['points_id']
             print('Generating combined layer for ' 
-                    + self.measurements_selector 
+                    + self.points_id 
                     + ' measurement points!')
 
             self.generate_mesh()
@@ -1426,8 +1426,8 @@ class LayersGIS():
         Before calling this method, combined layer must be previously generated
         """
         
-        self.measurements_selector = self.combined_layer_pts_type
-        measurement_pts = self.measurement_type_selector(self.measurements_selector)
+        self.points_id = self.combined_layer_pts_type
+        measurement_pts = self.points_selector(self.points_id)
         if measurement_pts is not None:
             if 'lidar_id' in kwargs:
                 if kwargs['lidar_id'] in self.lidar_dictionary:

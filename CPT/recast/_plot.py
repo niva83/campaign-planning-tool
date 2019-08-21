@@ -4,6 +4,19 @@ from pathlib import Path
 import os, shutil
 
 class Plot():
+    """
+    A class containing methods for plotting CPT results.
+
+    Methods
+    -------
+    plot_layer(**kwargs)
+        Plots individual GIS layers and lidar positions.
+    plot_optimization(**kwargs)
+        Plots measurement point optimization result.
+    plot_optimization(**kwargs)
+        Plots measurement point optimization result.        
+
+    """
     def plot_layer(self, **kwargs):
         """
         Plots individual GIS layers and lidar positions.
@@ -86,7 +99,7 @@ class Plot():
 
                         points = None
                         if layer_info['points_id'] is not None:
-                            points = self.measurement_type_selector(
+                            points = self.points_selector(
                                                        layer_info['points_id'])
                             
                     
@@ -194,15 +207,15 @@ class Plot():
         
         """
         if 'points_id' in kwargs and kwargs['points_id'] in self.POINTS_TYPE:
-            measurement_pts = self.measurement_type_selector(kwargs['points_id'])
+            measurement_pts = self.points_selector(kwargs['points_id'])
             pts_str = kwargs['points_id']
         else:
-            measurement_pts = self.measurement_type_selector('initial')
+            measurement_pts = self.points_selector('initial')
             pts_str = 'initial'
 
 
         if (measurement_pts is not None 
-            and self.measurement_type_selector('optimized') is not None):
+            and self.points_selector('optimized') is not None):
             fig, ax = plt.subplots(sharey = True, 
                                    figsize=(800/self.MY_DPI, 800/self.MY_DPI), 
                                    dpi=self.MY_DPI)
@@ -218,7 +231,7 @@ class Plot():
                                         s=10,zorder=1500,)            
 
 
-            for i,pt in enumerate(self.measurement_type_selector('optimized')):
+            for i,pt in enumerate(self.points_selector('optimized')):
                 if i == 0:
                     ax.scatter(pt[0], pt[1],marker='o', facecolors='white', 
                                edgecolors='black', s=10,zorder=1500, 
@@ -350,7 +363,7 @@ class Plot():
 
                         points = None
                         if layer_info['points_id'] is not None:
-                            points = self.measurement_type_selector(
+                            points = self.points_selector(
                                                        layer_info['points_id'])
                             
                     

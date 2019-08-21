@@ -596,6 +596,7 @@ CLOSE""",
                                 file_name_str = "campaign_design.kml"
                                 file_path = self.OUTPUT_DATA_PATH.joinpath(file_name_str)
                                 kml.save(file_path.absolute().as_posix())
+                                print('KML exported successful!')
                             else:
                                 print('Trajectories are not the same for the provided lidar_ids!')
                                 print('Aborting the operation!')

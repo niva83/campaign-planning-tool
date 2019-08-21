@@ -51,6 +51,14 @@ def array_difference(A,B):
 
 
 class OptimizeMeasurements():
+    """
+    A class used for optimizing measurement positions.
+    
+    Methods
+    -------
+    optimize_measurements(**kwargs)
+        Optimizes measurement positions by solving disc covering problem.    
+    """
     def __generate_disc_matrix(self, **kwargs):
         """
         Generates mid points between any combination of 
@@ -101,8 +109,8 @@ class OptimizeMeasurements():
 
         """
         if 'points_id' in kwargs and kwargs['points_id'] in self.POINTS_TYPE:
-            measurement_pts = self.measurement_type_selector(kwargs['points_id'])
-            self.measurements_selector = kwargs['points_id']
+            measurement_pts = self.points_selector(kwargs['points_id'])
+            self.points_id = kwargs['points_id']
     
             if measurement_pts is not None:
                 # find discs in 2D (horizontal plane!)
@@ -307,7 +315,7 @@ class OptimizeMeasurements():
         """
         if 'points_id' in kwargs:
             if kwargs['points_id'] in self.POINTS_TYPE:
-                measurement_pts = self.measurement_type_selector(
+                measurement_pts = self.points_selector(
                                                            kwargs['points_id'])
                 if measurement_pts is not None:
                     height_total = measurement_pts[:,2]
@@ -319,7 +327,7 @@ class OptimizeMeasurements():
 
 
                     print('Optimizing ' 
-                            + self.measurements_selector 
+                            + self.points_id 
                             + ' measurement points!')
                     discs, matrix = self.__generate_disc_matrix(**kwargs)
 

@@ -401,7 +401,7 @@ CLOSE""",
         self.measurements_identified = None
         self.measurements_reachable = None
         self.measurements_misc = None
-        self.measurements_selector = 'initial'
+        self.points_id = 'initial'
         self.beam_coords = None
         self.mesh_center = None
         self.flat_index_array = None 
@@ -529,16 +529,16 @@ CLOSE""",
             facecolors='white', edgecolors='black',s=60,zorder=2000, label = "lidar_2")
 
         if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
-            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
+            measurement_pts = self.points_selector(kwargs['points_type'])
         else:
-            measurement_pts = self.measurement_type_selector(self.measurements_selector)        
+            measurement_pts = self.points_selector(self.points_id)        
 
         if measurement_pts is not None:
             for i, pts in enumerate(measurement_pts):
                 if i == 0:
                     ax.scatter(pts[0], pts[1], marker='o', 
                     facecolors='yellow', edgecolors='black', 
-                    s=60,zorder=1500, label = 'measurements_' + self.measurements_selector)                    
+                    s=60,zorder=1500, label = 'measurements_' + self.points_id)                    
                 else:
                     ax.scatter(pts[0], pts[1], marker='o',
                     facecolors='yellow', edgecolors='black', 
@@ -599,7 +599,7 @@ CLOSE""",
         
         """
         if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
-            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
+            measurement_pts = self.points_selector(kwargs['points_type'])
         else:
             measurement_pts = self.measurements_initial  
 
@@ -703,16 +703,16 @@ CLOSE""",
             facecolors='white', edgecolors='black',s=60,zorder=2000, label = "lidar_2")
 
             if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
-                measurement_pts = self.measurement_type_selector(kwargs['points_type'])
+                measurement_pts = self.points_selector(kwargs['points_type'])
             else:
-                measurement_pts = self.measurement_type_selector(self.measurements_selector)        
+                measurement_pts = self.points_selector(self.points_id)        
 
             if measurement_pts is not None:
                 for i, pts in enumerate(measurement_pts):
                     if i == 0:
                         ax.scatter(pts[0], pts[1], marker='o', 
                         facecolors='yellow', edgecolors='black', 
-                        s=60,zorder=1500, label = 'measurements_' + self.measurements_selector)                    
+                        s=60,zorder=1500, label = 'measurements_' + self.points_id)                    
                     else:
                         ax.scatter(pts[0], pts[1], marker='o',
                         facecolors='yellow', edgecolors='black', 
@@ -834,30 +834,30 @@ CLOSE""",
         if self.flags['utm_set'] == False:
             print('Cannot add measurement points without specificing UTM zone first!')
 
-        if self.flags['utm_set'] and self.check_measurement_positions(kwargs['measurements']):
+        if self.flags['utm_set'] and self.__check_measurement_positions(kwargs['measurements']):
             if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
-                self.measurements_selector = kwargs['points_type']
-            print('Adding ' + self.measurements_selector + ' measurement points!')
+                self.points_id = kwargs['points_type']
+            print('Adding ' + self.points_id + ' measurement points!')
 
             if len(kwargs['measurements'].shape) == 2:
-                if self.measurements_selector == 'initial':
+                if self.points_id == 'initial':
                     self.measurements_initial = kwargs['measurements']
-                elif self.measurements_selector == 'optimized':
+                elif self.points_id == 'optimized':
                     self.measurements_initial = kwargs['measurements']
-                elif self.measurements_selector == 'reachable':
+                elif self.points_id == 'reachable':
                     self.measurements_initial = kwargs['measurements']
-                elif self.measurements_selector == 'identified':
+                elif self.points_id == 'identified':
                     self.measurements_initial = kwargs['measurements']
                 else:
                     self.measurements_initial = kwargs['measurements']
             else:
-                if self.measurements_selector == 'initial':
+                if self.points_id == 'initial':
                     self.measurements_initial = np.array([kwargs['measurements']])
-                elif self.measurements_selector == 'optimized':
+                elif self.points_id == 'optimized':
                     self.measurements_optimized = np.array([kwargs['measurements']])
-                elif self.measurements_selector == 'reachable':
+                elif self.points_id == 'reachable':
                     self.measurements_reachable = np.array([kwargs['measurements']])
-                elif self.measurements_selector == 'identified':
+                elif self.points_id == 'identified':
                     self.measurements_reachable = np.array([kwargs['measurements']])
                 else:
                     self.measurements_misc = np.array([kwargs['measurements']])
@@ -948,10 +948,10 @@ CLOSE""",
 
         """
         if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
-            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
-            self.measurements_selector = kwargs['points_type']
+            measurement_pts = self.points_selector(kwargs['points_type'])
+            self.points_id = kwargs['points_type']
         else:
-            measurement_pts = self.measurement_type_selector(self.measurements_selector)        
+            measurement_pts = self.points_selector(self.points_id)        
 
         if measurement_pts is not None:
             points_combination = np.asarray(list(combinations(list(measurement_pts[:,(0,1)]), 2)))    
@@ -1105,15 +1105,15 @@ CLOSE""",
 
         """
         if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
-            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
-            self.measurements_selector = kwargs['points_type']
+            measurement_pts = self.points_selector(kwargs['points_type'])
+            self.points_id = kwargs['points_type']
         else:
-            measurement_pts = self.measurement_type_selector(self.measurements_selector)
+            measurement_pts = self.points_selector(self.points_id)
         measure_pt_height = abs(measurement_pts[:,2] -  self.get_elevation(self.long_zone + self.lat_zone, measurement_pts))
 
 
         if measurement_pts is not None:
-            print('Optimizing ' + self.measurements_selector + ' measurement points!')
+            print('Optimizing ' + self.points_id + ' measurement points!')
             discs, matrix = self.generate_disc_matrix()
 
 
@@ -1201,7 +1201,7 @@ CLOSE""",
         """        
         # selecting points which will be used for optimization
         if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
-            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
+            measurement_pts = self.points_selector(kwargs['points_type'])
         else:
             measurement_pts = self.measurements_reachable
         
@@ -1620,11 +1620,11 @@ CLOSE""",
             if self.flags['utm_set'] == False:
                 print('Cannot add lidar positions without specificing UTM zone!')
             else:        
-                if 'lidar_pos_1' in kwargs and self.check_lidar_position(kwargs['lidar_pos_1']):
+                if 'lidar_pos_1' in kwargs and self.__check_lidar_position(kwargs['lidar_pos_1']):
                     self.lidar_pos_1 = kwargs['lidar_pos_1']
                     self.flags['lidar_pos_1'] = True
                     print('Lidar 1 position added!')
-                if 'lidar_pos_2' in kwargs and self.check_lidar_position(kwargs['lidar_pos_2']):
+                if 'lidar_pos_2' in kwargs and self.__check_lidar_position(kwargs['lidar_pos_2']):
                     self.lidar_pos_2 = kwargs['lidar_pos_2']
                     self.flags['lidar_pos_2'] = True
                     print('Lidar 2 position added!')
@@ -1681,10 +1681,10 @@ CLOSE""",
             [ 1000,  1000]])            
         """
         if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
-            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
-            self.measurements_selector = kwargs['points_type']
+            measurement_pts = self.points_selector(kwargs['points_type'])
+            self.points_id = kwargs['points_type']
         else:
-            measurement_pts = self.measurement_type_selector(self.measurements_selector)
+            measurement_pts = self.points_selector(self.points_id)
 
         if 'mesh_extent' in kwargs:
             self.MESH_EXTENT = kwargs['mesh_extent']
@@ -1739,7 +1739,7 @@ CLOSE""",
         if self.flags['lidar_pos_2'] and self.flags['second_lidar_layer']:
             i, j = self.find_mesh_point_index(self.lidar_pos_2)
             self.reachable_points = self.second_lidar_layer[i,j,:]
-            measurement_pts = self.measurement_type_selector(self.measurements_selector)
+            measurement_pts = self.points_selector(self.points_id)
             self.measurements_reachable = measurement_pts[np.where(self.reachable_points>0)]
             self.flags['measurements_reachable'] = True
 
@@ -1764,7 +1764,7 @@ CLOSE""",
     
     def generate_intersecting_angle_layer(self):
         if self.flags['lidar_pos_1'] :
-            measurement_pts = self.measurement_type_selector(self.measurements_selector)
+            measurement_pts = self.points_selector(self.points_id)
             if len(measurement_pts) > 0:
                 nrows, ncols = self.x.shape
                 no_pts = len(measurement_pts)
@@ -1808,14 +1808,14 @@ CLOSE""",
         """
 
         if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
-            self.measurements_selector = kwargs['points_type']
+            self.points_id = kwargs['points_type']
         else:
-            self.measurements_selector = 'initial'
+            self.points_id = 'initial'
 
         self.reachable_points = None
 
-        if self.measurement_type_selector(self.measurements_selector) is not None:
-            print('Generating combined layer for ' + self.measurements_selector + ' measurement points!')
+        if self.points_selector(self.points_id) is not None:
+            print('Generating combined layer for ' + self.points_id + ' measurement points!')
             self.generate_mesh()
             self.generate_topographic_layer()
             self.generate_beam_coords_mesh()
@@ -1828,7 +1828,7 @@ CLOSE""",
             self.combined_layer = self.combined_layer * self.restriction_zones_layer.reshape((nrows,ncols,1))
             self.flags['combined_layer_generated'] = True
         else:
-            print('Variable self.measurements_'+ self.measurements_selector + ' is empty!')
+            print('Variable self.measurements_'+ self.points_id + ' is empty!')
             print('Combined layer was not generated!')
 
     def generate_los_blck_layer(self, **kwargs):
@@ -1852,9 +1852,9 @@ CLOSE""",
         add_measurements() : adding measurement points to the CPT class instance 
         """
         if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
-            self.measurements_selector = kwargs['points_type']
+            self.points_id = kwargs['points_type']
 
-        if self.measurement_type_selector(self.measurements_selector) is not None:        
+        if self.points_selector(self.points_id) is not None:        
             self.export_measurements()
             self.export_topography()
             self.viewshed_analysis()
@@ -1862,7 +1862,7 @@ CLOSE""",
             self.flags['los_blck_layer_generated'] = True
             del_folder_content(self.OUTPUT_DATA_PATH, self.FILE_EXTENSIONS)
         else:
-            print('Variable self.measurements_'+ self.measurements_selector + ' is empty!')
+            print('Variable self.measurements_'+ self.points_id + ' is empty!')
             print('LOS blockage layer was not generated!')
 
     def viewshed_processing(self):
@@ -1884,7 +1884,7 @@ CLOSE""",
         """        
 
         if self.flags['viewshed_analyzed']:
-            measurement_pts = self.measurement_type_selector(self.measurements_selector)
+            measurement_pts = self.points_selector(self.points_id)
             nrows, ncols = self.x.shape
             no_pts = len(measurement_pts)
 
@@ -1920,8 +1920,8 @@ CLOSE""",
         export_measurements() : measurement points shapefile exporter
         """
 
-        if os.path.exists(self.OUTPUT_DATA_PATH + 'topography.asc') and self.flags['topography_exported'] and self.flags['measurements_exported'] and self.flags['measurements_added'] and self.measurement_type_selector(self.measurements_selector) is not None:
-            measurement_pts = self.measurement_type_selector(self.measurements_selector)
+        if os.path.exists(self.OUTPUT_DATA_PATH + 'topography.asc') and self.flags['topography_exported'] and self.flags['measurements_exported'] and self.flags['measurements_added'] and self.points_selector(self.points_id) is not None:
+            measurement_pts = self.points_selector(self.points_id)
 
             terrain_height = self.get_elevation(self.long_zone + self.lat_zone, measurement_pts)
             measurement_height = measurement_pts[:,2]
@@ -1985,7 +1985,7 @@ CLOSE""",
         """
 
         if os.path.exists(self.OUTPUT_DATA_PATH) and self.flags['measurements_added']: 
-            pts = self.measurement_type_selector(self.measurements_selector)
+            pts = self.points_selector(self.points_id)
 
             pts_dict=[]
             for i,pt in enumerate(pts)  :
@@ -2059,10 +2059,10 @@ CLOSE""",
         # measurement point selector:
         
         if 'points_type' in kwargs and kwargs['points_type'] in self.POINTS_TYPE:
-            measurement_pts = self.measurement_type_selector(kwargs['points_type'])
-            self.measurements_selector = kwargs['points_type']
+            measurement_pts = self.points_selector(kwargs['points_type'])
+            self.points_id = kwargs['points_type']
         else:
-            measurement_pts = self.measurement_type_selector(self.measurements_selector)        
+            measurement_pts = self.points_selector(self.points_id)        
 
         if measurement_pts is not None:
             try:
@@ -2083,7 +2083,7 @@ CLOSE""",
             except:
                 print('Something went wrong! Check measurement points')
         else:
-            print('Variable self.measurements_'+ self.measurements_selector + ' is empty!')
+            print('Variable self.measurements_'+ self.points_id + ' is empty!')
             print('Beam steering coordinates not generated!')
 
     def measurement_type_selector(self, points_type):
@@ -2524,7 +2524,7 @@ CLOSE""",
             return False
 
     @staticmethod
-    def check_lidar_position(lidar_position):
+    def __check_lidar_position(lidar_position):
         """
         Validates a lidar position
         
