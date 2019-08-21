@@ -411,10 +411,10 @@ class OptimizeTrajectory():
         
         Parameters
         ----------
-        see kwargs
+        see keywoard arguments
 
         
-        Keyword paramaters
+        Keyword Arguments
         ------------------
         lidar_ids : list of str, required
             A list of strings containing lidar ids.

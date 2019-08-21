@@ -1165,10 +1165,10 @@ CLOSE""",
         
         Parameters
         ----------
-        see kwargs
+        see keywoard arguments
 
         
-        Keyword paramaters
+        Keyword Arguments
         ------------------
         points_type : str
             A string indicating which measurement points
@@ -1237,7 +1237,7 @@ CLOSE""",
             Presetting the trajectory starting point.
             A default value is set to None.
         
-        Keyword paramaters
+        Keyword Arguments
         ------------------
         points_type : str
             A string indicating which measurement points

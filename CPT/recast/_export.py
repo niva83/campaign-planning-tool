@@ -607,7 +607,7 @@ CLOSE""",
                         print('For one or more requested layer does not exist!')
                         print('Aborting the operation!')
                 else:
-                    print('layer_ids not provided as a keywoard argument!')
+                    print('layer_ids not provided as a keyword argument!')
                     print('Aborting the operation!')
             else:
                 print('One or more lidar ids don\'t exist in the lidar dictionary')
