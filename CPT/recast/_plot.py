@@ -411,6 +411,15 @@ class Plot():
                                                         s=80 + 200 *( i*2 + 1), 
                                                         zorder=1500 - 20*( i + 1), 
                                                         label = "points: trajectory")
+                                                ax.scatter(trajectory[j][0], 
+                                                        trajectory[j][1], 
+                                                        marker='o', 
+                                                        facecolors='green', 
+                                                        edgecolors='black',
+                                                        s=80 + 200 *( i*2 + 2), 
+                                                        zorder=1500 - 20*( i + 2), 
+                                                        label = "trajectory start")
+
                                             else:
                                                 ax.scatter(trajectory[j][0], 
                                                         trajectory[j][1], 
