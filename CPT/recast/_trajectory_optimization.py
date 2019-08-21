@@ -257,7 +257,7 @@ class OptimizeTrajectory():
 
         return max(azimuth_max,elevation_max)
 
-    def __tsp(self, start=None, **kwargs):
+    def __tsp(self,  lidar_ids, points, start=None):
         """
         Solving a travelening salesman problem for a set of points and 
         two lidar positions.
@@ -267,14 +267,10 @@ class OptimizeTrajectory():
         start : int
             Presetting the trajectory starting point.
             A default value is set to None.
-        
-        Keyword paramaters
-        ------------------
-        points_id : str
-            A string indicating which measurement points
-            should be consider for the trajectory optimization.
         lidar_ids : list of str
             A list of strings containing lidar ids.
+        points : list
+            A list of coordinates of measurement points.
         
         Returns
         -------
@@ -303,69 +299,50 @@ class OptimizeTrajectory():
         Examples
         --------
         """
-        if ('points_id' in kwargs and
-             kwargs['points_id'] in self.POINTS_TYPE and
-             kwargs['points_id'] in self.measurements_dictionary and
-             len(self.measurements_dictionary[kwargs['points_id']]) > 0
-            ):
-            if ('lidar_ids' in kwargs and
-                 set(kwargs['lidar_ids']).issubset(self.lidar_dictionary)
-                ):
-                points_pd = self.measurements_dictionary[kwargs['points_id']]
-                points = points_pd.values[:, 1:].tolist()
-                if start is None:
-                    shuffle(points)
-                    start = points[0]
-                else:
-                    start = points[start]
+        if (len(points) > 0 and len(lidar_ids) > 0):
+            if start is None:
+                shuffle(points)
+                start = points[0]
+            else:
+                start = points[start]
 
-                unvisited_points = points
-                # sets first trajectory point        
-                trajectory = [start]
-                # removes that point from the points list
-                unvisited_points.remove(start)
+            unvisited_points = points
+            # sets first trajectory point        
+            trajectory = [start]
+            # removes that point from the points list
+            unvisited_points.remove(start)
 
-                # lidar list
-                lidars = []
-                for lidar in kwargs['lidar_ids']:
-                    lidars = lidars + [self.lidar_dictionary[lidar]['position']]
+            # lidar list
+            lidars = []
+            for lidar in lidar_ids:
+                lidars = lidars + [self.lidar_dictionary[lidar]['position']]
+            while unvisited_points:
+                last_point = trajectory[-1]
+                max_angular_displacements = []
 
-                while unvisited_points:
-                    last_point = trajectory[-1]
-                    max_angular_displacements = []
+                # calculates maximum angular move from the last
+                # trajectory point to any other point which is not
+                # a part of the trajectory            
+                for next_point in unvisited_points:
+                    max_displacement = self.__calculate_max_move(
+                                                                last_point, 
+                                                                next_point, 
+                                                                lidars
+                                                                )
+                    max_angular_displacements = (max_angular_displacements 
+                                                    + [max_displacement])
 
-                    # calculates maximum angular move from the last
-                    # trajectory point to any other point which is not
-                    # a part of the trajectory            
-                    for next_point in unvisited_points:
-                        max_displacement = self.__calculate_max_move(
-                                                                    last_point, 
-                                                                    next_point, 
-                                                                    lidars
-                                                                    )
-                        max_angular_displacements = (max_angular_displacements 
-                                                     + [max_displacement])
+                # finds which displacement is shortest
+                # and the corresponding index in the list
+                min_displacement = min(max_angular_displacements)
+                index = max_angular_displacements.index(min_displacement)
 
-                    # finds which displacement is shortest
-                    # and the corresponding index in the list
-                    min_displacement = min(max_angular_displacements)
-                    index = max_angular_displacements.index(min_displacement)
-
-                    # next trajectory point is added to the trajectory
-                    # and removed from the list of unvisited points
-                    next_trajectory_point = unvisited_points[index]
-                    trajectory.append(next_trajectory_point)
-                    unvisited_points.remove(next_trajectory_point)
-                trajectory = np.asarray(trajectory)
-                return trajectory
-            else: 
-                print('One or more lidar ids don\'t exist in the lidar dictionary')
-                print('Available lidar ids: ' + str(list(self.lidar_dictionary.keys())))
-                trajectory = None
-                return trajectory
-        else:
-            print('Either point type id does not exist or selected there are no points!')
-            trajectory = None
+                # next trajectory point is added to the trajectory
+                # and removed from the list of unvisited points
+                next_trajectory_point = unvisited_points[index]
+                trajectory.append(next_trajectory_point)
+                unvisited_points.remove(next_trajectory_point)
+            trajectory = np.asarray(trajectory)
             return trajectory
 
     def generate_trajectory(self, lidar_pos, trajectory):
@@ -439,13 +416,13 @@ class OptimizeTrajectory():
         
         Keyword paramaters
         ------------------
-        points_id : str, required
-            A string indicating which measurement points
-            should be consider for the trajectory optimization.
         lidar_ids : list of str, required
             A list of strings containing lidar ids.
         sync : bool, optional
             Indicates whether to sync trajectories or not
+        only_common_points : bool, optional
+            Indicates whether to make trajectories only through common
+            reachable points
         
         Returns
         -------
@@ -473,17 +450,29 @@ class OptimizeTrajectory():
         --------
         """        
         # selecting points which will be used for optimization
-        if 'points_id' in kwargs:
-            if kwargs['points_id'] in self.measurements_dictionary:
-                measurement_pts = self.measurement_type_selector(
-                                                           kwargs['points_id']
-                                                                )
+        if 'lidar_ids' in kwargs:
+            if (set(kwargs['lidar_ids']).issubset(self.lidar_dictionary) and
+                all([self.lidar_dictionary[lidar]['points_id'] 
+                 for lidar in kwargs['lidar_ids']])
+                 ):
+                points_id = self.lidar_dictionary[kwargs['lidar_ids'][0]]['points_id']
+                measurement_pts = self.measurement_type_selector(points_id)
+
+                if 'only_common_points' in kwargs and kwargs['only_common_points']:                     
+                    common_points = np.prod(np.array([
+                    self.lidar_dictionary[lidar]['reachable_points'] 
+                                    for lidar in kwargs['lidar_ids']]        
+                                            ), axis=0)
+                    common_points_indexes = np.where(common_points > 0)
+                    measurement_pts = measurement_pts[common_points_indexes]
+
                 if len(measurement_pts) > 0:
-                    self.measurements_selector = kwargs['points_id']
+                    self.measurements_selector = points_id
                     sync_time_list = []
                     for i in range(0,len(measurement_pts)):
-                        trajectory = self.__tsp(i, **kwargs)
-
+                        trajectory = self.__tsp(kwargs['lidar_ids'],
+                                                measurement_pts.tolist(), 
+                                                i)
                         # needs to record each lidar timing for each move
                         # and then 'if we want to keep them in syn
                         sync_time = []
@@ -515,8 +504,11 @@ class OptimizeTrajectory():
                     # while second 0 results in selecting the first min value
                     min_traj_ind = np.where(
                             sync_time_list == np.min(sync_time_list))[0][0]
-                    trajectory = self.__tsp(min_traj_ind, **kwargs)
-                    
+                            
+                    trajectory = self.__tsp(kwargs['lidar_ids'],
+                                            measurement_pts.tolist(),
+                                            min_traj_ind)
+
                     trajectory = pd.DataFrame(trajectory, columns = [
                                                             "Easting [m]", 
                                                             "Northing [m]", 
@@ -536,8 +528,7 @@ class OptimizeTrajectory():
                         + ' will be updated with the optimized trajectory')
                     for lidar in kwargs['lidar_ids']:
                         self.update_lidar_instance(lidar_id = lidar, 
-                                            use_optimized_trajectory = True, 
-                                            points_id = kwargs['points_id'])
+                                                   trajectory = trajectory)
 
                     if 'sync' in kwargs and kwargs['sync']:
                         self.__sync_trajectory(**kwargs)      

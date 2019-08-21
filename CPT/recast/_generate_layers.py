@@ -1361,60 +1361,11 @@ class LayersGIS():
             else:
                 print('Either topography or los blockage layer are missing!')
                 print('Aborting the combined layer generation!')   
-        return rules         
-
-        # if ('points_id' in kwargs and 
-        #     kwargs['points_id'] in self.POINTS_TYPE and 
-        #     kwargs['points_id'] in self.measurements_dictionary
-        #     ):
-        #     self.measurements_selector = kwargs['points_id']
-        #     measurement_pts = self.measurement_type_selector(self.measurements_selector)
-
-        #     if measurement_pts is not None:
-        #         print('Generating combined layer for ' 
-        #                + self.measurements_selector 
-        #                + ' measurement points!')
-
-        #         self.generate_mesh()
-        #         self.__generate_topographic_layer()
-        #         self.__generate_beam_coords_mesh(**kwargs)
-        #         self.__generate_range_restriction_layer(**kwargs)
-        #         self.__generate_elevation_restriction_layer(**kwargs)
-        #         self.__generate_los_blck_layer(**kwargs)
-        #         self.__update_layer_dict('combined', kwargs['points_id'])
-
-        #         nrows, ncols = self.x.shape
-        #         if (self.flags['los_blck_layer_generated'] and 
-        #             self.flags['topography_layer_generated']
-        #             ):
-
-        #             self.combined_layer = (self.elevation_angle_layer 
-        #                                    * self.range_layer 
-        #                                    * self.los_blck_layer)
-
-        #             if self.flags['landcover_layer_generated']:
-        #                 self.combined_layer = (self.combined_layer 
-        #                 * self.restriction_zones_layer.reshape((nrows,
-        #                                                         ncols,1)))
-        #                 self.flags['combined_layer_generated'] = True
-        #                 self.combined_layer_pts_type = kwargs['points_id']
-        #                 print('Combined layer generated with landcover data!')
-        #             else:
-        #                 self.flags['combined_layer_generated'] = True
-        #                 self.combined_layer_pts_type = kwargs['points_id']
-        #                 print('Combined layer generated without landcover data!')
-        #         else:
-        #             print('Either topography or los blockage layer are missing!')
-        #             print('Aborting the combined layer generation!')
-        #     else:
-        #         print('Instance in self.measurements_dictionary for type'
-        #                + self.measurements_selector + ' is empty!')
-        #         print('Aborting the combined layer generation!')
-        # else:
-        #     print('Either points_id was not provided' 
-        #           +' or for the provided points_id there is ' 
-        #           + 'no instance in self.measurements_dictionary!')
-        #     print('Aborting the combined layer generation!')
+        else:
+            print('Either points_id was not provided' 
+                  +' or for the provided points_id there is ' 
+                  + 'no instance in self.measurements_dictionary!')
+            print('Aborting the combined layer generation!')
 
     def __generate_intersecting_angle_layer(self, 
                                             lidar_pos, 
@@ -1488,14 +1439,12 @@ class LayersGIS():
                                                              **kwargs)
                     self.flags['intersecting_angle_layer_generated'] = True
                     self.update_lidar_instance(lidar_id = kwargs['lidar_id'], 
-                                        points_id = self.measurements_selector,
-                                        layer_id = 'combined')
+                                               layer_id = 'combined')
                     self.second_lidar_layer = (self.combined_layer 
                                                * self.intersecting_angle_layer)
                     # reachable_points = self.lidar_dictionary[kwargs['lidar_id']]['reachable_points']
                     # self.second_lidar_layer = self.combined_layer * self.intersecting_angle_layer * reachable_points
                     self.flags['second_lidar_layer'] = True
-                    print("Temp")
                     self.__update_layer_dict('second_lidar_placement', 
                                             self.combined_layer_pts_type,
                                             kwargs['lidar_id']
