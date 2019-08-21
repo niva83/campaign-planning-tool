@@ -580,11 +580,18 @@ CLOSE""",
                                     map_center = np.mean(self.mesh_corners_geo, axis = 0)
                                     ground = kml.newgroundoverlay(name = layer)
 
+
                                     ground.icon.href = file_name_str
-                                    ground.latlonbox.north = self.mesh_corners_geo[1,0]
-                                    ground.latlonbox.south = self.mesh_corners_geo[0,0]
-                                    ground.latlonbox.east = self.mesh_corners_geo[1,1]
-                                    ground.latlonbox.west = self.mesh_corners_geo[0,1]
+                                    ground.latlonbox.north = np.max(self.mesh_corners_geo, axis = 0)[0]
+                                    ground.latlonbox.south = np.min(self.mesh_corners_geo, axis = 0)[0]
+                                    ground.latlonbox.east = np.max(self.mesh_corners_geo, axis = 0)[1]
+                                    ground.latlonbox.west = np.min(self.mesh_corners_geo, axis = 0)[1]
+
+               
+                                    # ground.latlonbox.north = self.mesh_corners_geo[1,0]
+                                    # ground.latlonbox.south = self.mesh_corners_geo[0,0]
+                                    # ground.latlonbox.east = self.mesh_corners_geo[1,1]
+                                    # ground.latlonbox.west = self.mesh_corners_geo[0,1]
                                     ground.color="7Dffffff"
 
                                     ground.lookat.latitude = map_center[0]
@@ -628,9 +635,6 @@ CLOSE""",
 
         Keyword Arguments
         -----------------
-        lidar_ids : list of strings
-            A list containing lidar ids as strings corresponding
-            to keys in the lidar dictionary
         layer_id : list of string
             A list of strings corresponding to the GIS layers
         """

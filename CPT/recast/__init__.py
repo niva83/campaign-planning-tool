@@ -511,8 +511,8 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
                                      }
                         self.lidar_dictionary.update(lidar_dict)
                         print('Lidar \'' + kwargs['lidar_id'] 
-                              + '\' added to the lidar dictionary, \
-                                  which now contains ' 
+                              + '\' added to the lidar dictionary,'
+                              +' which now contains ' 
                               + str(len(self.lidar_dictionary)) 
                               + ' lidar instance(s).')
 

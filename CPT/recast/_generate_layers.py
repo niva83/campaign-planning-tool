@@ -596,9 +596,21 @@ class LayersGIS():
 
             self.mesh_corners_utm = np.array([self.mesh_center - self.MESH_EXTENT, 
                                             self.mesh_center + self.MESH_EXTENT])
-            self.mesh_corners_geo = self.utm2geo(self.mesh_corners_utm, 
+
+            self.__corners = np.asarray([
+                self.mesh_center + [ self.MESH_EXTENT, self.MESH_EXTENT,0],
+                self.mesh_center + [ self.MESH_EXTENT,-self.MESH_EXTENT,0],
+                self.mesh_center + [-self.MESH_EXTENT, self.MESH_EXTENT,0],
+                self.mesh_center + [-self.MESH_EXTENT,-self.MESH_EXTENT,0]])
+
+            self.mesh_corners_geo = self.utm2geo(self.__corners, 
                                                  self.long_zone, 
                                                  self.hemisphere)                                 
+
+            # self.mesh_corners_geo = self.utm2geo(self.mesh_corners_utm, 
+            #                                      self.long_zone, 
+            #                                      self.hemisphere)                                 
+
 
             self.x, self.y = np.meshgrid(
                     np.arange(self.mesh_corners_utm[0][0], 
