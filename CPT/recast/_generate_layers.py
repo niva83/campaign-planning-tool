@@ -531,7 +531,7 @@ class LayersGIS():
                                 'lidars_id': lidars_id,
                                 'message' : message
                                 }}
-        self.layer_creation_info.update(dict_input)
+        self.layers_info.update(dict_input)
 
     def generate_mesh(self, **kwargs):
         """

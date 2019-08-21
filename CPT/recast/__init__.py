@@ -138,19 +138,19 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
     REP_RADIUS = 500 # in m
     POINTS_TYPE = np.array(['initial', 'optimized', 'reachable', 'identified', 'misc'])
     LAYER_TYPE = [
-                        'orography',
-                        'landcover',
-                        'canopy_height',
-                        'topography',
-                        'restriction_zones',
-                        'elevation_angle_contrained',
-                        'range_contrained',
-                        'los_blockage',
-                        'combined',
-                        'intersecting_angle_contrained',
-                        'second_lidar_placement',
-                        'aerial_image',
-                        'misc'
+                    'orography',
+                    'landcover',
+                    'canopy_height',
+                    'topography',
+                    'restriction_zones',
+                    'elevation_angle_contrained',
+                    'range_contrained',
+                    'los_blockage',
+                    'combined',
+                    'intersecting_angle_contrained',
+                    'second_lidar_placement',
+                    'aerial_image',
+                    'misc'
                 ]
     COLOR_LIST = ['blue', 'green', 'red', 'purple', 'brown', 'pink', 'gray', 'olive', 'cyan']
 
@@ -203,8 +203,6 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
         
         # lidar positions
         self.lidar_dictionary = {}
-        self.lidar_pos_1 = None        
-        self.lidar_pos_2 = None
 
         # GIS layers
         self.mesh_corners_utm = None
@@ -227,7 +225,7 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
         self.intersecting_angle_layer = None
         self.second_lidar_layer = None
         self.aerial_layer = None
-        self.layer_creation_info = {}
+        self.layers_info = {}
         
 
         # Flags as you code
@@ -730,12 +728,12 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
             and kwargs['lidar_id'] in self.lidar_dictionary):
             lidar_id = kwargs['lidar_id']
             if ('layer_id' in kwargs and 
-                kwargs['layer_id'] in self.layer_creation_info):
+                kwargs['layer_id'] in self.layers_info):
                 layer_id = kwargs['layer_id']
 
                 self.lidar_dictionary[lidar_id]['layer_id'] = layer_id
 
-                points_id = self.layer_creation_info[layer_id]['points_id']                
+                points_id = self.layers_info[layer_id]['points_id']                
                 print('Updating lidar instance \'' 
                         + kwargs['lidar_id'] 
                         + '\' considering GIS layer \'' 
@@ -754,7 +752,7 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
                     i, j = self.find_mesh_point_index(lidar_position)
                     self.lidar_dictionary[lidar_id]['reachable_points'] = layer[i,j,:]
                     if layer_id == 'second_lidar_placement':
-                        linked_lidar = self.layer_creation_info['second_lidar_placement']['lidars_id']
+                        linked_lidar = self.layers_info['second_lidar_placement']['lidars_id']
                         self.lidar_dictionary[lidar_id]['linked_lidars'] = (
                                     self.lidar_dictionary[lidar_id]['linked_lidars']
                                     + [linked_lidar])
@@ -810,9 +808,9 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
 
 
         # if ('layer_id' in kwargs and 
-        #     kwargs['layer_id'] in self.layer_creation_info):
+        #     kwargs['layer_id'] in self.layers_info):
 
-        #     points_id = self.layer_creation_info['layer_id']['points_id']
+        #     points_id = self.layers_info['layer_id']['points_id']
 
 
         # elif ('points_id' in kwargs and 
@@ -862,7 +860,7 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
         #                     self.lidar_dictionary[kwargs['lidar_id']]['reachable_points'] = layer[i,j,:]
         #                     self.lidar_dictionary[kwargs['lidar_id']]['layer_id'] =  kwargs['layer_id']
         #                     if kwargs['layer_id'] == 'second_lidar_placement':
-        #                         linked_lidars = self.layer_creation_info['second_lidar_placement']['lidars_id']
+        #                         linked_lidars = self.layers_info['second_lidar_placement']['lidars_id']
 
         #                         self.lidar_dictionary[kwargs['lidar_id']]['linked_lidars'] = (
         #                             self.lidar_dictionary[kwargs['lidar_id']]['linked_lidars']

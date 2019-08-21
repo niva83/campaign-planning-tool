@@ -32,9 +32,9 @@ class Plot():
         """
 
         if 'layer_id' in kwargs:
-            if kwargs['layer_id'] in self.layer_creation_info:
+            if kwargs['layer_id'] in self.layers_info:
                 layer = self.layer_selector(kwargs['layer_id'])
-                layer_info = self.layer_creation_info[kwargs['layer_id']]
+                layer_info = self.layers_info[kwargs['layer_id']]
 
                 # Assuring there is something to plot!
                 if layer is not None:
@@ -296,9 +296,9 @@ class Plot():
         """
 
         if 'layer_id' in kwargs and self.flags['trajectory_optimized']:
-            if kwargs['layer_id'] in self.layer_creation_info:
+            if kwargs['layer_id'] in self.layers_info:
                 layer = self.layer_selector(kwargs['layer_id'])
-                layer_info = self.layer_creation_info[kwargs['layer_id']]
+                layer_info = self.layers_info[kwargs['layer_id']]
 
                 # Assuring there is something to plot!
                 if layer is not None:
