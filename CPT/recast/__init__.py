@@ -137,7 +137,7 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
     MESH_EXTENT = 5000 # in m
     REP_RADIUS = 500 # in m
     POINTS_TYPE = np.array(['initial', 'optimized', 'reachable', 'identified', 'misc'])
-    LAYER_TYPE = np.array([
+    LAYER_TYPE = [
                         'orography',
                         'landcover',
                         'canopy_height',
@@ -151,7 +151,7 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
                         'second_lidar_placement',
                         'aerial_image',
                         'misc'
-    ])
+                ]
     COLOR_LIST = ['blue', 'green', 'red', 'purple', 'brown', 'pink', 'gray', 'olive', 'cyan']
 
     __SPEC_LAYERS = ['elevation_angle_contrained', 
