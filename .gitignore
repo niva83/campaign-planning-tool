@@ -110,3 +110,12 @@ venv.bak/
 
 # MAC files
 .DS_Store
+
+# Other
+/examples
+/data
+/recipe
+my-enviroment.yml
+requirements.txt
+simple_requirements.txt
+testing_env.py
