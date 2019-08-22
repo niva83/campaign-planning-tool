@@ -149,7 +149,7 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
     LANDCOVER_DATA_PATH = ""
     OUTPUT_DATA_PATH = ""    
     GOOGLE_API_KEY = ""
-    FILE_EXTENSIONS = np.array(['.tif', '.tiff', '.pdf', '.kml', '.png', '.pmc', '.xml' , '.yaml'])
+    FILE_EXTENSIONS = np.array(['.tif', '.tiff', '.pdf', '.kml', '.png', '.pmc', '.xml' , '.yaml', '.csv'])
 
     MESH_RES = 100 # in m
     MESH_EXTENT = 5000 # in m
