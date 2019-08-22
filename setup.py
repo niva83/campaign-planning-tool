@@ -52,7 +52,7 @@ setup(
     #
     # This field corresponds to the "Description" metadata field:
     # https://packaging.python.org/specifications/core-metadata/#description-optional
-    long_description=long_description,  # Optional
+    #long_description=long_description,  # Optional
 
     # Denotes that our long_description is in Markdown; valid values are
     # text/plain, text/x-rst, and text/markdown
@@ -131,7 +131,7 @@ setup(
     # and refuse to install the project if the version does not match. If you
     # do not support Python 2, you can simplify this to '>=3.5' or similar, see
     # https://packaging.python.org/guides/distributing-packages-using-setuptools/#python-requires
-    python_requires='>=3.6, <4',
+    python_requires='>=3.6',
 
     # This field lists other packages that your project depends on to run.
     # Any package you put here will be installed by pip when your project is
@@ -139,8 +139,7 @@ setup(
     #
     # For an analysis of "install_requires" vs pip's requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
-    install_requires=['numpy','pyproj','rasterio', 'SRTM.py', 'simplekml','pandas', 'geopandas', 'whitebox', 'matplotlib', 'pylint', 'jupyter']#,  # Optional , GDAL does not like to be installed using PIP on MAC!!!
-
+    install_requires=['pylint','pathlib', 'numpy', 'pandas', 'gdal', 'pyyaml', 'dicttoxml', 'simplekml', 'matplotlib', 'pillow', 'geopandas','whitebox','srtm.py', 'jupyter']#,  # Optional , GDAL does not like to be installed using PIP on MAC!!!
     # List additional groups of dependencies here (e.g. development
     # dependencies). Users will be able to install these using the "extras"
     # syntax, for example:

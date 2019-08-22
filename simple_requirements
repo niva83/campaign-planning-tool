@@ -1,0 +1,17 @@
+requirements all succesfully installed with conda:
+jupyter
+pylint
+pathlib
+numpy
+pandas
+geopandas
+gdal
+pyyaml
+dicttoxml
+simplekml
+matplotlib
+pillow
+whitebox
+srtm.py
+
++ tempfile (???)
