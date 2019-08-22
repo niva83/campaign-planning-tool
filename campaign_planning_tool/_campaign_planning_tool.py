@@ -8,7 +8,6 @@ from ._plot import Plot
 from ._points_optimization import OptimizeMeasurements
 from ._trajectory_optimization import OptimizeTrajectory
 from ._generate_layers import LayersGIS
-
 class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
     """
     A class for designing scanning lidar measurement campaigns.
