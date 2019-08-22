@@ -663,7 +663,9 @@ CLOSE""",
                     y_pixels = cols  # number of pixels in y
                     driver = gdal.GetDriverByName('GTiff')
                     options = ['PHOTOMETRIC=RGB', 'PROFILE=GeoTIFF']
-                    dataset = driver.Create(dst_filename,x_pixels, y_pixels, bands,gdal.GDT_Byte,options = options)
+                    dataset = driver.Create(dst_filename,x_pixels, y_pixels, bands,gdal.GDT_Float32, options)
+
+                    # dataset = driver.Create(dst_filename,x_pixels, y_pixels, bands,gdal.GDT_Byte,options = options)
                     
                     origin_x = self.mesh_corners_utm[0][0]
                     origin_y = self.mesh_corners_utm[1][1]
