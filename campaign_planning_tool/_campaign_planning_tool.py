@@ -294,7 +294,7 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
 
         if path_type == 'landcover':
             try:
-                self.LANDCOVER_DATA_PATH = Path(r'%s' %path_str)
+                self.LANDCOVER_DATA_PATH = Path(r'%s' %path_str).absolute()
                 if self.LANDCOVER_DATA_PATH.exists():
                     if self.LANDCOVER_DATA_PATH.is_file():
                         print('Path ' + str(self.LANDCOVER_DATA_PATH) + ' set for landcover data')
@@ -309,7 +309,7 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
                 print('Uppsss something went wrong!!!')
         elif path_type == 'output':
             try:
-                self.OUTPUT_DATA_PATH = Path(r'%s' %path_str)
+                self.OUTPUT_DATA_PATH = Path(r'%s' %path_str).absolute()
                 if self.OUTPUT_DATA_PATH.exists():
                     if self.OUTPUT_DATA_PATH.is_dir():
                         print('Path ' + str(self.OUTPUT_DATA_PATH) + ' set for storing CPT outputs')
