@@ -98,14 +98,14 @@ class LayersGIS():
     generate_beam_coords(lidar_pos, meas_pt_pos, opt=1):
         Generates beam steering coordinates in spherical coordinate system from 
         multiple lidar positions to a single measurement point and vice verse.
-    generate_mesh(**kwargs)
+    generate_mesh(points_id)
         Generates a rectangular horizontal mesh containing equally spaced points.
-    generate_combined_layer(**kwargs)
-        Generates the combined layer which is used 
+    generate_first_lidar_placement_layer(points_id)
+        Generates the first lidar placement layer which is used 
         for the positioning of the first lidars.
-    generate_second_lidar_layer(**kwargs)
-        Generates the combined layer which is used
-        for the positioning of the first lidars.
+    generate_additional_lidar_placement_layer(lidar_id)
+        Generates the additional lidar placement layer which is used
+        for the positioning of the consecutive lidar(s).
     get_elevation(utm_zone, pts_utm)
         Fetch elevation from the SRTM database for 
         a number of points described by in the UTM coordinates.
@@ -493,15 +493,15 @@ class LayersGIS():
         elif layer_id == 'los_blockage':
             self.legend_label = 'Number of reseachable points []'
             return self.los_blck_layer
-        elif layer_id == 'combined':
+        elif layer_id == 'first_lidar_placement':
             self.legend_label = 'Number of reseachable points []'
-            return self.combined_layer
+            return self.first_lidar_layer
         elif layer_id == 'intersecting_angle_contrained':
             self.legend_label = 'Number of reseachable points []'
             return self.intersecting_angle_layer
-        elif layer_id == 'second_lidar_placement':
+        elif layer_id == 'additional_lidar_placement':
             self.legend_label = 'Number of reseachable points []'
-            return self.second_lidar_layer        
+            return self.additional_lidar_layer        
         elif layer_id == 'misc':
             self.legend_label = '???'
             return self.misc_layer
@@ -533,26 +533,15 @@ class LayersGIS():
                                 }}
         self.layers_info.update(dict_input)
 
-    def generate_mesh(self, **kwargs):
+    def generate_mesh(self, points_id):
         """
         Generates a rectangular horizontal mesh containing equally spaced points.
         
         Parameters
         ----------
-            **kwargs : see below
-
-        Keyword Arguments
-        -----------------
-        mesh_center : ndarray, optional
-            3D array containing data with `float` or `int` type
-            corresponding to Easting, Northing and Height coordinates 
-            of the mesh center.
-            3D array data are expressed in meters.
-        mesh_extent : int, optional
-            mesh extent in Easting and Northing in meters.
         points_id : str
             A string indicating which measurement points to be
-            used as the input for the optimization.
+            used as the input for the mesh generation.
         
         Returns
         -------
@@ -568,24 +557,22 @@ class LayersGIS():
         it as the mesh center. If mesh extent is not provided, a default value 
         of 5000 meters will be considered.      
         """
-        if 'points_id' in kwargs and kwargs['points_id'] in self.POINTS_TYPE:
-            measurement_pts = self.points_selector(kwargs['points_id'])
-            self.points_id = kwargs['points_id']
-        else:
-            measurement_pts = self.points_selector(self.points_id)
 
-        if 'mesh_extent' in kwargs:
-            self.MESH_EXTENT = kwargs['mesh_extent']
-        if 'mesh_center' in kwargs:
-            self.mesh_center = kwargs['mesh_center']
-            self.flags['mesh_center_added'] = True
-        elif len(measurement_pts) > 0:
-            self.mesh_center = np.int_(np.mean(measurement_pts,axis = 0))
-            self.flags['mesh_center_added'] = True
-        else:
-            print('Mesh center missing!')
-            print('Mesh cannot be generated!')
-            self.flags['mesh_center_added'] = False
+        rules = [
+                 points_id in self.POINTS_TYPE,
+                 points_id in self.measurements_dictionary
+                 ]
+        
+        if all(rules):
+            measurement_pts = self.points_selector(points_id)
+
+            if len(measurement_pts) > 0:
+                self.mesh_center = np.int_(np.mean(measurement_pts,axis = 0))
+                self.flags['mesh_center_added'] = True
+            else:
+                print('Mesh center missing!')
+                print('Mesh cannot be generated!')
+                self.flags['mesh_center_added'] = False
 
         if self.flags['mesh_center_added']:
             # securing that the input parameters are int 
@@ -662,17 +649,13 @@ class LayersGIS():
         
         return i, j
 
-    def __generate_beam_coords_mesh(self, **kwargs):
+    def __generate_beam_coords_mesh(self, points_id):
         """
         Generates beam steering coordinates from every mesh point 
         to every measurement point.
 
         Parameters
         ----------
-        **kwargs : see below
-
-        Keyword Arguments
-        -----------------
         points_id : str
             A string indicating which measurement points to be
             used for the beam steering coordinates calculation.
@@ -683,14 +666,14 @@ class LayersGIS():
         before calling this method.
 
         """
-        rules = ['points_id' in kwargs, 
-                 kwargs['points_id'] in self.POINTS_TYPE,
-                 kwargs['points_id'] in self.measurements_dictionary
+        rules = [
+                 points_id in self.POINTS_TYPE,
+                 points_id in self.measurements_dictionary
                  ]
         
         if all(rules):
-            measurement_pts = self.points_selector(kwargs['points_id'])
-            self.points_id = kwargs['points_id']
+            measurement_pts = self.points_selector(points_id)
+            self.points_id = points_id
             array_shape = (measurement_pts.shape[0], ) + self.mesh_utm.shape
             self.beam_coords = np.empty(array_shape, dtype=float)
 
@@ -708,55 +691,20 @@ class LayersGIS():
             self.range_array = self.beam_coords[:,:,2].T.reshape(nrows,ncols,
                                                           len(measurement_pts))
         else:
-            print('One of the following condtions was not satisfied:')
-            print('\tpoints_id not in kwargs')
+            print('One of the following conditions was not satisfied:')
             print('\tpoints_id not in self.POINTS_TYPE')
             print('\tempty key for given points_id in measurement dictionary')
       
 
-
-        # if ('points_id' in kwargs and 
-        #     kwargs['points_id'] in self.POINTS_TYPE and 
-        #     kwargs['points_id'] in self.measurements_dictionary
-        #     ):
-
-        #     measurement_pts = self.points_selector(kwargs['points_id'])
-        #     self.points_id = kwargs['points_id']
-
-        #     if measurement_pts is not None:
-        #         try:
-
-        #             array_shape = (measurement_pts.shape[0], ) + self.mesh_utm.shape
-        #             self.beam_coords = np.empty(array_shape, dtype=float)
-
-        #             for i, pts in enumerate(measurement_pts):
-        #                 self.beam_coords[i] = self.generate_beam_coords(
-        #                                                         self.mesh_utm
-        #                                                         , pts)
-        #             self.flags['beam_coords_generated'] = True
-
-        #             # splitting beam coords to three arrays 
-        #             nrows, ncols = self.x.shape
-        #             self.azimuth_angle_array = self.beam_coords[:,:,0].T.reshape(nrows,ncols,len(measurement_pts))   
-        #             self.elevation_angle_array = self.beam_coords[:,:,1].T.reshape(nrows,ncols,len(measurement_pts))
-        #             self.range_array = self.beam_coords[:,:,2].T.reshape(nrows,ncols,len(measurement_pts))                
-        #         except:
-        #             print('Something went wrong! Check measurement points')
-        #     else:
-        #         print('Instance in self.measurements_dictionary for type'
-        #               + self.points_id 
-        #               + ' is empty!')
-        #         print('Aborting the beam steering coordinates' 
-        #               +'generation for the mesh points!')
-        # else:
-        #     print('points_id was not provided or '
-        #           + 'for the provided points_id there is no instance'
-        #           + 'in self.measurements_dictionary!')
-        #     print('Aborting the operation!')
-
-    def __generate_elevation_restriction_layer(self, **kwargs):
+    def __generate_elevation_restriction_layer(self, points_id):
         """
         Generates elevation restricted GIS layer.
+
+        Paremeters
+        ----------
+        points_id : str
+            Id indicating which points are used to 
+            generate range restriction layer.        
 
         Notes
         -----
@@ -773,15 +721,21 @@ class LayersGIS():
             self.elevation_angle_layer[good_indexes] = 1
             self.elevation_angle_layer[bad_indexes] = 0
             self.__update_layer_dict('elevation_angle_contrained',
-                                      kwargs['points_id'])
+                                      points_id)
         else:
             print('No beams coordinated generated!'
                   + '\nRun self.gerate_beam_coords_mesh(str) first!'
                   + 'Aborting the operation!')    
 
-    def __generate_range_restriction_layer(self, **kwargs):
+    def __generate_range_restriction_layer(self, points_id):
         """
         Generates range restricted GIS layer.
+
+        Paremeters
+        ----------
+        points_id : str
+            Id indicating which points are used to 
+            generate range restriction layer.
 
         Notes
         -----
@@ -795,8 +749,7 @@ class LayersGIS():
             bad_indexes = np.where((self.range_layer > self.AVERAGE_RANGE))
             self.range_layer[good_indexes] = 1
             self.range_layer[bad_indexes] = 0
-            self.__update_layer_dict('range_contrained',
-                                      kwargs['points_id'])                      
+            self.__update_layer_dict('range_contrained',points_id)                      
         else:
             print('No beams coordinated generated!\n Run self.gerate_beam_coords_mesh() first!')
 
@@ -820,7 +773,7 @@ class LayersGIS():
 
         See also
         --------
-        self.generate_mesh() : mesh generation
+        self.generate_mesh(points_id) : mesh generation
         """        
                 
         if self.flags['mesh_generated']:        
@@ -1245,17 +1198,13 @@ class LayersGIS():
             
             self.flags['viewshed_performed'] = True
 
-    def __generate_los_blck_layer(self, **kwargs):
+    def __generate_los_blck_layer(self, points_id):
         """
         Generates the los blockage layer by performing 
         viewshed analysis for the selected site.
 
         Parameters
         ----------
-        See keyword arguments
-
-        Keyword Arguments
-        -----------------
         points_id : str
             A string indicating which measurement points to be
             used as the input for the method.        
@@ -1276,8 +1225,8 @@ class LayersGIS():
         add_measurements() : adding measurement points to the CPT class instance 
         """
         if self.flags['topography_layer_generated']:
-            if 'points_id' in kwargs and kwargs['points_id'] in self.POINTS_TYPE:
-                self.points_id = kwargs['points_id']
+            if points_id in self.POINTS_TYPE:
+                self.points_id = points_id
 
                 if self.points_selector(self.points_id) is not None:        
                     self.__export_measurements()
@@ -1287,34 +1236,29 @@ class LayersGIS():
                     self.flags['los_blck_layer_generated'] = True
                     del_folder_content(self.OUTPUT_DATA_PATH,
                                        self.FILE_EXTENSIONS)
-                    self.__update_layer_dict('los_blockage',
-                                              kwargs['points_id'])                             
+                    self.__update_layer_dict('los_blockage', points_id)                             
                 else:
                     print('For points type \''
-                           + self.points_id 
+                           + points_id 
                            + '\' there are no measurement points ' 
                            + 'in the measurements dictionary!')
                     print('Aborting the los blockage layer generation!')
             else:                
                 print('Points type \''
-                      + kwargs['points_id'] 
+                      + points_id
                       + '\' does not exist in the measurements dictionary!')
                 print('Aborting the los blockage layer generation!')
         else:
             print('Topography layer not generates!')
             print('Aborting the los blockage layer generation!')
 
-    def generate_combined_layer(self, **kwargs):
+    def generate_first_lidar_placement_layer(self, points_id):
         """
         Generates the combined layer which is used
         for the positioning of the first lidars.
 
         Parameters
         ----------
-        See keyword arguments
-
-        Keyword Arguments
-        -----------------
         points_id : str
             A string indicating which measurement points to be
             used as the input for the method.        
@@ -1331,59 +1275,57 @@ class LayersGIS():
         --------
         add_measurements() : adding measurement points to the CPT class instance 
         """
-        rules = ['points_id' in kwargs, 
-                 kwargs['points_id'] in self.POINTS_TYPE,
-                 kwargs['points_id'] in self.measurements_dictionary
+        rules = [points_id in self.POINTS_TYPE,
+                 points_id in self.measurements_dictionary
                  ]
         
         if all(rules):
-            measurement_pts = self.points_selector(kwargs['points_id'])
-            self.points_id = kwargs['points_id']
+            measurement_pts = self.points_selector(points_id)
+            self.points_id = points_id
             print('Generating combined layer for ' 
-                    + self.points_id 
+                    + points_id 
                     + ' measurement points!')
 
-            self.generate_mesh()
+            self.generate_mesh(points_id)
             self.__generate_topographic_layer()
-            self.__generate_beam_coords_mesh(**kwargs)
-            self.__generate_range_restriction_layer(**kwargs)
-            self.__generate_elevation_restriction_layer(**kwargs)
-            self.__generate_los_blck_layer(**kwargs)
-            self.__update_layer_dict('combined', kwargs['points_id'])
+            self.__generate_beam_coords_mesh(points_id)
+            self.__generate_range_restriction_layer(points_id)
+            self.__generate_elevation_restriction_layer(points_id)
+            self.__generate_los_blck_layer(points_id)
+            self.__update_layer_dict('first_lidar_placement', points_id)
 
             nrows, ncols = self.x.shape
             if (self.flags['los_blck_layer_generated'] and 
                 self.flags['topography_layer_generated']
                 ):
 
-                self.combined_layer = (self.elevation_angle_layer 
+                self.first_lidar_layer = (self.elevation_angle_layer 
                                         * self.range_layer 
                                         * self.los_blck_layer)
 
                 if self.flags['landcover_layer_generated']:
-                    self.combined_layer = (self.combined_layer 
+                    self.first_lidar_layer = (self.first_lidar_layer 
                     * self.restriction_zones_layer.reshape((nrows,
                                                             ncols,1)))
                     self.flags['combined_layer_generated'] = True
-                    self.combined_layer_pts_type = kwargs['points_id']
-                    print('Combined layer generated with landcover data!')
+                    self.first_lidar_layer_pts_type = points_id
+                    print('First lidar placement layer generated with landcover data!')
                 else:
                     self.flags['combined_layer_generated'] = True
-                    self.combined_layer_pts_type = kwargs['points_id']
-                    print('Combined layer generated without landcover data!')
+                    self.first_lidar_layer_pts_type = points_id
+                    print('First lidar placement layer generated without landcover data!')
             else:
                 print('Either topography or los blockage layer are missing!')
-                print('Aborting the combined layer generation!')   
+                print('Aborting the first lidar placement layer generation!')   
         else:
             print('Either points_id was not provided' 
                   +' or for the provided points_id there is ' 
                   + 'no instance in self.measurements_dictionary!')
-            print('Aborting the combined layer generation!')
+            print('Aborting the first lidar placement layer generation!')
 
     def __generate_intersecting_angle_layer(self, 
-                                            lidar_pos, 
-                                            measurement_pts, 
-                                            **kwargs):
+                                            lidar_id, 
+                                            points_id):
         """
         Generates intersecting angle layer.
         
@@ -1399,6 +1341,8 @@ class LayersGIS():
             nD array data are expressed in meters.
 
         """
+        lidar_pos = self.lidar_dictionary[lidar_id]['position']
+        measurement_pts = self.points_selector(self.points_id)
         nrows, ncols = self.x.shape
         no_pts = len(measurement_pts)
         azimuths_1 = self.generate_beam_coords(lidar_pos,measurement_pts,0)[:,0]
@@ -1415,68 +1359,69 @@ class LayersGIS():
             tmp[np.where(tmp >= 30)] = 1
             self.intersecting_angle_layer[:,:,i] = tmp
         self.__update_layer_dict('intersecting_angle_contrained', 
-                                 self.combined_layer_pts_type,
-                                 kwargs['lidar_id']
+                                 self.first_lidar_layer_pts_type,
+                                 lidar_id
                                  )
 
-    def generate_second_lidar_layer(self, **kwargs):
+    def generate_additional_lidar_placement_layer(self, lidar_id):
         """
         Generates the combined layer which is used
         for the positioning of the first lidars.
 
         Parameters
         ----------
-        See keyword arguments
-
-        Keyword Arguments
-        -----------------
         lidar_id : str
-            A string indicating which lidar should be used as a first lidar
-            in order to generate a layer for positioning of the second lidar.
+            A string representing id of the first placed lidar.
 
         Notes
         --------
-        Before calling this method, combined layer must be previously generated
+        Before calling this method, combined layer must be previously generated.
+        For the provided id an instance in the lidar dictionary must exist.
         """
         
-        self.points_id = self.combined_layer_pts_type
+        self.points_id = self.first_lidar_layer_pts_type
         measurement_pts = self.points_selector(self.points_id)
         if measurement_pts is not None:
-            if 'lidar_id' in kwargs:
-                if kwargs['lidar_id'] in self.lidar_dictionary:
-                    # storing id of the lidar used to generate second lidar placement layer
-                    self.first_lidar_id = kwargs['lidar_id']
-                    lidar_position = self.lidar_dictionary[kwargs['lidar_id']]['position']
-                    self.__generate_intersecting_angle_layer(lidar_position, 
-                                                             measurement_pts,
-                                                             **kwargs)
-                    self.flags['intersecting_angle_layer_generated'] = True
-                    self.update_lidar_instance(lidar_id = kwargs['lidar_id'], 
-                                               layer_id = 'combined')
-                    self.second_lidar_layer = (self.combined_layer 
-                                               * self.intersecting_angle_layer)
-                    # reachable_points = self.lidar_dictionary[kwargs['lidar_id']]['reachable_points']
-                    # self.second_lidar_layer = self.combined_layer * self.intersecting_angle_layer * reachable_points
-                    self.flags['second_lidar_layer'] = True
-                    self.__update_layer_dict('second_lidar_placement', 
-                                            self.combined_layer_pts_type,
-                                            kwargs['lidar_id']
-                                            )                    
-                else:
-                    print('Lidar does not exist in self.lidar dict, halting operation!')
+            if lidar_id in self.lidar_dictionary:
+                # storing id of the lidar used to generate second lidar placement layer
+                self.first_lidar_id = lidar_id
+                self.__generate_intersecting_angle_layer(lidar_id,
+                                                            self.points_id)
+                self.flags['intersecting_angle_layer_generated'] = True
+                self.update_lidar_instance(lidar_id = lidar_id, 
+                                            layer_id = 'first_lidar_placement')
+                self.additional_lidar_layer = (self.first_lidar_layer 
+                                            * self.intersecting_angle_layer)
+                # reachable_points = self.lidar_dictionary[kwargs['lidar_id']]['reachable_points']
+                # self.second_lidar_layer = self.combined_layer * self.intersecting_angle_layer * reachable_points
+                self.flags['second_lidar_layer'] = True
+                self.__update_layer_dict('additional_lidar_placement', 
+                                        self.first_lidar_layer_pts_type,
+                                        lidar_id
+                                        )                    
             else:
-                print('Lidar id not provided as the keyword argument, halting operation!')
+                print('Lidar does not exist in self.lidar dict, halting operation!')
         else:
             print('No measurement points provided, halting operation!')
 
-    def suggest_lidar_positions(self,**kwargs):
+    def lidar_position_suggestion(self, layer_id, treshold):
         """
         Returns ndarray of lidar positions for which
         number of reachable points is equal or bigger
-        than the treshold value.
+        than the given treshold value.
+
+        Parameters
+        ----------
+        layer_id : str
+            A string indicating which layer to be used to find lidar positions.
+            Typically this is either equal to 'firs_lidar_placement' or
+            'additional_lidar_placement'
+        treshold : int
+            Treshold indicating a minimum number reachable points that a 
+            potential lidar position should provide
         """
-        layer = self.layer_selector(kwargs['layer_id'])
+        layer = self.layer_selector(layer_id)
         layer = np.sum(layer, axis = 2)
-        indexes = np.where(layer >= kwargs['treshold'])
+        indexes = np.where(layer >= treshold)
         lidar_positions = self.mesh_coordinates[indexes]
         return lidar_positions

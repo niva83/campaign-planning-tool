@@ -45,7 +45,7 @@ class Export():
     ------
     export_kml(**kwargs)
         Exports campaign design as as a Google compatible KML file.
-    export_layer(**kwargs)
+    __export_layer(**kwargs)
         Exports a specific GIS layer as GeoTIFF image.
     export_measurement_scenario(**kwargs)
         Exports measurement scenarios for given lidars.
@@ -218,16 +218,12 @@ CLOSE""",
     END IF
     """}
 
-    def __export_motion_config(self, **kwargs):
+    def __export_motion_config(self, lidar_id):
         """
         Exports motion config as motion program for PMAC.
 
         Attributes
         ---------
-        see keyword arguments
-
-        Keyword Arguments
-        -----------------
         lidar_id : str
             A string corresponding to the key (name) in the lidar dictionary.
 
@@ -243,7 +239,7 @@ CLOSE""",
 
         Currently this method only works for long-range WindScanners!
         """
-        motion_config = self.lidar_dictionary[kwargs['lidar_id']]['motion_config']
+        motion_config = self.lidar_dictionary[lidar_id]['motion_config']
         if motion_config is not None:
             motion_program = self.__pmc_template['skeleton']
             in_loop_str = ""
@@ -276,7 +272,7 @@ CLOSE""",
                     motion_program = motion_program.replace("insertTriggers", str(no_pulses))
                     motion_program = motion_program.replace("insertPRF", str(PRF))
 
-                    file_name_str = kwargs['lidar_id'] + "_motion.pmc"
+                    file_name_str = lidar_id + "_motion.pmc"
                     file_path = self.OUTPUT_DATA_PATH.joinpath(file_name_str) 
                     output_file = open(file_path,"w+")
                     output_file.write(motion_program)
@@ -294,22 +290,18 @@ CLOSE""",
                 print('Aborting the operation!')
                 return False
         else:
-            print('Lidar instance \''+ kwargs['lidar_id'] +'\' is not updated!')
+            print('Lidar instance \''+ lidar_id +'\' is not updated!')
             print('Call self.update_lidar_instance(**kwargs) before executing this method!')
             print('Aborting the operation!')
             return False
 
-    def __export_range_gate(self, **kwargs):
+    def __export_range_gate(self, lidar_id):
         """
         Exports laser and FPGA config as a range gate file 
         for WindScanner Client Software (WCS).
 
         Attributes
         ---------
-        see keyword arguments
-
-        Keyword Arguments
-        -----------------
         lidar_id : str
             A string corresponding to the key (name) in the lidar dictionary.
 
@@ -324,8 +316,8 @@ CLOSE""",
 
         Currently this method only works for long-range WindScanners!
         """
-        if self.lidar_dictionary[kwargs['lidar_id']]['motion_config'] is not None:
-            if len(self.lidar_dictionary[kwargs['lidar_id']]['motion_config']) == len(self.lidar_dictionary[kwargs['lidar_id']]['probing_coordinates']):
+        if self.lidar_dictionary[lidar_id]['motion_config'] is not None:
+            if len(self.lidar_dictionary[lidar_id]['motion_config']) == len(self.lidar_dictionary[lidar_id]['probing_coordinates']):
                 if self.ACCUMULATION_TIME % 100 == 0: 
                     if (self.PULSE_LENGTH in [100, 200, 400]):
                         if self.PULSE_LENGTH == 400:
@@ -337,7 +329,7 @@ CLOSE""",
                         
                         # selecting range gates from the probing coordinates key 
                         # which are stored in last column and converting them to int
-                        range_gates = self.lidar_dictionary[kwargs['lidar_id']]['probing_coordinates'].values[:,3].astype(int)
+                        range_gates = self.lidar_dictionary[lidar_id]['probing_coordinates'].values[:,3].astype(int)
 
                         range_gates.sort()
                         range_gates = range_gates.tolist()
@@ -351,7 +343,7 @@ CLOSE""",
 
                         range_gate_file =  self.__generate_range_gate_file(self.__rg_template, no_los, range_gates, lidar_mode, self.FFT_SIZE, self.ACCUMULATION_TIME)
 
-                        file_name_str = kwargs['lidar_id'] + "_range_gates.txt"
+                        file_name_str = lidar_id + "_range_gates.txt"
                         file_path = self.OUTPUT_DATA_PATH.joinpath(file_name_str) 
                         output_file = open(file_path,"w+")
                         output_file.write(range_gate_file)
@@ -373,27 +365,23 @@ CLOSE""",
                 print('Aborting the operation!')
                 return False
         else:
-            print('Lidar instance \''+ kwargs['lidar_id'] +'\' is not updated!')
+            print('Lidar instance \''+ lidar_id +'\' is not updated!')
             print('Call self.update_lidar_instance(**kwargs) before executing this method!')
             print('Aborting the operation!')
             return False
 
-    def __export_yaml_xml(self, **kwargs):
+    def __export_yaml_xml(self, lidar_ids):
         """
         Exports derived CPT results as YAML and XML files.
 
         Attributes
         ---------
-        see keyword arguments
-
-        Keyword Arguments
-        -----------------
         lidar_ids : list of strings
             A list containing lidar ids as strings corresponding
             to keys in the lidar dictionary       
         """
 
-        lidar_dict_sub = dict((k, self.lidar_dictionary[k]) for k in kwargs['lidar_ids'] if k in self.lidar_dictionary)
+        lidar_dict_sub = dict((k, self.lidar_dictionary[k]) for k in lidar_ids if k in self.lidar_dictionary)
 
         # building header of YAML
         yaml_file = self.__yaml_template['skeleton']
@@ -464,16 +452,12 @@ CLOSE""",
         output_file.write(xml_file)
         output_file.close()
 
-    def export_measurement_scenario(self, **kwargs):
+    def export_measurement_scenario(self, lidar_ids):
         """
         Exports measurement scenario as config files for scanning lidar(s).
 
-        Attributes
+        Parameters
         ---------
-        see keyword arguments
-
-        Keyword Arguments
-        -----------------
         lidar_ids : list of strings
             A list containing lidar ids as strings corresponding
             to keys in the lidar dictionary
@@ -486,40 +470,36 @@ CLOSE""",
             (3) YAML and XML files containing info from (1) and (2)
         """
         if self.OUTPUT_DATA_PATH.exists():
-            if ('lidar_ids' in kwargs):
-                if set(kwargs['lidar_ids']).issubset(self.lidar_dictionary):
-                    flag = True
-                    for lidar in kwargs['lidar_ids']:
-                        flag_mc = self.__export_motion_config(lidar_id = lidar)
-                        flag_rg = self.__export_range_gate(lidar_id = lidar)
-                        flag = flag * flag_mc * flag_rg
-                    if flag:         
-                        self.__export_yaml_xml(**kwargs)
-                        print('Measurement scenario export successful!')
-                    else:
-                        print('Measurement scenario export unsuccesful!')
+
+            if set(lidar_ids).issubset(self.lidar_dictionary):
+                flag = True
+                for lidar in lidar_ids:
+                    flag_mc = self.__export_motion_config(lidar)
+                    flag_rg = self.__export_range_gate(lidar)
+                    flag = flag * flag_mc * flag_rg
+                if flag:         
+                    self.__export_yaml_xml(lidar_ids)
+                    print('Measurement scenario export successful!')
                 else:
-                    print('One or more lidar ids don\'t exist in the lidar dictionary')
-                    print('Available lidar ids: ' + str(list(self.lidar_dictionary.keys())))
-                    print('Aborting the current action!')
+                    print('Measurement scenario export unsuccesful!')
             else:
-                print('Required keyword argument \'lidar_ids\' not provided')
+                print('One or more lidar ids don\'t exist in the lidar dictionary')
                 print('Available lidar ids: ' + str(list(self.lidar_dictionary.keys())))
-                print('Aborting the operation!')
+                print('Aborting the current action!')
         else:
             print('Output folder path is not valid!')
             print('Set a proper output folder path!')
             print('Call method set_path(path_str, **kwargs)!')
             print('Aborting the operation!')
 
-    def export_kml(self, **kwargs):
+    def export_kml(self, file_name, **kwargs):
         """
         Exports CPT results as KML file.
 
         Attributes
         ---------
-        see keyword arguments
-
+        file_name : str
+            A string indicating the KML file name
         Keyword Arguments
         -----------------
         lidar_ids : list of strings
@@ -529,174 +509,161 @@ CLOSE""",
             A list of strings corresponding to the GIS layers
         """        
         # missing checking on layer type!
+        anything_in = False
+        kml = simplekml.Kml()
+        if ('layer_ids' in kwargs):
+            if set(kwargs['layer_ids']).issubset(self.LAYER_TYPE):
+                for layer in kwargs['layer_ids']:                    
+                    self.__export_layer(layer_id = layer)
+                    file_name_str = layer + '.tif'
+
+                    map_center = np.mean(self.mesh_corners_geo, axis = 0)
+                    ground = kml.newgroundoverlay(name = layer)
+
+
+                    ground.icon.href = file_name_str
+                    ground.latlonbox.north = np.max(self.mesh_corners_geo, axis = 0)[0]
+                    ground.latlonbox.south = np.min(self.mesh_corners_geo, axis = 0)[0]
+                    ground.latlonbox.east = np.max(self.mesh_corners_geo, axis = 0)[1]
+                    ground.latlonbox.west = np.min(self.mesh_corners_geo, axis = 0)[1]
+
+
+                    # ground.latlonbox.north = self.mesh_corners_geo[1,0]
+                    # ground.latlonbox.south = self.mesh_corners_geo[0,0]
+                    # ground.latlonbox.east = self.mesh_corners_geo[1,1]
+                    # ground.latlonbox.west = self.mesh_corners_geo[0,1]
+                    ground.color="7Dffffff"
+
+                    ground.lookat.latitude = map_center[0]
+                    ground.lookat.longitude = map_center[1]
+                    ground.lookat.range = 200
+                    ground.lookat.heading = 0
+                    ground.lookat.tilt = 0
+                    anything_in = True           
+
 
         if('lidar_ids' in kwargs):
             if  set(kwargs['lidar_ids']).issubset(self.lidar_dictionary):
-                if ('layer_ids' in kwargs):
-                    if set(kwargs['layer_ids']).issubset(self.LAYER_TYPE):
-                        kml = simplekml.Kml()
+                lidar_pos_utm = [self.lidar_dictionary[lidar]['position'] 
+                                 for lidar in kwargs['lidar_ids']]
+                lidar_pos_utm = np.asarray(lidar_pos_utm)
+                lidar_pos_geo = self.utm2geo(lidar_pos_utm, self.long_zone, self.hemisphere)
 
-                        lidar_pos_utm = [self.lidar_dictionary[lidar]['position'] for lidar in kwargs['lidar_ids']]
-                        lidar_pos_utm = np.asarray(lidar_pos_utm)
-                        lidar_pos_geo = self.utm2geo(lidar_pos_utm, self.long_zone, self.hemisphere)
+                for i,lidar in enumerate(kwargs['lidar_ids']):
+                    kml.newpoint(name = lidar, 
+                                coords=[(lidar_pos_geo[i][1], 
+                                        lidar_pos_geo[i][0], 
+                                        lidar_pos_geo[i][2])],
+                                altitudemode = simplekml.AltitudeMode.absolute)
+                anything_in = True
 
-                        for i,lidar in enumerate(kwargs['lidar_ids']):
-                            kml.newpoint(name = lidar, 
-                                        coords=[(lidar_pos_geo[i][1], 
-                                                lidar_pos_geo[i][0], 
-                                                lidar_pos_geo[i][2])],
-                                        altitudemode = simplekml.AltitudeMode.absolute)
+                trajectories = [self.lidar_dictionary[lidar]['trajectory'].values 
+                                for lidar in kwargs['lidar_ids']]
+                trajectories = np.asarray(trajectories)
+                trajectories_lengths = [len(single) for single in trajectories]
 
-                        trajectories = [self.lidar_dictionary[lidar]['trajectory'].values 
-                                        for lidar in kwargs['lidar_ids']]
-                        trajectories = np.asarray(trajectories)
-                        trajectories_lengths = [len(single) for single in trajectories]
-
-                        if trajectories_lengths[1:] == trajectories_lengths[:-1]:
-                            if np.all(np.all(trajectories == trajectories[0,:], axis = 0)):
-                                trajectory_geo = self.utm2geo(trajectories[0][:,1:], self.long_zone, self.hemisphere)
-                                
-                                trajectory_geo[:, 0], trajectory_geo[:, 1] = trajectory_geo[:, 1], trajectory_geo[:, 0].copy()
-                                
-                                trajectory_geo_tuple = [tuple(l) for l in trajectory_geo]
-                                
-                                ls = kml.newlinestring(name="Trajectory")
-                                ls.coords = trajectory_geo_tuple
-                                ls.altitudemode = simplekml.AltitudeMode.absolute
-                                ls.style.linestyle.width = 4
-                                ls.style.linestyle.color = simplekml.Color.green
-                                
-                                for i, pt_coords in enumerate(trajectory_geo_tuple):
-                                    pt = kml.newpoint(name = 'pt_' + str(i + 1))
-                                    pt.coords = [pt_coords]
-                                    pt.style.iconstyle.icon.href = 'http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png'
-                                    pt.altitudemode = simplekml.AltitudeMode.absolute
-                                    
-                                    
-                                for layer in kwargs['layer_ids']:                    
-                                    self.export_layer(layer_id = layer)
-                                    file_name_str = layer + '.tif'
-
-                                    map_center = np.mean(self.mesh_corners_geo, axis = 0)
-                                    ground = kml.newgroundoverlay(name = layer)
-
-
-                                    ground.icon.href = file_name_str
-                                    ground.latlonbox.north = np.max(self.mesh_corners_geo, axis = 0)[0]
-                                    ground.latlonbox.south = np.min(self.mesh_corners_geo, axis = 0)[0]
-                                    ground.latlonbox.east = np.max(self.mesh_corners_geo, axis = 0)[1]
-                                    ground.latlonbox.west = np.min(self.mesh_corners_geo, axis = 0)[1]
-
-               
-                                    # ground.latlonbox.north = self.mesh_corners_geo[1,0]
-                                    # ground.latlonbox.south = self.mesh_corners_geo[0,0]
-                                    # ground.latlonbox.east = self.mesh_corners_geo[1,1]
-                                    # ground.latlonbox.west = self.mesh_corners_geo[0,1]
-                                    ground.color="7Dffffff"
-
-                                    ground.lookat.latitude = map_center[0]
-                                    ground.lookat.longitude = map_center[1]
-                                    ground.lookat.range = 200
-                                    ground.lookat.heading = 0
-                                    ground.lookat.tilt = 0                    
-                                
-                                file_name_str = "campaign_design.kml"
-                                file_path = self.OUTPUT_DATA_PATH.joinpath(file_name_str)
-                                kml.save(file_path.absolute().as_posix())
-                                print('KML exported successful!')
-                            else:
-                                print('Trajectories are not the same for the provided lidar_ids!')
-                                print('Aborting the operation!')
-                        else:
-                            print('Trajectories are not the same for the provided lidar_ids!')
-                            print('Aborting the operation!')
+                if trajectories_lengths[1:] == trajectories_lengths[:-1]:
+                    if np.all(np.all(trajectories == trajectories[0,:], axis = 0)):
+                        trajectory_geo = self.utm2geo(trajectories[0][:,1:], self.long_zone, self.hemisphere)
+                        
+                        trajectory_geo[:, 0], trajectory_geo[:, 1] = trajectory_geo[:, 1], trajectory_geo[:, 0].copy()
+                        
+                        trajectory_geo_tuple = [tuple(l) for l in trajectory_geo]
+                        
+                        ls = kml.newlinestring(name="Trajectory")
+                        ls.coords = trajectory_geo_tuple
+                        ls.altitudemode = simplekml.AltitudeMode.absolute
+                        ls.style.linestyle.width = 4
+                        ls.style.linestyle.color = simplekml.Color.green
+                        
+                        for i, pt_coords in enumerate(trajectory_geo_tuple):
+                            pt = kml.newpoint(name = 'pt_' + str(i + 1))
+                            pt.coords = [pt_coords]
+                            pt.style.iconstyle.icon.href = 'http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png'
+                            pt.altitudemode = simplekml.AltitudeMode.absolute
                     else:
-                        print('For one or more requested layer does not exist!')
-                        print('Aborting the operation!')
+                        print('Trajectories are not the same for the provided lidar_ids!')
+                        print('Trajectories will not be saved in KML!')                    
                 else:
-                    print('layer_ids not provided as a keyword argument!')
-                    print('Aborting the operation!')
+                    print('Trajectories are not the same for the provided lidar_ids!')
+                    print('Trajectories will not be saved in KML!')
             else:
                 print('One or more lidar ids don\'t exist in the lidar dictionary')
                 print('Available lidar ids: ' + str(list(self.lidar_dictionary.keys())))
-                print('Aborting the current action!')
-        else:
-            print('Required keyword argument \'lidar_ids\' not provided')
-            print('Available lidar ids: ' + str(list(self.lidar_dictionary.keys())))
-            print('Aborting the operation!')
+                print('Lidar positions will not be saved in KML!')                                    
+                                    
+              
+        if anything_in:                       
+            file_path = self.OUTPUT_DATA_PATH.joinpath(file_name + '.kml')
+            kml.save(file_path.absolute().as_posix())
+            print('KML exported successful!')
 
-    def export_layer(self, **kwargs):
+    def __export_layer(self, layer_id):
         """
         Exports GIS layers as GeoTIFF.
 
         Attributes
         ---------
-        see keyword arguments
-
-        Keyword Arguments
-        -----------------
         layer_id : list of string
             A list of strings corresponding to the GIS layers
+
         """
-        if ('layer_id' in kwargs):
-            if kwargs['layer_id'] in self.LAYER_TYPE:
-                if self.layer_selector(kwargs['layer_id']) is not None:
-                    layer = self.layer_selector(kwargs['layer_id'])
-                    
-                    if len(layer.shape) > 2:
-                        layer = np.sum(layer, axis = 2)
-            
-                    array_rescaled = (255.0 / layer.max() * (layer - layer.min())).astype(np.uint8)
-                    array_rescaled = np.flip(array_rescaled, axis = 0)
-                    image = Image.fromarray(np.uint8(plt.cm.RdBu_r(array_rescaled)*255))
-            
-                    multi_band_array = np.array(image)
-                    
-                    rows = multi_band_array.shape[0]
-                    cols = multi_band_array.shape[1]
-                    bands = multi_band_array.shape[2]
-                    file_name_str = kwargs['layer_id'] + '.tif'
-                    file_path = self.OUTPUT_DATA_PATH.joinpath(file_name_str)
-                    dst_filename = file_path.absolute().as_posix()
-                    
-                    x_pixels = rows  # number of pixels in x
-                    y_pixels = cols  # number of pixels in y
-                    driver = gdal.GetDriverByName('GTiff')
-                    options = ['PHOTOMETRIC=RGB', 'PROFILE=GeoTIFF']
-                    dataset = driver.Create(dst_filename,x_pixels, y_pixels, bands,gdal.GDT_Float32, options)
+        if layer_id in self.LAYER_TYPE:
+            if self.layer_selector(layer_id) is not None:
+                layer = self.layer_selector(layer_id)
+                
+                if len(layer.shape) > 2:
+                    layer = np.sum(layer, axis = 2)
+        
+                array_rescaled = (255.0 / layer.max() * (layer - layer.min())).astype(np.uint8)
+                array_rescaled = np.flip(array_rescaled, axis = 0)
+                image = Image.fromarray(np.uint8(plt.cm.RdBu_r(array_rescaled)*255))
+        
+                multi_band_array = np.array(image)
+                
+                rows = multi_band_array.shape[0]
+                cols = multi_band_array.shape[1]
+                bands = multi_band_array.shape[2]
+                file_name_str = layer_id + '.tif'
+                file_path = self.OUTPUT_DATA_PATH.joinpath(file_name_str)
+                dst_filename = file_path.absolute().as_posix()
+                
+                x_pixels = rows  # number of pixels in x
+                y_pixels = cols  # number of pixels in y
+                driver = gdal.GetDriverByName('GTiff')
+                options = ['PHOTOMETRIC=RGB', 'PROFILE=GeoTIFF']
+                dataset = driver.Create(dst_filename,x_pixels, y_pixels, bands,gdal.GDT_Float32, options)
 
-                    # dataset = driver.Create(dst_filename,x_pixels, y_pixels, bands,gdal.GDT_Byte,options = options)
-                    # to center pixels I've aded - self.MESH_RES/2
-                    origin_x = self.mesh_corners_utm[0][0] - self.MESH_RES/2 
-                    origin_y = self.mesh_corners_utm[1][1] - self.MESH_RES/2
-                    pixel_width = self.MESH_RES
-                    geotrans = (origin_x, pixel_width, 0, origin_y, 0, -pixel_width)
-            
-                    proj = osr.SpatialReference()
-                    proj.ImportFromEPSG(int(self.epsg_code))
-                    proj = proj.ExportToWkt()
-            
-                    for band in range(bands):
-                        dataset.GetRasterBand(band + 1).WriteArray(multi_band_array[:,:,band])
-            
-            
-                    dataset.SetGeoTransform(geotrans)
-                    dataset.SetProjection(proj)
-                    dataset.FlushCache()
-                    dataset=None
-                    
-                    self.__resize_tiff(dst_filename, self.ZOOM)
-                    del_folder_content(self.OUTPUT_DATA_PATH, self.FILE_EXTENSIONS)
+                # dataset = driver.Create(dst_filename,x_pixels, y_pixels, bands,gdal.GDT_Byte,options = options)
+                # to center pixels I've aded - self.MESH_RES/2
+                origin_x = self.mesh_corners_utm[0][0] - self.MESH_RES/2 
+                origin_y = self.mesh_corners_utm[1][1] - self.MESH_RES/2
+                pixel_width = self.MESH_RES
+                geotrans = (origin_x, pixel_width, 0, origin_y, 0, -pixel_width)
+        
+                proj = osr.SpatialReference()
+                proj.ImportFromEPSG(int(self.epsg_code))
+                proj = proj.ExportToWkt()
+        
+                for band in range(bands):
+                    dataset.GetRasterBand(band + 1).WriteArray(multi_band_array[:,:,band])
+        
+        
+                dataset.SetGeoTransform(geotrans)
+                dataset.SetProjection(proj)
+                dataset.FlushCache()
+                dataset=None
+                
+                self.__resize_tiff(dst_filename, self.ZOOM)
+                del_folder_content(self.OUTPUT_DATA_PATH, self.FILE_EXTENSIONS)
 
-                else:
-                    print('Requested layer is empty!')
-                    print('Aborting the the operation!')
             else:
-                print('Requested layer does not exist!')
+                print('Requested layer is empty!')
                 print('Aborting the the operation!')
         else:
-            print('layer_id not provided as a keyword argument!')
+            print('Requested layer does not exist!')
             print('Aborting the the operation!')
+
     
                 
     @staticmethod        

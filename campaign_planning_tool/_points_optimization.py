@@ -56,20 +56,16 @@ class OptimizeMeasurements():
     
     Methods
     -------
-    optimize_measurements(**kwargs)
+    optimize_measurements(points_id)
         Optimizes measurement positions by solving disc covering problem.    
     """
-    def __generate_disc_matrix(self, **kwargs):
+    def __generate_disc_matrix(self, points_id):
         """
         Generates mid points between any combination of 
         two measurement points which act as disc centers. 
 
         Parameters
         ----------
-        see keyword arguments
-
-        Keyword Arguments
-        -----------------
         points_id : str
             A string indicating which measurement points to be
             used as the input for the optimization.
@@ -108,9 +104,9 @@ class OptimizeMeasurements():
            https://doi.org/10.1016/j.comgeo.2016.04.002.
 
         """
-        if 'points_id' in kwargs and kwargs['points_id'] in self.POINTS_TYPE:
-            measurement_pts = self.points_selector(kwargs['points_id'])
-            self.points_id = kwargs['points_id']
+        if points_id in self.POINTS_TYPE:
+            measurement_pts = self.points_selector(points_id)
+            self.points_id = points_id
     
             if measurement_pts is not None:
                 # find discs in 2D (horizontal plane!)
@@ -279,19 +275,16 @@ class OptimizeMeasurements():
         else:
             return disc[unique_indexes]
 
-    def optimize_measurements(self, **kwargs):
+    def optimize_measurements(self, points_id):
         """
         Optimizes measurement positions by solving disc covering problem.
         
         Parameters
         ----------
-        see keyword arguments
-
-        Keyword Arguments
-        -----------------
         points_id : str
             A string indicating which measurement points to be
             used as the input for the optimization.
+
         Returns
         -------
         Optimized positions will be stored in the measurement dictionary
@@ -313,106 +306,101 @@ class OptimizeMeasurements():
            Computational Geometry, Volume 60, Pages 8-18, 2017,
            https://doi.org/10.1016/j.comgeo.2016.04.002.
         """
-        if 'points_id' in kwargs:
-            if kwargs['points_id'] in self.POINTS_TYPE:
-                measurement_pts = self.points_selector(
-                                                           kwargs['points_id'])
-                if measurement_pts is not None:
-                    height_total = measurement_pts[:,2]
-                    height_terrain = self.get_elevation(self.long_zone 
-                                                        + self.lat_zone, 
-                                                        measurement_pts)
-                    measurement_height = abs(height_total - height_terrain)
-                    measurement_height_mean = np.average(measurement_height)
+        if points_id in self.POINTS_TYPE:
+            measurement_pts = self.points_selector(points_id)
+            self.points_id = points_id
+
+            if measurement_pts is not None:
+                height_total = measurement_pts[:,2]
+                height_terrain = self.get_elevation(self.long_zone 
+                                                    + self.lat_zone, 
+                                                    measurement_pts)
+                measurement_height = abs(height_total - height_terrain)
+                measurement_height_mean = np.average(measurement_height)
 
 
-                    print('Optimizing ' 
-                            + self.points_id 
-                            + ' measurement points!')
-                    discs, matrix = self.__generate_disc_matrix(**kwargs)
+                print('Optimizing ' 
+                        + self.points_id 
+                        + ' measurement points!')
+                discs, matrix = self.__generate_disc_matrix(points_id)
 
-                    points_uncovered = measurement_pts
-                    points_covered_total = np.zeros((0,3), measurement_pts.dtype)
+                points_uncovered = measurement_pts
+                points_covered_total = np.zeros((0,3), measurement_pts.dtype)
 
-                    i = 0
+                i = 0
+                j = len(points_uncovered)
+                disc_indexes = []
+                while i <= (len(discs) - 1) and j > 0 :
+                    indexes = np.where(matrix[i] == 1 )
+                    # matrix = matrix * (1 - matrix[i])
+                    points_covered = measurement_pts[indexes]
+                    points_new = array_difference(points_covered, 
+                                                    points_covered_total)
+
+                    if len(points_new) > 0:
+                        points_covered_total = np.append(
+                                                    points_covered_total, 
+                                                    points_new,
+                                                    axis=0)
+
+                        disc_indexes = disc_indexes + [i]
+                    points_uncovered = array_difference(
+                                                        points_uncovered, 
+                                                        points_covered)
+                    i += 1
                     j = len(points_uncovered)
-                    disc_indexes = []
-                    while i <= (len(discs) - 1) and j > 0 :
-                        indexes = np.where(matrix[i] == 1 )
-                        # matrix = matrix * (1 - matrix[i])
-                        points_covered = measurement_pts[indexes]
-                        points_new = array_difference(points_covered, 
-                                                        points_covered_total)
 
-                        if len(points_new) > 0:
-                            points_covered_total = np.append(
-                                                        points_covered_total, 
-                                                        points_new,
-                                                        axis=0)
+                # makes subset of discs and matrix
+                discs_selected = discs[disc_indexes]
+                matrix_selected = matrix[disc_indexes]
 
-                            disc_indexes = disc_indexes + [i]
-                        points_uncovered = array_difference(
-                                                            points_uncovered, 
-                                                            points_covered)
-                        i += 1
-                        j = len(points_uncovered)
-
-                    # makes subset of discs and matrix
-                    discs_selected = discs[disc_indexes]
-                    matrix_selected = matrix[disc_indexes]
-
-                    # minimize number of discs
-                    if len(discs_selected) > 1:
-                        discs_selected = self.__minimize_discs(
-                                                            matrix_selected,
-                                                            discs_selected)
-                    self.disc_temp = discs_selected
-                    # if we don't cover all the points remaining 
-                    # uncovered points must be added to the array
-                    self.uncovered = points_uncovered
-                    self.covered = points_covered_total
-                    if len(points_uncovered) > 0:
-                        measurements_optimized = np.append(discs_selected, 
-                                                            points_uncovered, 
-                                                            axis = 0)
-                        terrain_height = self.get_elevation(self.long_zone 
-                                                            + self.lat_zone, 
+                # minimize number of discs
+                if len(discs_selected) > 1:
+                    discs_selected = self.__minimize_discs(
+                                                        matrix_selected,
+                                                        discs_selected)
+                self.disc_temp = discs_selected
+                # if we don't cover all the points remaining 
+                # uncovered points must be added to the array
+                self.uncovered = points_uncovered
+                self.covered = points_covered_total
+                if len(points_uncovered) > 0:
+                    measurements_optimized = np.append(discs_selected, 
+                                                        points_uncovered, 
+                                                        axis = 0)
+                    terrain_height = self.get_elevation(self.long_zone 
+                                                        + self.lat_zone, 
+                                                measurements_optimized)
+                    measurements_optimized[:, 2] = (terrain_height 
+                                                + measurement_height_mean)
+                    self.add_measurement_instances('optimized',
                                                     measurements_optimized)
-                        measurements_optimized[:, 2] = (terrain_height 
-                                                    + measurement_height_mean)
-                        self.add_measurement_instances(
-                                            points = measurements_optimized, 
-                                            points_id = 'optimized')
 
-                    # if we cover all the points then
-                    # the optimized measurements are
-                    # are equal to the disc centers
-                    else:
-                        measurements_optimized = discs_selected
-                        terrain_height = self.get_elevation(self.long_zone
-                                                            + self.lat_zone, 
-                                                    measurements_optimized)
-                        measurements_optimized[:, 2] = (terrain_height 
-                                                    + measurement_height_mean)
-                        self.add_measurement_instances(
-                                            points = measurements_optimized, 
-                                            points_id = 'optimized')
-
-                    # in case when none of the measurement
-                    # points are covered by this method than
-                    # the optimized points should be equal to
-                    # the original measurements points
-                    # if len(measurements_optimized) == len(measurement_pts):
-                    #     self.add_measurement_instances(points = measurement_pts, points_id = 'optimized')
-                        
+                # if we cover all the points then
+                # the optimized measurements are
+                # are equal to the disc centers
                 else:
-                    print("No measurement positions added to \
-                            measurenet dictionary")
-                    print('Aborting the operation!')
+                    measurements_optimized = discs_selected
+                    terrain_height = self.get_elevation(self.long_zone
+                                                        + self.lat_zone, 
+                                                measurements_optimized)
+                    measurements_optimized[:, 2] = (terrain_height 
+                                                + measurement_height_mean)
+                    self.add_measurement_instances('optimized',
+                                                    measurements_optimized)
+
+                # in case when none of the measurement
+                # points are covered by this method than
+                # the optimized points should be equal to
+                # the original measurements points
+                # if len(measurements_optimized) == len(measurement_pts):
+                #     self.add_measurement_instances(points = measurement_pts, points_id = 'optimized')
+                    
             else:
-                print(kwargs['points_id'] + "does not exist in the measurement \
-                      point dictionary!")
+                print("No measurement positions added to \
+                        measurenet dictionary")
                 print('Aborting the operation!')
         else:
-            print('\'points_id\' not provided as a keyword argument!')
+            print(points_id + "does not exist in the measurement \
+                    point dictionary!")
             print('Aborting the operation!')

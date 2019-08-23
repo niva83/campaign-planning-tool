@@ -69,47 +69,43 @@ class OptimizeTrajectory():
     """
 
 
-    def __sync_trajectory(self, **kwargs):
+    def __sync_trajectory(self, lidar_ids):
         """
         Syncs trajectories of selected lidars.
         
         Parameters
         ----------
-        See keyword arguments
-        
-        Keyword Arguments
-        -----------------
         lidar_ids : list of strings, required
             A list containing lidar ids as strings corresponding
             to keys in the lidar dictionary
+
+        
         """
-        if 'lidar_ids' in kwargs:
-            if set(kwargs['lidar_ids']).issubset(self.lidar_dictionary):
+        if set(lidar_ids).issubset(self.lidar_dictionary):
 
-                print('Synchronizing trajectories for lidar instances:' 
-                      + str(kwargs['lidar_ids']))                                                 
-                sync_time = []
-                try:
-                    for lidar in kwargs['lidar_ids']:
-                        motion_table = self.lidar_dictionary[lidar]['motion_config']
-                        timing = motion_table.loc[:, 'Move time [ms]'].values
-                        sync_time = sync_time + [timing]
+            print('Synchronizing trajectories for lidar instances:' 
+                    + str(lidar_ids))                                                 
+            sync_time = []
+            try:
+                for lidar in lidar_ids:
+                    motion_table = self.lidar_dictionary[lidar]['motion_config']
+                    timing = motion_table.loc[:, 'Move time [ms]'].values
+                    sync_time = sync_time + [timing]
 
-                    sync_time = np.max(np.asarray(sync_time).T, axis = 1)
+                sync_time = np.max(np.asarray(sync_time).T, axis = 1)
 
-                    
-                    for lidar in kwargs['lidar_ids']:
-                        self.lidar_dictionary[lidar]['motion_config']['Move time [ms]'] = sync_time
-                except:
-                    print('Number of trajectory points for lidar instances don\'t match!')
-                    print('Aborting the operation!')
-
-            else: 
-                print('One or more lidar ids don\'t exist in the lidar dictionary')
-                print('Available lidar ids: ' + str(list(self.lidar_dictionary.keys())))
+                
+                for lidar in lidar_ids:
+                    self.lidar_dictionary[lidar]['motion_config']['Move time [ms]'] = sync_time
+            except:
+                print('Number of trajectory points for lidar instances don\'t match!')
                 print('Aborting the operation!')
-        else:
-            print('Required keyword argument lidar_ids not provided!')
+
+        else: 
+            print('One or more lidar ids don\'t exist in the lidar dictionary')
+            print('Available lidar ids: ' + str(list(self.lidar_dictionary.keys())))
+            print('Aborting the operation!')
+
 
                 
     @classmethod
@@ -405,19 +401,17 @@ class OptimizeTrajectory():
         motion_table.insert(loc=0, column='Step-stare order', value=first_column)
         return motion_table
 
-    def optimize_trajectory(self, **kwargs):
+    def optimize_trajectory(self, lidar_ids, **kwargs):
         """
         Finding a shortest trajectory through the set of measurement points.
         
         Parameters
         ----------
-        see keywoard arguments
-
+        lidar_ids : list of str, required
+            A list of strings containing lidar ids.
         
         Keyword Arguments
         ------------------
-        lidar_ids : list of str, required
-            A list of strings containing lidar ids.
         sync : bool, optional
             Indicates whether to sync trajectories or not
         only_common_points : bool, optional
@@ -450,97 +444,94 @@ class OptimizeTrajectory():
         --------
         """        
         # selecting points which will be used for optimization
-        if 'lidar_ids' in kwargs:
-            if (set(kwargs['lidar_ids']).issubset(self.lidar_dictionary) and
-                all([self.lidar_dictionary[lidar]['points_id'] 
-                 for lidar in kwargs['lidar_ids']])
-                 ):
-                points_id = self.lidar_dictionary[kwargs['lidar_ids'][0]]['points_id']
-                measurement_pts = self.points_selector(points_id)
 
-                if 'only_common_points' in kwargs and kwargs['only_common_points']:                     
-                    common_points = np.prod(np.array([
-                    self.lidar_dictionary[lidar]['reachable_points'] 
-                                    for lidar in kwargs['lidar_ids']]        
-                                            ), axis=0)
-                    common_points_indexes = np.where(common_points > 0)
-                    measurement_pts = measurement_pts[common_points_indexes]
+        if (set(lidar_ids).issubset(self.lidar_dictionary) and
+            all([self.lidar_dictionary[lidar]['points_id'] 
+                for lidar in lidar_ids])
+                ):
+            points_id = self.lidar_dictionary[lidar_ids[0]]['points_id']
+            measurement_pts = self.points_selector(points_id)
 
-                if len(measurement_pts) > 0:
-                    self.points_id = points_id
-                    sync_time_list = []
-                    for i in range(0,len(measurement_pts)):
-                        trajectory = self.__tsp(kwargs['lidar_ids'],
-                                                measurement_pts.tolist(), 
-                                                i)
-                        # needs to record each lidar timing for each move
-                        # and then 'if we want to keep them in syn
-                        sync_time = []
-                        for lidar in kwargs['lidar_ids']:
+            if 'only_common_points' in kwargs and kwargs['only_common_points']:                     
+                common_points = np.prod(np.array([
+                self.lidar_dictionary[lidar]['reachable_points'] 
+                                for lidar in lidar_ids]        
+                                        ), axis=0)
+                common_points_indexes = np.where(common_points > 0)
+                measurement_pts = measurement_pts[common_points_indexes]
 
-                            motion_table = self.generate_trajectory(
-                                    self.lidar_dictionary[lidar]['position'], 
-                                    trajectory)
+            if len(measurement_pts) > 0:
+                self.points_id = points_id
+                sync_time_list = []
+                for i in range(0,len(measurement_pts)):
+                    trajectory = self.__tsp(lidar_ids,
+                                            measurement_pts.tolist(), 
+                                            i)
+                    # needs to record each lidar timing for each move
+                    # and then 'if we want to keep them in syn
+                    sync_time = []
+                    for lidar in lidar_ids:
 
-                            timing = motion_table.loc[:, 'Move time [ms]'].values
-                            sync_time = sync_time + [timing]
-                        sync_time = np.sum(
-                                        np.max(
-                                            np.asarray(sync_time).T, 
-                                            axis = 1)
-                                            )
-                        sync_time_list = sync_time_list + [sync_time]
+                        motion_table = self.generate_trajectory(
+                                self.lidar_dictionary[lidar]['position'], 
+                                trajectory)
+
+                        timing = motion_table.loc[:, 'Move time [ms]'].values
+                        sync_time = sync_time + [timing]
+                    sync_time = np.sum(
+                                    np.max(
+                                        np.asarray(sync_time).T, 
+                                        axis = 1)
+                                        )
+                    sync_time_list = sync_time_list + [sync_time]
+                    
+                        # if i == 0:
+                        #     total_time.update({lidar:{i : timing}})
+                        # else:
+                        #     total_time[lidar].update({i : timing})
+
+                sync_time_list = np.asarray(sync_time_list)
+                self.temp = sync_time_list
+                # this returns tuple, and sometimes by chance there 
+                # are two min values we are selecting first one!
+                # first 0 means to select the array from the tuple, 
+                # while second 0 results in selecting the first min value
+                min_traj_ind = np.where(
+                        sync_time_list == np.min(sync_time_list))[0][0]
                         
-                            # if i == 0:
-                            #     total_time.update({lidar:{i : timing}})
-                            # else:
-                            #     total_time[lidar].update({i : timing})
+                trajectory = self.__tsp(lidar_ids,
+                                        measurement_pts.tolist(),
+                                        min_traj_ind)
 
-                    sync_time_list = np.asarray(sync_time_list)
-                    self.temp = sync_time_list
-                    # this returns tuple, and sometimes by chance there 
-                    # are two min values we are selecting first one!
-                    # first 0 means to select the array from the tuple, 
-                    # while second 0 results in selecting the first min value
-                    min_traj_ind = np.where(
-                            sync_time_list == np.min(sync_time_list))[0][0]
-                            
-                    trajectory = self.__tsp(kwargs['lidar_ids'],
-                                            measurement_pts.tolist(),
-                                            min_traj_ind)
+                trajectory = pd.DataFrame(trajectory, columns = [
+                                                        "Easting [m]", 
+                                                        "Northing [m]", 
+                                                        "Height asl [m]"
+                                                                ]
+                                            )
 
-                    trajectory = pd.DataFrame(trajectory, columns = [
-                                                            "Easting [m]", 
-                                                            "Northing [m]", 
-                                                            "Height asl [m]"
-                                                                    ]
-                                             )
+                trajectory.insert(loc=0, 
+                        column='Point no.', 
+                        value=np.array(range(1,len(trajectory) + 1))
+                                    )
+                self.trajectory = trajectory
+                self.flags['trajectory_optimized'] = True   
+            
+                print('Lidar instances:' 
+                    + str(lidar_ids) 
+                    + ' will be updated with the optimized trajectory')
+                for lidar in lidar_ids:
+                    self.update_lidar_instance(lidar_id = lidar, 
+                                                trajectory = trajectory)
 
-                    trajectory.insert(loc=0, 
-                            column='Point no.', 
-                            value=np.array(range(1,len(trajectory) + 1))
-                                     )
-                    self.trajectory = trajectory
-                    self.flags['trajectory_optimized'] = True   
-                
-                    print('Lidar instances:' 
-                        + str(kwargs['lidar_ids']) 
-                        + ' will be updated with the optimized trajectory')
-                    for lidar in kwargs['lidar_ids']:
-                        self.update_lidar_instance(lidar_id = lidar, 
-                                                   trajectory = trajectory)
-
-                    if 'sync' in kwargs and kwargs['sync']:
-                        self.__sync_trajectory(**kwargs)      
-                else:
-                    print('No measurement points!')
-                    print('Aborting the operation!')                      
-            else: 
-                print('One or more lidar ids don\'t \
-                        exist in the lidar dictionary')
-                print('Available lidar ids: ' 
-                        + str(list(self.lidar_dictionary.keys())))
-                print('Aborting the operation!')
-        else:
-            print('The required keyword argument points_id was not provided!')
+                if 'sync' in kwargs and kwargs['sync']:
+                    self.__sync_trajectory(lidar_ids)      
+            else:
+                print('No measurement points!')
+                print('Aborting the operation!')                      
+        else: 
+            print('One or more lidar ids don\'t \
+                    exist in the lidar dictionary')
+            print('Available lidar ids: ' 
+                    + str(list(self.lidar_dictionary.keys())))
             print('Aborting the operation!')
