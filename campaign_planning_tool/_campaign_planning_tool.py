@@ -74,7 +74,7 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
     FFT_SIZE :int
         A number of FFT points used to perform spectral analysis.
         A default value is set to 128 points.
-        Update the value according to the lidar confguration.
+        Update the value according to the lidar configuration.
     MY_DPI : int
         DPI for plots.
     FONT_SIZE : int
@@ -617,77 +617,6 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
         else:
             print('lidar_id not provided')
             print('Aborting the operation!')
-
-
-    # def update_lidar_dictionary(self, **kwargs):
-    #     """
-    #     Updates all instances in lidar dictionary with 
-    #     measurement points, trajectory and lidar configuration.
-        
-    #     Parameters
-    #     ----------
-    #         **kwargs : see below
-
-    #     Keyword Arguments
-    #     -----------------
-    #     use_reachable_points : boolean, optional
-    #         Indicates whether to update the lidar instance
-    #         only considering the reachable points.
-    #     layer_id : str, optional
-    #         String indicating which GIS layer to use
-    #         for the instance update.
-    #         The argument value can be either 'combined or 'second_lidar'.
-    #     use_optimized_trajectory: boolean, optional
-    #         Indicates whether to use the optimized  trajectory for
-    #         to update the lidar dictionary. 
-    #     motion_type : str, optional
-    #         String indicating which type of motion should be used to 
-    #         generate trajetory between measurement points.
-    #         The argument takes either 'step-stare' or 'sweep' value.
-
-    #     Returns
-    #     -------
-
-    #     Notes
-    #     --------
-    #     If 'only_reachable_points' is not provided, the method
-    #     will consider all the measurement points during the instance update.
-
-    #     If 'only_reachable_points' is set to True, the method requires that the
-    #     'layer_id' points to either 'combined' or 'second_lidar' layer. If
-    #     'layer_id' is not provided the method will use 'combined' layer.
-
-    #     If 'use_optimized_trajectory' is set to True, it is required that the 
-    #     method self.optimize_trajectory was run prior the current method, 
-    #     otherwise the current method will update the lidar instance considering
-    #     the order of measurement points as is.
-
-    #     Currently the method only support step-stare trajectory, so the argument
-    #     wheter on not set 'motion_type' it will not impact the trajectory calculation.
-
-
-    #     Examples
-    #     --------
-
-    #     """
-
-    #     if ('points_id' in kwargs and 
-    #         kwargs['points_id'] in self.POINTS_ID and 
-    #         kwargs['points_id'] in self.measurements_dictionary
-    #         ):
-    #         kwargs.update({'points_id' : kwargs['points_id']})
-    #         kwargs.update({'lidar_id' : ''})
-
-
-    #         for lidar in self.lidar_dictionary:
-    #             lidar_id = lidar
-    #             self.update_lidar_instance(**kwargs)
-
-    #     else:
-    #         print('Either the points_id was not provided or no points exists for the given points_id!')
-    #         print('Halting the current operation!')
-
-
     
 
 
