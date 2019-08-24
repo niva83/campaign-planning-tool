@@ -9,6 +9,7 @@ from pyproj import Proj
 
 # for working with files and folders
 from pathlib import Path
+import tempfile
 import os, shutil
 
 
@@ -1064,10 +1065,10 @@ class LayersGIS():
         add_measurements() : adding measurement points to the CPT class instance 
         __viewshed_analysis() : the site viewshed analysis
         """        
-        if (os.path.exists(self.OUTPUT_DATA_PATH) 
+        if (self.__tempfolder.is_dir()
             and self.flags['topography_layer_generated']):
             topography_array = np.flip(self.topography_layer,axis=0)
-            storing_file_path = self.OUTPUT_DATA_PATH.joinpath('topography.asc') 
+            storing_file_path = self.__tempfolder.joinpath('topography.asc') 
 
             f = open(storing_file_path, 'w')
             f.write("ncols " + str(topography_array.shape[0]) + "\n")
@@ -1100,7 +1101,7 @@ class LayersGIS():
         __viewshed_analysis() : the site viewshed analysis
         """
 
-        if self.flags['output_path_set'] and self.flags['measurements_added']: 
+        if self.__tempfolder.is_dir() and self.flags['measurements_added']: 
             pts = self.points_selector(self.points_id)
             
 
@@ -1113,7 +1114,7 @@ class LayersGIS():
                 pts_df.crs= "+init=epsg:" + self.epsg_code
 
                 file_name_str = 'measurement_pt_' + str(i + 1) + '.shp'
-                file_path = self.OUTPUT_DATA_PATH.joinpath(file_name_str) 
+                file_path = self.__tempfolder.joinpath(file_name_str) 
                 pts_df.to_file(file_path.absolute().as_posix(), 
                                driver='ESRI Shapefile')
 
@@ -1154,7 +1155,7 @@ class LayersGIS():
 
             for i in range(0,len(measurement_pts)):
                 wbt = whitebox.WhiteboxTools()
-                wbt.set_working_dir(self.OUTPUT_DATA_PATH.absolute().as_posix())
+                wbt.set_working_dir(self.__tempfolder.as_posix())
                 wbt.verbose = False
                 wbt.viewshed("topography.asc",
                              "measurement_pt_" +str(i+1)+".shp",
@@ -1190,7 +1191,7 @@ class LayersGIS():
 
             for i in range(0,len(measurement_pts)):
                 file_name_str = "los_blockage_" + str(i+1) + ".asc"
-                file_path = self.OUTPUT_DATA_PATH.joinpath(file_name_str) 
+                file_path = self.__tempfolder.joinpath(file_name_str) 
                 los_blck_tmp  = np.loadtxt(file_path.absolute().as_posix(),
                                            skiprows=6)
                 los_blck_tmp  = np.flip(los_blck_tmp, axis = 0)
@@ -1228,15 +1229,16 @@ class LayersGIS():
             if points_id in self.POINTS_TYPE:
                 self.points_id = points_id
 
-                if self.points_selector(self.points_id) is not None:        
+                if self.points_selector(self.points_id) is not None:
+                    tempfolder = tempfile.TemporaryDirectory()
+                    self.__tempfolder = Path(tempfolder.name).absolute()
                     self.__export_measurements()
                     self.__export_topography()
                     self.__viewshed_analysis()
                     self.__viewshed_processing()
                     self.flags['los_blck_layer_generated'] = True
-                    del_folder_content(self.OUTPUT_DATA_PATH,
-                                       self.FILE_EXTENSIONS)
-                    self.__update_layer_dict('los_blockage', points_id)                             
+                    self.__update_layer_dict('los_blockage', points_id)
+                    tempfolder.cleanup()                             
                 else:
                     print('For points type \''
                            + points_id 
