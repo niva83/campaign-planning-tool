@@ -143,7 +143,7 @@ class Plot():
                                                 visible_pts[j][1], 
                                                 marker='o', 
                                                 facecolors=self.COLOR_LIST[i], 
-                                                edgecolors='black',
+                                                edgecolors='white',
                                                 s=80 + 200 *( i*2 + 1), 
                                                 zorder=1500 - 20*( i + 1), 
                                                 label = "reachable by " + lidar)
@@ -152,7 +152,7 @@ class Plot():
                                                 visible_pts[j][1], 
                                                 marker='o', 
                                                 facecolors=self.COLOR_LIST[i], 
-                                                edgecolors='black', 
+                                                edgecolors='white', 
                                                                                                         
                                                 s=80 + 200 *( i*2 + 1), 
                                                 zorder=1500 - 20*( i + 1))
@@ -424,7 +424,7 @@ class Plot():
                                                     trajectory[j][1], 
                                                     marker='o', 
                                                     facecolors='green', 
-                                                    edgecolors='black',
+                                                    edgecolors='white',
                                                     s=80 + 200 *( i*2 + 2), 
                                                     zorder=1500 - 20*( i + 2), 
                                                     label = "trajectory start")

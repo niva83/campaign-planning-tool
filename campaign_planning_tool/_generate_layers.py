@@ -1111,7 +1111,9 @@ class LayersGIS():
                 pts_df = pd.DataFrame(pts_dict)
                 pts_df['geometry'] = pts_df.apply(lambda x: Point((float(x.E), float(x.N))), axis=1)
                 pts_df = geopandas.GeoDataFrame(pts_df, geometry='geometry')
-                pts_df.crs= "+init=epsg:" + self.epsg_code
+                pts_df.crs = {'init': 'epsg:' + self.epsg_code}
+#                pts_df.crs= "+init=epsg:" + self.epsg_code
+                
 
                 file_name_str = 'measurement_pt_' + str(i + 1) + '.shp'
                 file_path = self.__tempfolder.joinpath(file_name_str) 

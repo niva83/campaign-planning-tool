@@ -10,33 +10,6 @@ from PIL import Image
 from pathlib import Path
 import os, shutil
 
-# def del_folder_content(folder, exclude_file_extensions = None):
-#     """
-#     Deletes all files in a folder except specific file extensions.
-    
-#     Parameters
-#     ----------
-#     folder : str
-#         A path to the folder which files will be deleted.
-#     exclude_file_extensions : array
-#         A array containing strings representing file extensions
-#         which will not be deleted.
-#     """
-#     for file in os.listdir(folder):
-#         file_path = os.path.join(folder, file)
-#         _, file_extension = os.path.splitext(file)
-#         try:
-#             if exclude_file_extensions is not None:
-#                 if os.path.isfile(file_path) and file_extension not in exclude_file_extensions:
-#                     os.unlink(file_path)
-#                 #elif os.path.isdir(file_path): shutil.rmtree(file_path)                    
-#             else:
-#                 if os.path.isfile(file_path):
-#                     os.unlink(file_path)
-#                 #elif os.path.isdir(file_path): shutil.rmtree(file_path)
-#         except Exception as e:
-#             print(e)
-
 class Export():
     """
     A class containing methods for exporting CPT results.
