@@ -57,11 +57,11 @@ def displacement2time(displacement, Amax, Vmax):
 
 class OptimizeTrajectory():
     """
-    Class containing methods for optimizing and generating lidar trajectories.
+    A class containing methods for optimizing and generating lidar trajectories.
 
     Methods
     ------
-    optimize_trajectory(**kwargs)
+    optimize_trajectory(self, lidar_ids, **kwargs)
         Finding a shortest trajectory through the set of measurement points.
     generate_trajectory(lidar_pos, trajectory)
         Generates step-stare trajectory based on the lidar position and 
@@ -75,9 +75,9 @@ class OptimizeTrajectory():
         
         Parameters
         ----------
-        lidar_ids : list of strings, required
+        lidar_ids : list of strings
             A list containing lidar ids as strings corresponding
-            to keys in the lidar dictionary
+            to the keys in the lidar dictionary.
 
         
         """
@@ -99,12 +99,12 @@ class OptimizeTrajectory():
                     self.lidar_dictionary[lidar]['motion_config']['Move time [ms]'] = sync_time
             except:
                 print('Number of trajectory points for lidar instances don\'t match!')
-                print('Aborting the operation!')
+                print('Aborting syncing of the trajectories!')
 
         else: 
             print('One or more lidar ids don\'t exist in the lidar dictionary')
             print('Available lidar ids: ' + str(list(self.lidar_dictionary.keys())))
-            print('Aborting the operation!')
+            print('Aborting syncing of the trajectories!')
 
 
                 
@@ -118,10 +118,10 @@ class OptimizeTrajectory():
         ----------
         lidar_pos : ndarray
             nD array containing the lidar position in a Cartesian 
-            coordinate system
+            coordinate system.
         trajectory : ndarray
             nD array containing trajectory points in a Cartesian 
-            coordinateys system
+            coordinateys system.
         __rollover : boolean
             Indicates whether the lidar motion controller has 
             a __rollover capability.
@@ -130,9 +130,9 @@ class OptimizeTrajectory():
         Returns
         -------
         angles_start : ndarray
-            nD array containing the start angular position of the scanner head.
+            nD array containing the starting position of the scanner head.
         angles_stop : ndarray
-            nD array containing the stop angular position of the scanner head.
+            nD array containing the ending position of the scanner head.
         angular_displacement : ndarray
             nD array containing angular displacements that the motion system
             needs to perform when moving from one to another trajectory point.
@@ -141,8 +141,8 @@ class OptimizeTrajectory():
         --------
         PMAC contains many registers, particularly position registers, that 
         have the potential to roll over, changing from their maximum positive 
-        value to their maximum negative value, or vice versa, 
-        in a change of one increment. 
+        value to their maximum negative value, or vice versa, in a change of 
+        one increment. 
         """
         angles_start = cls.generate_beam_coords(lidar_pos, 
                                               np.roll(trajectory, 1, axis = 0), 
@@ -174,32 +174,32 @@ class OptimizeTrajectory():
 
 
     @classmethod
-    def __rollover(cls, point1, point2, lidar_pos):
+    def __rollover(cls, point_1, point_2, lidar_position):
         """
-        Calculates minimum angular motion between two trajectory points.
+        Calculates a minimum angular move between two trajectory points.
         
         Parameters
         ----------
-        point1 : ndarray
+        point_1 : ndarray
             nD array containing the first trajectory point coordinates 
             in the Cartesian coordinate system.
-        point2 : ndarray
+        point_2 : ndarray
             nD array containing the second trajectory point coordinates 
             in the Cartesian coordinate system.
-        lidar_pos : ndarray
+        lidar_position : ndarray
             nD array containing the lidar position in the Cartesian 
             coordinate system.      
         Returns
         -------
-        Minimum angular motion around the azimuth and elevation axes.
+        A minimum angular motion around the azimuth and elevation axes.
 
         Notes
         --------
         This method considers the rollover to be feasible for the motion system.
         """
 
-        angles_1 = cls.generate_beam_coords(lidar_pos, point1, 1)[0]
-        angles_2 = cls.generate_beam_coords(lidar_pos, point2, 1)[0]
+        angles_1 = cls.generate_beam_coords(lidar_position, point_1, 1)[0]
+        angles_2 = cls.generate_beam_coords(lidar_position, point_2, 1)[0]
 
         if abs(angles_1[0] - angles_2[0]) > 180:
             if abs(360 - angles_1[0] + angles_2[0]) < 180:
@@ -221,17 +221,17 @@ class OptimizeTrajectory():
         return np.array([azimuth_displacement,elevation_displacement])
 
     @classmethod
-    def __calculate_max_move(cls, point1, point2, lidars):
+    def __calculate_max_move(cls, point_1, point_2, lidars):
         """
         Considering all provided lidar positions it calculates maximum
-        angular displacement they need to provide from one to another point.
+        angular displacement they need to perform from one to another point.
         
         Parameters
         ----------
-        point1 : ndarray
+        point_1 : ndarray
             nD array containing the first trajectory point coordinates 
             in the Cartesian coordinate system.
-        point2 : ndarray
+        point_2 : ndarray
             nD array containing the second trajectory point coordinates 
             in the Cartesian coordinate system.
         lidars : ndarray
@@ -244,11 +244,11 @@ class OptimizeTrajectory():
 
         """
         
-        azimuth_max = max(map(lambda x: abs(cls.__rollover(point1, 
-                                                           point2, 
+        azimuth_max = max(map(lambda x: abs(cls.__rollover(point_1, 
+                                                           point_2, 
                                                            x)[0]), lidars))
-        elevation_max = max(map(lambda x: abs(cls.__rollover(point1, 
-                                                             point2, 
+        elevation_max = max(map(lambda x: abs(cls.__rollover(point_1, 
+                                                             point_2, 
                                                              x)[1]), lidars))
 
         return max(azimuth_max,elevation_max)
@@ -275,7 +275,7 @@ class OptimizeTrajectory():
         
         See also
         --------
-        self.generate_trajectory : generation of synchronized trajectories
+        self.generate_trajectory : generation of trajectories
 
         Notes
         --------
@@ -287,8 +287,7 @@ class OptimizeTrajectory():
         ----------
         .. [1] Nikola Vasiljevic, Andrea Vignaroli, Andreas Bechmann and 
             Rozenn Wagner: Digitalization of scanning lidar measurement
-            campaign planning, https://www.wind-energ-sci-discuss.net/
-            wes-2019-13/#discussion, 2017.
+            campaign planning, WES, 2019.
         .. [2] Reinelt, G.: The Traveling Salesman: Computational Solutions 
             for TSP Applications, Springer-Verlag, Berlin, Heidelberg, 1994.
 
@@ -350,10 +349,10 @@ class OptimizeTrajectory():
         ----------
         lidar_pos : ndarray
             nD array containing the lidar position in a Cartesian 
-            coordinate system
+            coordinate system.
         trajectory : ndarray
             nD array containing trajectory points in a Cartesian 
-            coordinateys system
+            coordinate system.
         
         Returns
         -------
@@ -407,16 +406,16 @@ class OptimizeTrajectory():
         
         Parameters
         ----------
-        lidar_ids : list of str, required
+        lidar_ids : list of str
             A list of strings containing lidar ids.
         
         Keyword Arguments
         ------------------
         sync : bool, optional
-            Indicates whether to sync trajectories or not
+            Indicates whether to sync trajectories or not.
         only_common_points : bool, optional
             Indicates whether to make trajectories only through common
-            reachable points
+            reachable points.
         
         Returns
         -------
@@ -425,7 +424,6 @@ class OptimizeTrajectory():
         
         See also
         --------
-        self.__tsp : adapted traveling salesman problem for scanning lidars
         self.generate_trajectory : generation of synchronized trajectories
 
         Notes
@@ -438,10 +436,8 @@ class OptimizeTrajectory():
         ----------
         .. [1] Nikola Vasiljevic, Andrea Vignaroli, Andreas Bechmann and 
             Rozenn Wagner: Digitalization of scanning lidar measurement
-            campaign planning, https://www.wind-energ-sci-discuss.net/
-            wes-2019-13/#discussion, 2017.
-        Examples
-        --------
+            campaign planning, WES, 2019.
+
         """        
         # selecting points which will be used for optimization
 
@@ -468,7 +464,7 @@ class OptimizeTrajectory():
                                             measurement_pts.tolist(), 
                                             i)
                     # needs to record each lidar timing for each move
-                    # and then 'if we want to keep them in syn
+                    # and then if we want to keep them in syn
                     sync_time = []
                     for lidar in lidar_ids:
 
@@ -528,10 +524,10 @@ class OptimizeTrajectory():
                     self.__sync_trajectory(lidar_ids)      
             else:
                 print('No measurement points!')
-                print('Aborting the operation!')                      
+                print('Aborting the trajectory optimization!')                      
         else: 
             print('One or more lidar ids don\'t \
                     exist in the lidar dictionary')
             print('Available lidar ids: ' 
                     + str(list(self.lidar_dictionary.keys())))
-            print('Aborting the operation!')
+            print('Aborting the trajectory optimization!')

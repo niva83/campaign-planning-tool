@@ -93,21 +93,24 @@ class LayersGIS():
 
     Methods
     ------
+    generate_mesh(points_id)
+        Generates a rectangular horizontal mesh containing equally spaced points.
     find_mesh_points_index(point)
         For a given input point returns indexes of the closest point
         in the generated mesh.
-    generate_beam_coords(lidar_pos, meas_pt_pos, opt=1):
+    generate_beam_coords(lidar_pos, meas_pt_pos, opt):
         Generates beam steering coordinates in spherical coordinate system from 
         multiple lidar positions to a single measurement point and vice verse.
-    generate_mesh(points_id)
-        Generates a rectangular horizontal mesh containing equally spaced points.
     generate_first_lidar_placement_layer(points_id)
         Generates the first lidar placement layer which is used 
         for the positioning of the first lidars.
     generate_additional_lidar_placement_layer(lidar_id)
         Generates the additional lidar placement layer which is used
         for the positioning of the consecutive lidar(s).
-    get_elevation(utm_zone, pts_utm)
+    lidar_position_suggestion(layer_id, treshold)
+        Returns ndarray of lidar positions for which number of reachable points 
+        is equal or bigger than the given treshold value.    
+    get_elevation(utm_zone, points_utm)
         Fetch elevation from the SRTM database for 
         a number of points described by in the UTM coordinates.
     layer_selector(layer_id)
@@ -388,7 +391,7 @@ class LayersGIS():
         return points_geo
 
     @classmethod
-    def get_elevation(cls, utm_zone, pts_utm):
+    def get_elevation(cls, utm_zone, points_utm):
         """
         Fetch elevation from the SRTM database for 
         a number of points described by in the UTM coordinates.
@@ -399,7 +402,7 @@ class LayersGIS():
             A string representing an UTM grid zone, containing digits (1 to 60) 
             indicating the longitudinal zone followed by a character (from 'C' 
             to 'X' excluding 'O') corresponding to the latitudinal zone.
-        pts_utm : ndarray
+        points_utm : ndarray
             nD array containing data with `float` or `int` type corresponding 
             to Easting and Northing coordinates of points.
             nD array data are expressed in meters.            
@@ -421,21 +424,19 @@ class LayersGIS():
 
         See also
         --------
-        self.__which_hemisphere(utm_zone) : returns hemisphere
-        self.utm2geo(pts_utm, long_zone, hemisphere) : converts utm to geo
-        srtm : library for simple access to the SRTM DEM database
+        self.utm2geo(points_utm, long_zone, hemisphere) : converts utm to geo
         """             
         if cls.__check_utm_zone(utm_zone):
             hemisphere = cls.__which_hemisphere(utm_zone)
             long_zone = utm_zone[:-1]
-            pts_geo = cls.utm2geo(pts_utm, long_zone, hemisphere)
+            points_geo = cls.utm2geo(points_utm, long_zone, hemisphere)
             elevation_data = srtm.get_data()
 
             # this works if multiple points are provided but fails if single one is given
             elevation = np.asarray([elevation_data.get_elevation(pt[0],pt[1]) 
             if (elevation_data.get_elevation(pt[0],pt[1]) != None) 
                 and (elevation_data.get_elevation(pt[0],pt[1]) != np.nan)
-                else 0 for pt in pts_geo])
+                else 0 for pt in points_geo])
             elevation[np.isnan(elevation)] = cls.NO_DATA_VALUE
             return elevation
         else:
@@ -453,21 +454,11 @@ class LayersGIS():
         Returns
         -------
         layer : ndarray
-            Depending on the input type this method returns one
-            of the following GIS layers:
-            Orography
-            Landcover
-            Canopy height
-            Topography
-            Restriction zones
-            Elevation angle constrained
-            Range restriction
-            LOS blockage 
-            Combined 
-            Intersecting angle constrained
-            Second lidar placement
-            Aerial image
-            Misc layer
+            Depending on the input type this method returns GIS layers.
+
+        See als
+        -------
+        self.LAYER_ID
         """        
 
         if layer_id == 'orography':
@@ -560,7 +551,7 @@ class LayersGIS():
         """
 
         rules = [
-                 points_id in self.POINTS_TYPE,
+                 points_id in self.POINTS_ID,
                  points_id in self.measurements_dictionary
                  ]
         
@@ -668,7 +659,7 @@ class LayersGIS():
 
         """
         rules = [
-                 points_id in self.POINTS_TYPE,
+                 points_id in self.POINTS_ID,
                  points_id in self.measurements_dictionary
                  ]
         
@@ -693,7 +684,7 @@ class LayersGIS():
                                                           len(measurement_pts))
         else:
             print('One of the following conditions was not satisfied:')
-            print('\tpoints_id not in self.POINTS_TYPE')
+            print('\tpoints_id not in self.POINTS_ID')
             print('\tempty key for given points_id in measurement dictionary')
       
 
@@ -1228,7 +1219,7 @@ class LayersGIS():
         add_measurements() : adding measurement points to the CPT class instance 
         """
         if self.flags['topography_layer_generated']:
-            if points_id in self.POINTS_TYPE:
+            if points_id in self.POINTS_ID:
                 self.points_id = points_id
 
                 if self.points_selector(self.points_id) is not None:
@@ -1279,7 +1270,7 @@ class LayersGIS():
         --------
         add_measurements() : adding measurement points to the CPT class instance 
         """
-        rules = [points_id in self.POINTS_TYPE,
+        rules = [points_id in self.POINTS_ID,
                  points_id in self.measurements_dictionary
                  ]
         
@@ -1311,11 +1302,11 @@ class LayersGIS():
                     self.first_lidar_layer = (self.first_lidar_layer 
                     * self.restriction_zones_layer.reshape((nrows,
                                                             ncols,1)))
-                    self.flags['combined_layer_generated'] = True
+                    self.flags['first_lidar_layer_generated'] = True
                     self.first_lidar_layer_pts_type = points_id
                     print('First lidar placement layer generated with landcover data!')
                 else:
-                    self.flags['combined_layer_generated'] = True
+                    self.flags['first_lidar_layer_generated'] = True
                     self.first_lidar_layer_pts_type = points_id
                     print('First lidar placement layer generated without landcover data!')
             else:
@@ -1398,7 +1389,7 @@ class LayersGIS():
                                             * self.intersecting_angle_layer)
                 # reachable_points = self.lidar_dictionary[kwargs['lidar_id']]['reachable_points']
                 # self.second_lidar_layer = self.combined_layer * self.intersecting_angle_layer * reachable_points
-                self.flags['second_lidar_layer'] = True
+                self.flags['additional_lidar_layer'] = True
                 self.__update_layer_dict('additional_lidar_placement', 
                                         self.first_lidar_layer_pts_type,
                                         lidar_id
@@ -1410,19 +1401,18 @@ class LayersGIS():
 
     def lidar_position_suggestion(self, layer_id, treshold):
         """
-        Returns ndarray of lidar positions for which
-        number of reachable points is equal or bigger
-        than the given treshold value.
+        Returns ndarray of lidar positions for which number of reachable points 
+        is equal or bigger than the given treshold value.
 
         Parameters
         ----------
         layer_id : str
             A string indicating which layer to be used to find lidar positions.
             Typically this is either equal to 'firs_lidar_placement' or
-            'additional_lidar_placement'
+            'additional_lidar_placement'.
         treshold : int
             Treshold indicating a minimum number reachable points that a 
-            potential lidar position should provide
+            potential lidar position should provide.
         """
         layer = self.layer_selector(layer_id)
         layer = np.sum(layer, axis = 2)

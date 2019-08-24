@@ -27,8 +27,6 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
     GOOGLE_API_KEY : str
         An API key to access Google Maps database.
         A default value is set to an empty string.
-    FILE_EXTENSIONS : ndarray
-        nD array of strings containing none-temporary file exentions.
     MESH_RES : int
         The resolution of the mesh used for GIS layers creation.
         The resolution is expressed in meters. 
@@ -41,7 +39,7 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
         MEASNET's representativness radius of measurements.
         The radius is expressed in meters.
         A default value is set to 500 m.
-    POINTS_TYPE : ndarray
+    POINTS_ID : ndarray
         nD array of strings indicating measurement point type.
         Five different types are preset and used in CPT.
     ACCUMULATION_TIME : int
@@ -70,8 +68,8 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
         The angle is expressed in deg.
         A default value is set to 30 deg.
     PULSE_LENGTH : int
-        The pulse length expressed in ms.
-        A default value is set to 200 ms.
+        The pulse length expressed in ns.
+        A default value is set to 400 ns.
         Update the value according to the lidar configuration.
     FFT_SIZE :int
         A number of FFT points used to perform spectral analysis.
@@ -83,34 +81,41 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
         Font size for plot labels.
     ZOOM : int
         Indicates how many times a GEOTiff should be enlarged.
+    COLOR_LIST : list of str
+        A list containing strings of colors used for landmarks in plots.
 
     Methods
     --------
-    set_path(**kwargs)
+    set_path(self, path_str, path_type):
         Sets the file path to the landcover data and for results/data storage.
-    add_measurement_instances(**kwargs)
+    add_measurement_instances(self, points_id, points)
         Adds measurement points to the measurement points dictionary.
     points_selector(points_id)
         Returns a numpy array of measurement points based on the points id.
-    add_lidar_instance(**kwargs)
+    add_lidar_instance(self, lidar_id, position, **kwargs)
         Adds a lidar instance to the lidar dictionary.                
-    update_lidar_instance(self, **kwargs):
+    update_lidar_instance(self, lidar_id, **kwargs)
         Updates a instance in the lidar dictionary with various information.
+    optimize_measurements(points_id)
+        Optimizes measurement positions by solving disc covering problem.
+    generate_mesh(points_id)
+        Generates a rectangular horizontal mesh containing equally spaced points.
     find_mesh_points_index(point)
         For a given input point returns indexes of the closest point
         in the generated mesh.
-    generate_beam_coords(lidar_pos, meas_pt_pos, opt=1):
+    generate_beam_coords(lidar_pos, meas_pt_pos, opt):
         Generates beam steering coordinates in spherical coordinate system from 
         multiple lidar positions to a single measurement point and vice verse.
-    generate_mesh(**kwargs)
-        Generates a rectangular horizontal mesh containing equally spaced points.
-    generate_combined_layer(**kwargs)
-        Generates the combined layer which is used 
+    generate_first_lidar_placement_layer(points_id)
+        Generates the first lidar placement layer which is used 
         for the positioning of the first lidars.
-    generate_second_lidar_layer(**kwargs)
-        Generates the combined layer which is used
-        for the positioning of the first lidars.
-    get_elevation(utm_zone, pts_utm)
+    generate_additional_lidar_placement_layer(lidar_id)
+        Generates the additional lidar placement layer which is used
+        for the positioning of the consecutive lidar(s).
+    lidar_position_suggestion(layer_id, treshold)
+        Returns ndarray of lidar positions for which number of reachable points 
+        is equal or bigger than the given treshold value.    
+    get_elevation(utm_zone, points_utm)
         Fetch elevation from the SRTM database for 
         a number of points described by in the UTM coordinates.
     layer_selector(layer_id)
@@ -119,26 +124,22 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
         Sets EPSG code, latitudinal and longitudinal zones to the CPT instance. 
     utm2geo(points_utm, long_zone, hemisphere)
         Converts an array of points in the UTM coord system to
-        an array of point in the GEO coord system.
-    optimize_measurements(**kwargs)
-        Optimizes measurement positions by solving disc covering problem.
-    optimize_trajectory(**kwargs)
+        an array of point in the GEO coord system.        
+    optimize_trajectory(self, lidar_ids, **kwargs)
         Finding a shortest trajectory through the set of measurement points.
     generate_trajectory(lidar_pos, trajectory)
         Generates step-stare trajectory based on the lidar position and 
         trajectory points.
-    plot_layer(**kwargs)
-        Plots individual GIS layers and lidar positions.
+    plot_layer(layer_id, **kwargs)
+        Plots individual GIS layers an optionally lidar positions.
     plot_optimization(**kwargs)
         Plots measurement point optimization result.
-    plot_optimization(**kwargs)
-        Plots measurement point optimization result.
-    export_kml(**kwargs)
-        Exports campaign design as as a Google compatible KML file.
-    export_layer(**kwargs)
-        Exports a specific GIS layer as GeoTIFF image.
-    export_measurement_scenario(**kwargs)
-        Exports measurement scenarios for given lidars.                
+    plot_design(layer_id, lidar_ids, **kwargs)
+        Plots measurement point optimization result.        
+    export_kml(file_name, **kwargs)
+        Exports GIS layers, lidar positions and trajectory in a KML file.
+    export_measurement_scenario(lidar_ids)
+        Exports measurement scenarios for given lidars.            
     """
 
     NO_LAYOUTS = 0
@@ -146,14 +147,14 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
     NO_DATA_VALUE = 0
     LANDCOVER_DATA_PATH = ""
     OUTPUT_DATA_PATH = ""    
-    GOOGLE_API_KEY = ""
-    FILE_EXTENSIONS = np.array(['.tif', '.tiff', '.pdf', '.kml', '.png', '.pmc', '.xml' , '.yaml', '.csv'])
+    __GOOGLE_API_KEY = ""
+    __FILE_EXTENSIONS = np.array(['.tif', '.tiff', '.pdf', '.kml', '.png', '.pmc', '.xml' , '.yaml', '.csv'])
 
     MESH_RES = 100 # in m
     MESH_EXTENT = 5000 # in m
     REP_RADIUS = 500 # in m
-    POINTS_TYPE = np.array(['initial', 'optimized', 'reachable', 'identified', 'misc'])
-    LAYER_TYPE = [
+    POINTS_ID = np.array(['initial', 'optimized', 'reachable', 'identified', 'misc'])
+    LAYER_ID = [
                     'orography',
                     'landcover',
                     'canopy_height',
@@ -168,8 +169,6 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
                     'aerial_image',
                     'misc'
                 ]
-    COLOR_LIST = ['blue', 'green', 'red', 'purple', 
-                  'brown', 'pink', 'gray', 'olive', 'cyan']
 
     __SPEC_LAYERS = ['elevation_angle_contrained', 
                      'range_contrained',
@@ -202,11 +201,6 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
         self.epsg_code = None 
         self.hemisphere = None 
         self.measurements_dictionary = {}
-        self.measurements_initial = None
-        self.measurements_optimized = None
-        self.measurements_identified = None
-        self.measurements_reachable = None
-        self.measurements_misc = None
         self.points_id = 'initial'
         self.beam_coords = None
         self.mesh_center = None
@@ -238,9 +232,9 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
         self.los_blck_layer = None
         self.misc_layer = None
         self.range_layer = None
-        self.combined_layer = None
+        self.first_lidar_layer = None
         self.intersecting_angle_layer = None
-        self.second_lidar_layer = None
+        self.additional_lidar_layer = None
         self.aerial_layer = None
         self.layers_info = {}
         
@@ -269,9 +263,9 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
                       'viewshed_performed' : False,
                       'viewshed_analyzed' : False,
                       'los_blck_layer_generated' : False,
-                      'combined_layer_generated' : False,
+                      'first_lidar_layer_generated' : False,
                       'intersecting_angle_layer_generated' : False,
-                      'second_lidar_layer' : False,
+                      'additional_lidar_layer' : False,
                       'trajectory_optimized' : False,
                       'motion_table_generated' : False,
                      }
@@ -297,7 +291,8 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
                 self.LANDCOVER_DATA_PATH = Path(r'%s' %path_str).absolute()
                 if self.LANDCOVER_DATA_PATH.exists():
                     if self.LANDCOVER_DATA_PATH.is_file():
-                        print('Path ' + str(self.LANDCOVER_DATA_PATH) + ' set for landcover data')
+                        print('Path ' + str(self.LANDCOVER_DATA_PATH) 
+                              + ' set for landcover data')
                         self.flags['landcover_path_set'] = True
                     else:
                         print('Provided path does not point to the landcover data!')
@@ -312,7 +307,8 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
                 self.OUTPUT_DATA_PATH = Path(r'%s' %path_str).absolute()
                 if self.OUTPUT_DATA_PATH.exists():
                     if self.OUTPUT_DATA_PATH.is_dir():
-                        print('Path ' + str(self.OUTPUT_DATA_PATH) + ' set for storing CPT outputs')
+                        print('Path ' + str(self.OUTPUT_DATA_PATH) 
+                              + ' set for storing CPT outputs')
                         self.flags['output_path_set'] = True
                     else:
                         print('Provided path does not point to directory!')
@@ -390,7 +386,7 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
 
         """
         rules = np.array([self.flags['utm_set'], 
-                          points_id in self.POINTS_TYPE,
+                          points_id in self.POINTS_ID,
                           len(points.shape) == 2 and points.shape[1] == 3])
 
         print_statements = np.array(['- UTM zone is not set',
@@ -584,7 +580,7 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
                 self.lidar_dictionary[lidar_id]['emission_config'] = {'pulse_length': self.PULSE_LENGTH}
                 self.lidar_dictionary[lidar_id]['acqusition_config'] = {'fft_size': self.FFT_SIZE}
             elif ('points_id' in kwargs and 
-            kwargs['points_id'] in self.POINTS_TYPE and 
+            kwargs['points_id'] in self.POINTS_ID and 
             kwargs['points_id'] in self.measurements_dictionary
             ):  
                 points_id = kwargs['points_id']
@@ -676,7 +672,7 @@ class CPT(Export, Plot, OptimizeMeasurements, OptimizeTrajectory, LayersGIS):
     #     """
 
     #     if ('points_id' in kwargs and 
-    #         kwargs['points_id'] in self.POINTS_TYPE and 
+    #         kwargs['points_id'] in self.POINTS_ID and 
     #         kwargs['points_id'] in self.measurements_dictionary
     #         ):
     #         kwargs.update({'points_id' : kwargs['points_id']})

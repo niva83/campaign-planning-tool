@@ -86,7 +86,7 @@ class OptimizeMeasurements():
 
         See also
         --------
-        optimize_measurements : implementation of disc covering problem
+        optimize_measurements(points_id) : implementation of disc covering problem
 
         Notes
         --------
@@ -104,7 +104,7 @@ class OptimizeMeasurements():
            https://doi.org/10.1016/j.comgeo.2016.04.002.
 
         """
-        if points_id in self.POINTS_TYPE:
+        if points_id in self.POINTS_ID:
             measurement_pts = self.points_selector(points_id)
             self.points_id = points_id
     
@@ -164,8 +164,7 @@ class OptimizeMeasurements():
     @staticmethod
     def __find_unique_indexes(matrix):
         """
-        Finds which discs cover at unique points
-        and which dont.
+        Finds which discs cover at unique points and which don't.
         
         Parameters
         ----------
@@ -306,7 +305,7 @@ class OptimizeMeasurements():
            Computational Geometry, Volume 60, Pages 8-18, 2017,
            https://doi.org/10.1016/j.comgeo.2016.04.002.
         """
-        if points_id in self.POINTS_TYPE:
+        if points_id in self.POINTS_ID:
             measurement_pts = self.points_selector(points_id)
             self.points_id = points_id
 

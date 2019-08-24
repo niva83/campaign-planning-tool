@@ -9,14 +9,17 @@ class Plot():
 
     Methods
     -------
-    plot_layer(**kwargs)
-        Plots individual GIS layers and lidar positions.
+    plot_layer(layer_id, **kwargs)
+        Plots individual GIS layers an optionally lidar positions.
     plot_optimization(**kwargs)
         Plots measurement point optimization result.
-    plot_optimization(**kwargs)
+    plot_design(layer_id, lidar_ids, **kwargs)
         Plots measurement point optimization result.        
 
     """
+    __COLOR_LIST = ['blue', 'green', 'red', 'purple', 
+                  'brown', 'pink', 'gray', 'olive', 'cyan']
+
     def plot_layer(self,layer_id, **kwargs):
         """
         Plots individual GIS layers and lidar positions.
@@ -129,7 +132,7 @@ class Plot():
                                 ax.scatter(lidar_info['position'][0], 
                                         lidar_info['position'][1],
                                         marker='s', 
-                                        facecolors=self.COLOR_LIST[i], 
+                                        facecolors=self.__COLOR_LIST[i], 
                                         edgecolors='white', linewidth='2',
                                         s=100, zorder=2000, 
                                         label = 'lidar: ' 
@@ -142,7 +145,7 @@ class Plot():
                                         ax.scatter(visible_pts[j][0], 
                                                 visible_pts[j][1], 
                                                 marker='o', 
-                                                facecolors=self.COLOR_LIST[i], 
+                                                facecolors=self.__COLOR_LIST[i], 
                                                 edgecolors='white',
                                                 s=80 + 200 *( i*2 + 1), 
                                                 zorder=1500 - 20*( i + 1), 
@@ -151,7 +154,7 @@ class Plot():
                                         ax.scatter(visible_pts[j][0], 
                                                 visible_pts[j][1], 
                                                 marker='o', 
-                                                facecolors=self.COLOR_LIST[i], 
+                                                facecolors=self.__COLOR_LIST[i], 
                                                 edgecolors='white', 
                                                                                                         
                                                 s=80 + 200 *( i*2 + 1), 
@@ -208,7 +211,7 @@ class Plot():
         plot : matplotlib
         
         """
-        if 'points_id' in kwargs and kwargs['points_id'] in self.POINTS_TYPE:
+        if 'points_id' in kwargs and kwargs['points_id'] in self.POINTS_ID:
             measurement_pts = self.points_selector(kwargs['points_id'])
             pts_str = kwargs['points_id']
         else:
@@ -389,7 +392,7 @@ class Plot():
                                 ax.scatter(lidar_info['position'][0], 
                                         lidar_info['position'][1],
                                         marker='s', 
-                                        facecolors=self.COLOR_LIST[i], 
+                                        facecolors=self.__COLOR_LIST[i], 
                                         edgecolors='white', linewidth='2',
                                         s=100, zorder=2000, 
                                         label = 'lidar: ' 

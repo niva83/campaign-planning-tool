@@ -16,13 +16,10 @@ class Export():
 
     Methods
     ------
-    export_kml(**kwargs)
-        Exports campaign design as as a Google compatible KML file.
-    __export_layer(**kwargs)
-        Exports a specific GIS layer as GeoTIFF image.
-    export_measurement_scenario(**kwargs)
+    export_kml(file_name, **kwargs)
+        Exports GIS layers, lidar positions and trajectory in a KML file.
+    export_measurement_scenario(lidar_ids)
         Exports measurement scenarios for given lidars.
-
     """
 
     __yaml_template = {'skeleton': 
@@ -433,7 +430,7 @@ CLOSE""",
         ---------
         lidar_ids : list of strings
             A list containing lidar ids as strings corresponding
-            to keys in the lidar dictionary
+            to the keys in the lidar dictionary.
 
         Notes
         -----
@@ -467,12 +464,14 @@ CLOSE""",
 
     def export_kml(self, file_name, **kwargs):
         """
-        Exports CPT results as KML file.
+        Depending on the provided **kwargs the method export GIS layers, 
+        lidar positions and/or trajectory to a KML file.
 
-        Attributes
-        ---------
+        Parameters
+        ----------
         file_name : str
             A string indicating the KML file name
+
         Keyword Arguments
         -----------------
         lidar_ids : list of strings
@@ -485,7 +484,7 @@ CLOSE""",
         anything_in = False
         kml = simplekml.Kml()
         if ('layer_ids' in kwargs):
-            if set(kwargs['layer_ids']).issubset(self.LAYER_TYPE):
+            if set(kwargs['layer_ids']).issubset(self.LAYER_ID):
                 for layer in kwargs['layer_ids']:                    
                     self.__export_layer(layer_id = layer)
                     file_name_str = layer + '.tif'
@@ -581,7 +580,7 @@ CLOSE""",
             A list of strings corresponding to the GIS layers
 
         """
-        if layer_id in self.LAYER_TYPE:
+        if layer_id in self.LAYER_ID:
             if self.layer_selector(layer_id) is not None:
                 layer = self.layer_selector(layer_id)
                 
