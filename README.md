@@ -32,7 +32,7 @@ Afterwards, copy and execute the following command in the terminal of your choic
 ```
 conda create -n CPT -c https://conda.windenergy.dtu.dk/channel/open -c conda-forge campaign-planning-tool gdal=2.4
 ```
-This will create a new conda enviroment **CPT**, and download and install **campaign_planning_tool** library together with all the dependencies (see the list of libraries in 'Well deserved KUDOS goes to...'). Feel free to change the name of the environment to whatever name it suites  you (i.e., simply change CPT to something else).
+This will create a new conda enviroment **CPT**, and download and install **campaign-planning-tool** library together with all the dependencies (see the list of libraries in 'Well deserved KUDOS goes to...'). Feel free to change the name of the environment to whatever name it suites  you (i.e., simply change CPT to something else).
 
 Following the installation you need to activate newly made enviroment in the terminal:
 ```
@@ -46,7 +46,7 @@ Once in **jupyter** import the CPT class:
 ```
 from campaign_planning_tool import CPT
 ```
-and start using the CPT library.
+and start using the CPT library (using underscores to call library is not mistake!).
 
 The CPT library is fully documented so hit *help* to get a class or class method description:
 ```
