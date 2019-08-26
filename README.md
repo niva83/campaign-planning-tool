@@ -67,11 +67,11 @@ If you have issues running campaign-planning-tool or you have requests or by any
 ## How to cite CPT 
 If you are using CPT, you are kindly asked to cite this repository as well the paper which describes methodology which was used to develop CPT: 
 ```
-*repository*:
+*repository*
 Nikola Vasiljevic. (2019, July 4). campaign-planning-tool: Beta release (Version 0.1.0). 
 Zenodo. http://doi.org/10.5281/zenodo.3268677
 
-*paper*:
+*paper*
 Vasiljević, N., Vignaroli, A., Bechmann, A., and Wagner, R.: 
 Digitalization of scanning lidar measurement campaign planning, 
 Wind Energ. Sci. Discuss., in review, 2019. 
