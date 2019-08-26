@@ -61,7 +61,7 @@ https://github.com/niva83/campaign-planning-tool-examples
 Also, the instructional videos will be available at the following YouTube channel:<br>
 https://www.youtube.com/user/cadenza83/
 
-## Issues, Requests 
+## Issues, Requests, Kudos and Curses
 If you have issues running campaign-planning-tool or you have requests or by any chance you want to contribute to the further development of the library please post Issues or make Pull requests on Github. Use email communication as a last resort.
 
 ## How to cite CPT 
