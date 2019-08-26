@@ -1,4 +1,15 @@
-# Campaing Planning Tool: Python library for planning and designing scanning lidar measurement campaigns
+# Campaing Planning Tool (CPT): Python library for planning and designing scanning lidar measurement campaigns
+
+## Why CPT?
+Planning scanning lidar measurement campaigns is not a trivial task. There are many constraints, originating  both from the campaign site as well from the lidar technology, which a campaign planner needs to consider to derive the best possible layout of the campaign. The same can said for configuring scanning lidars to acquire high-quality measurements, or simply measurements that make sense. 
+
+These tasks have been typically done ad-hoc and manually, thus requiring lidar experts. However, since 2018 a work has been put to digitilize these process.
+
+After almost a decade of planning and configuring scanning lidar measurement campaign, the accumulated experience and knowledge has been converted in the Campaign Planning Tool (short CPT) to simplify the above mentioned tasks, making the scanning lidar technology useful beyond a handful of experts. 
+
+## What CPT is capable of doing?
+The CPT provides users with 
+
 
 A WindScanner system consisting of two synchronized scanning lidar potentially represents a cost-effective solution for multi-point measurements, especially in complex terrain. However, the system limitations and limitations imposed by the wind farm site are detrimental to the installation of scanning lidars and the number and location of the measurement positions. To simplify the process of finding suitable measurement positions and associated installation locations for the WindScanner system we have devised a campaign planning workflow. The workflow consists of four phases:
 
