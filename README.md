@@ -1,56 +1,89 @@
 # Campaing Planning Tool (CPT): Python library for planning and designing scanning lidar measurement campaigns
 
 ## Why CPT?
-Planning scanning lidar measurement campaigns is not a trivial task. There are many constraints, originating  both from the campaign site as well from the lidar technology, which a campaign planner needs to consider to derive the best possible layout of the campaign. The same can said for configuring scanning lidars to acquire high-quality measurements, or simply measurements that make sense. 
+Planning scanning lidar measurement campaigns is not a trivial task. There are many constraints, originating  both from the campaign site as well from the lidar technology, which a campaign planner needs to consider to derive the best possible layout of the campaign. The same can be said for configuring scanning lidars to acquire high-quality measurements.
 
-These tasks have been typically done ad-hoc and manually, thus requiring lidar experts. However, since 2018 a work has been put to digitilize these process.
+These tasks have been typically done ad-hoc and manually, thus requiring lidar experts. However, since 2018 a work has been put to digitilize these process, making them simpler for end-users.
 
-After almost a decade of planning and configuring scanning lidar measurement campaign, the accumulated experience and knowledge has been converted in the Campaign Planning Tool (short CPT) to simplify the above mentioned tasks, making the scanning lidar technology useful beyond a handful of experts. 
+After almost a decade of planning and configuring scanning lidar measurement campaign, the accumulated experience and knowledge has been converted in the Campaign Planning Tool (short CPT), fascilitating the above mentioned tasks. 
+
+**You don't need to be a scanning lidar expert anymore to design and configure scanning lidar campaigns!!!**
+<br>That burden has been eliminated now, or at least that's the hope!
 
 ## What CPT is capable of doing?
-The CPT provides users with 
+The CPT provides users with a set of methods (read functions) that will allow end-users to:
+* Optimize measurement positions
+* Generate GIS layers which fascilitate placement of lidars 
+* Optimize and synchronize trajectories for multiple lidars
+* Export results in human and machine readable formats (KML, XML, YAML, etc.)
+* and more ...
+
+...and this is only the begining ! 
+For more details check out a [paper that describes the CPT background](https://www.wind-energ-sci-discuss.net/wes-2019-13/), or have a look at the [presentation from the WESC conference in Cork](https://zenodo.org/record/3247797).
+
+With every new version of the CPT library new functionalities will be aded.
+
+## How can I get CPT?
+If you don't have [Anaconda](https://www.anaconda.com/) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html) installed on your computer you should do that first.
+
+Afterwards, copy and execute the following command in the terminal of your choice:
+```
+conda create -n CPT -c https://conda.windenergy.dtu.dk/channel/open -c conda-forge campaign-planning-tool gdal=2.4
+```
+This will create a new conda enviroment **CPT**, and download and install **campaign_planning_tool** library together with all the dependencies (see the list of libraries in 'Well deserved KUDOS goes to...'). Feel free to change the name of the enviroment to whatever name it suites  you (i.e., simply change CPT to something else).
+
+Following the installation you need to activate newly made enviroment in the terminal:
+```
+source activate CPT
+```
+Now start the python editor of your choice, for example **jupyter**:
+```
+jupyter-notebook
+```
+Once in **jupyter** import the CPT class:
+```
+from campaign_planning_tool import CPT
+```
+and start using the CPT library.
+
+The CPT library is fully documented so hit *help* to get a class or class method description:
+```
+from campaign_planning_tool import CPT
+help(CPT)
+```
+## Examples 
+Working with a new library is always a bit of pain, that why examples on how to use the campaign-planning-tool library can be found here :
+https://github.com/niva83/campaign-planning-tool-examples
+
+Also, the instructional videos will be available at the following YouTube channel:
+https://www.youtube.com/user/cadenza83/
 
 
-A WindScanner system consisting of two synchronized scanning lidar potentially represents a cost-effective solution for multi-point measurements, especially in complex terrain. However, the system limitations and limitations imposed by the wind farm site are detrimental to the installation of scanning lidars and the number and location of the measurement positions. To simplify the process of finding suitable measurement positions and associated installation locations for the WindScanner system we have devised a campaign planning workflow. The workflow consists of four phases:
+## How to cite CPT 
+If you are using CPT you are kindly asked to cite this repository as well the paper which describes methodology which was used to develop CPT: 
+```
+*repository*:
 
-1. Based on a preliminary wind farm layout, we generate optimum measurement positions using a greedy algorithm and a measurement ’representative radius’;
+*paper*:
 
-2. Areas where the lidar cannnot or should not be installed (due to terrain constraints such as lakes or  line-of-sight  blockage due to the terrain) are excluded - this determines the possible positions for the first lidar;
+```
 
-3. Possible positions fro the second lidar are defined based on the constraints related to the angles between theliar beams to abotine relible measurments;
+## Well deserved KUDOS goes to ...
+I would like to thank to awesome developers of following Python libraries that are an integrating part of the CPT:
 
-4.  A trajectory through the measurement positions is generated for each lidar beam by applying the traveling salesman problem (TSP).
+* [whitebox](https://pypi.org/project/whitebox/)
+* [srtm.py](https://github.com/tkrajina/srtm.py)
+* [gdal](https://github.com/tkrajina/srtm.py)
+* [geopandas](http://geopandas.org/)
+* [numpy](https://www.numpy.org/)
+* [pandas](https://pandas.pydata.org/)
+* [pillow](https://pillow.readthedocs.io/en/stable/)
+* [dicttoxml](https://pypi.org/project/dicttoxml/)
+* [simplekml](https://simplekml.readthedocs.io/en/latest/)
+* [pyyaml](https://pyyaml.org/)
+* [matplotlib](https://matplotlib.org/)
+* [jupyter](https://jupyter.org/)
+* [pylint](https://www.pylint.org/)
 
-The above-described workflow has been digitilized into the so-called Campaign Planning Tool (CPT) currently provided as a Python library which allows users an effective way to plan measurement campaigns with WindScanner systems.
-
-The presentation about the tool from the WESC 2019 conference can be found here:<br>
-https://zenodo.org/record/3247797#.XR37V6eQ3RY
-
-Preliminary results of the CPT application can be found here:<br>
-https://data.dtu.dk/collections/Campaign_Planning_Tool_results_for_three_sites_in_complex_terrain/4559624
-
-# Installation - Simple Way
-
-Step 1: install Anaconda
-
-Step 2: in bash type: 
-	
-	conda config --append channels conda-forge
-
-Step 3: in bash type:
-	
-	conda create --name cpt --file requirements_conda.txt
-
-Step 4: activate new enviroment: source activate cpt
-
-Step 5: test pip: 
-	
-	which pip 
-it should return “/anaconda3/envs/cpt/bin/pip”
-
-Step 6: install remaining packages using following command:
-	
-	pip install -r requirements_pip.txt
-
-Step 7: test new enviroment
-
+## Usage licence
+campaign-planning-tool is provided under the [BSD-3-Clause](https://opensource.org/licenses/BSD-3-Clause) licence.
