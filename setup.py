@@ -29,7 +29,7 @@ setup(
     # There are some restrictions on what makes a valid project name
     # specification here:
     # https://packaging.python.org/specifications/core-metadata/#name
-    name='campaign_planning_tool',  # Required
+    name='campaign-planning-tool',  # Required
 
     # Versions should comply with PEP 440:
     # https://www.python.org/dev/peps/pep-0440/
@@ -98,13 +98,12 @@ setup(
         'Topic :: Wind Energy Industry :: Plan measurement campaigns',
 
         # Pick your license as you wish
-        'License :: OSI Approved :: GPL-3.0',
+        'License :: OSI Approved :: BSD-3-Clause',
 
         # Specify the Python versions you support here. In particular, ensure
         # that you indicate whether you support Python 2, Python 3 or both.
         # These classifiers are *not* checked by 'pip install'. See instead
         # 'python_requires' below.
-        'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
     ],
