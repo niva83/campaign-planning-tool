@@ -18,9 +18,9 @@ The CPT provides users with a set of methods (read functions) that will allow en
 * Export results in human and machine readable formats (KML, XML, YAML, etc.)
 * and more ...
 
-...and this is only the begining ! 
+...and this is only the begining ! <br>
 For more details check out a [paper that describes the CPT background](https://www.wind-energ-sci-discuss.net/wes-2019-13/), or have a look at the [presentation from the WESC conference in Cork](https://zenodo.org/record/3247797).
-
+<br>
 With every new version of the CPT library new functionalities will be aded.
 
 ## How can I get CPT?
@@ -48,19 +48,20 @@ and start using the CPT library.
 
 The CPT library is fully documented so hit *help* to get a class or class method description:
 ```
-from campaign_planning_tool import CPT
 help(CPT)
+or
+help(CPT.set_utm_zone)
 ```
 ## Examples 
-Working with a new library is always a bit of pain, that why examples on how to use the campaign-planning-tool library can be found here :
+Working with a new library is always a bit of pain, that why examples on how to use the campaign-planning-tool library are provided on a separate repo:<br>
 https://github.com/niva83/campaign-planning-tool-examples
-
-Also, the instructional videos will be available at the following YouTube channel:
+<br>
+Also, the instructional videos will be available at the following YouTube channel:<br>
 https://www.youtube.com/user/cadenza83/
 
 
 ## How to cite CPT 
-If you are using CPT you are kindly asked to cite this repository as well the paper which describes methodology which was used to develop CPT: 
+If you are using CPT, you are kindly asked to cite this repository as well the paper which describes methodology which was used to develop CPT: 
 ```
 *repository*:
 
@@ -85,5 +86,5 @@ I would like to thank to awesome developers of following Python libraries that a
 * [jupyter](https://jupyter.org/)
 * [pylint](https://www.pylint.org/)
 
-## Usage licence
-campaign-planning-tool is provided under the [BSD-3-Clause](https://opensource.org/licenses/BSD-3-Clause) licence.
+## License
+campaign-planning-tool is provided under the [BSD-3-Clause](https://opensource.org/licenses/BSD-3-Clause) license.
