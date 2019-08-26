@@ -23,7 +23,6 @@ For more details check out a:
 * [paper that describes the CPT background](https://www.wind-energ-sci-discuss.net/wes-2019-13/)
 * [presentation from the WESC conference in Cork](https://zenodo.org/record/3247797).
 <br>
-<br>
 With every new version of the CPT library new functionalities will be aded.
 
 ## How can I get CPT?
@@ -67,8 +66,10 @@ https://www.youtube.com/user/cadenza83/
 If you are using CPT, you are kindly asked to cite this repository as well the paper which describes methodology which was used to develop CPT: 
 ```
 *repository*:
+Nikola Vasiljevic. (2019, July 4). campaign-planning-tool: Beta release (Version 0.1.0). Zenodo. http://doi.org/10.5281/zenodo.3268677
 
 *paper*:
+Vasiljević, N., Vignaroli, A., Bechmann, A., and Wagner, R.: Digitalization of scanning lidar measurement campaign planning, Wind Energ. Sci. Discuss., in review, 2019. 
 
 ```
 
