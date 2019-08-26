@@ -18,8 +18,11 @@ The CPT provides users with a set of methods (read functions) that will allow en
 * Export results in human and machine readable formats (KML, XML, YAML, etc.)
 * and more ...
 
-...and this is only the begining ! <br>
-For more details check out a [paper that describes the CPT background](https://www.wind-energ-sci-discuss.net/wes-2019-13/), or have a look at the [presentation from the WESC conference in Cork](https://zenodo.org/record/3247797).
+...and this is only the begining ! <br> <br>
+For more details check out a:
+* [paper that describes the CPT background](https://www.wind-energ-sci-discuss.net/wes-2019-13/)
+* [presentation from the WESC conference in Cork](https://zenodo.org/record/3247797).
+<br>
 <br>
 With every new version of the CPT library new functionalities will be aded.
 
