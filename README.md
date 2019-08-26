@@ -11,7 +11,7 @@ After almost a decade of planning and configuring scanning lidar measurement cam
 <br>That burden has been eliminated now, or at least that's the hope!
 
 ## What CPT is capable of doing?
-The CPT provides users with a set of methods (read functions) that will allow end-users to:
+The CPT provides users with a set of methods (read functions) that will allow them to:
 * Optimize measurement positions
 * Generate GIS layers which facilitate placement of lidars 
 * Optimize and synchronize trajectories for multiple lidars
