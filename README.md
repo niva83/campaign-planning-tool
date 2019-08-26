@@ -95,7 +95,7 @@ Well deserved kudos go to awesome developers of following Python libraries that 
 * [jupyter](https://jupyter.org/)
 * [pylint](https://www.pylint.org/)
 
-as well to the members of [RECAST](http://www.recastproject.dk/project) project: Andrea Vignaroli (DTU), Andreas Bechmann (DTU), Rozenn Wagner (DTU) and Morten Thøgersen (EMD) who helped in crafting the CPT methodology, and to forget Neil Davis (DTU) who helped making the library available through **conda-forge**.
+as well to the members of [RECAST](http://www.recastproject.dk/project) project: Andrea Vignaroli (DTU), Andreas Bechmann (DTU), Rozenn Wagner (DTU) and Morten Thøgersen (EMD) who helped in crafting the CPT methodology, and not to forget Neil Davis (DTU) who helped making the library available through **conda-forge**.
 
 ## License
 campaign-planning-tool is provided under the [BSD-3-Clause](https://opensource.org/licenses/BSD-3-Clause) license.
