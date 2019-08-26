@@ -3,7 +3,7 @@
 ## Why CPT?
 Planning scanning lidar measurement campaigns is not a trivial task. There are many constraints, originating  both from the campaign site as well from the lidar technology, which a campaign planner needs to consider to derive the best possible layout of the campaign. The same can be said for configuring scanning lidars to acquire high-quality measurements.
 
-These tasks have been typically done ad-hoc and manually, thus requiring lidar experts. However, since 2018 a work has been put to digitalize these processes, making them simpler for end-users.
+These tasks have been typically done ad-hoc and manually, thus requiring lidar expertize. However, since 2018 a work has been put to digitalize these processes, making them simpler for end-users.
 
 After almost a decade of planning and configuring scanning lidar measurement campaign, the accumulated experience and knowledge has been converted in the Campaign Planning Tool (short CPT), fascilitating the above mentioned tasks. 
 
