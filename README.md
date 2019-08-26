@@ -62,7 +62,7 @@ Also, the instructional videos will be available at the following YouTube channe
 https://www.youtube.com/user/cadenza83/
 
 ## Issues, Requests 
-
+If you have issues running campaign-planning-tool or you have requests or by any chance you want to contribute to the further development of the library please post Issues or make Pull requests on Github. Use email communication as a last resort.
 
 ## How to cite CPT 
 If you are using CPT, you are kindly asked to cite this repository as well the paper which describes methodology which was used to develop CPT: 
