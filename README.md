@@ -23,7 +23,7 @@ For more details check out a:
 * [paper that describes the campaign-planning-tool background](https://www.wind-energ-sci-discuss.net/wes-2019-13/)
 * [presentation from the WESC conference in Cork](https://zenodo.org/record/3247797).
 <br>
-With every new version of the **campaign-planning-tool** library new functionalities will be aded.
+With every new version of the library new functionalities will be aded, and this is where you as a community of users can help!
 
 ## How can I get campaign-planning-too?
 Through DTU hosted **conda-forge**!<br>
