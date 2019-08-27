@@ -25,7 +25,7 @@ For more details check out a:
 <br>
 With every new version of the library new functionalities will be aded, and this is where you as a community of users can help!
 
-## How can I get campaign-planning-too?
+## How can I get campaign-planning-tool?
 Through DTU hosted **conda-forge**!<br>
 If you don't have [Anaconda](https://www.anaconda.com/) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html) installed on your computer you should install either of them first.
 
