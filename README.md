@@ -47,7 +47,7 @@ Once in **jupyter** import the CPT class:
 ```
 from campaign_planning_tool import CPT
 ```
-and start using the CPT library (using underscores to call library is not a mistake!).
+and start using the library (using underscores to call library is not a mistake!).
 
 The library is fully documented so hit *help* to get a class or class method description:
 ```
