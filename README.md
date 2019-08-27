@@ -1,5 +1,4 @@
-# campaign-planning-tool
-## python library for planning and configuring scanning lidar measurement campaigns
+# campaign-planning-tool: <br>Python library for planning and configuring scanning lidar measurement campaigns
 
 ## Why campaign-planning-tool?
 Planning scanning lidar measurement campaigns is not a trivial task. There are many constraints, originating  both from the campaign site as well from the lidar technology, which a campaign planner needs to consider to derive the best possible layout of the campaign. The same can be said for configuring scanning lidars to acquire high-quality measurements.
