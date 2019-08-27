@@ -20,10 +20,10 @@ These tasks have been typically done ad-hoc and manually, thus requiring lidar e
 
 ...and this is only the beginning ! <br> <br>
 For more details check out a:
-* [paper that describes the CPT background](https://www.wind-energ-sci-discuss.net/wes-2019-13/)
+* [paper that describes the ampaign-planning-tool background](https://www.wind-energ-sci-discuss.net/wes-2019-13/)
 * [presentation from the WESC conference in Cork](https://zenodo.org/record/3247797).
 <br>
-With every new version of the CPT library new functionalities will be aded.
+With every new version of the **campaign-planning-tool** library new functionalities will be aded.
 
 ## How can I get campaign-planning-too?
 Through DTU hosted **conda-forge**!<br>
