@@ -27,7 +27,7 @@ With every new version of the CPT library new functionalities will be aded.
 
 ## How can I get campaign-planning-too?
 Through DTU hosted **conda-forge**!<br>
-If you don't have [Anaconda](https://www.anaconda.com/) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html) installed on your computer you should do that first.
+If you don't have [Anaconda](https://www.anaconda.com/) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html) installed on your computer you should install either of them first.
 
 Afterwards, copy and execute the following command in the terminal:
 ```
