@@ -515,47 +515,53 @@ CLOSE""",
 
 
         if('lidar_ids' in kwargs):
-            if  set(kwargs['lidar_ids']).issubset(self.lidar_dictionary):
+            if set(kwargs['lidar_ids']).issubset(self.lidar_dictionary):
                 lidar_pos_utm = [self.lidar_dictionary[lidar]['position'] 
                                  for lidar in kwargs['lidar_ids']]
                 lidar_pos_utm = np.asarray(lidar_pos_utm)
                 lidar_pos_geo = self.utm2geo(lidar_pos_utm, self.long_zone, self.hemisphere)
-
+                flag_trajectory = True
                 for i,lidar in enumerate(kwargs['lidar_ids']):
                     kml.newpoint(name = lidar, 
                                 coords=[(lidar_pos_geo[i][1], 
                                         lidar_pos_geo[i][0], 
                                         lidar_pos_geo[i][2])],
                                 altitudemode = simplekml.AltitudeMode.absolute)
-                anything_in = True
-
-                trajectories = [self.lidar_dictionary[lidar]['trajectory'].values 
-                                for lidar in kwargs['lidar_ids']]
-                trajectories = np.asarray(trajectories)
-                trajectories_lengths = [len(single) for single in trajectories]
-
-                if trajectories_lengths[1:] == trajectories_lengths[:-1]:
-                    if np.all(np.all(trajectories == trajectories[0,:], axis = 0)):
-                        trajectory_geo = self.utm2geo(trajectories[0][:,1:], self.long_zone, self.hemisphere)
-                        
-                        trajectory_geo[:, 0], trajectory_geo[:, 1] = trajectory_geo[:, 1], trajectory_geo[:, 0].copy()
-                        
-                        trajectory_geo_tuple = [tuple(l) for l in trajectory_geo]
-                        
-                        ls = kml.newlinestring(name="Trajectory")
-                        ls.coords = trajectory_geo_tuple
-                        ls.altitudemode = simplekml.AltitudeMode.absolute
-                        ls.style.linestyle.width = 4
-                        ls.style.linestyle.color = simplekml.Color.green
-                        
-                        for i, pt_coords in enumerate(trajectory_geo_tuple):
-                            pt = kml.newpoint(name = 'pt_' + str(i + 1))
-                            pt.coords = [pt_coords]
-                            pt.style.iconstyle.icon.href = 'http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png'
-                            pt.altitudemode = simplekml.AltitudeMode.absolute
+                    if self.lidar_dictionary[lidar]['trajectory'] is not None:
+                        flag_trajectory = flag_trajectory * True
                     else:
-                        print('Trajectories are not the same for the provided lidar_ids!')
-                        print('Trajectories will not be saved in KML!')                    
+                        flag_trajectory = flag_trajectory * False
+
+                anything_in = True
+                if flag_trajectory:
+                    trajectories = [self.lidar_dictionary[lidar]['trajectory'].values 
+                                    for lidar in kwargs['lidar_ids']]
+                    trajectories = np.asarray(trajectories)
+                    trajectories_lengths = [len(single) for single in trajectories]
+
+                    if (trajectories_lengths[1:] == trajectories_lengths[:-1] 
+                        and trajectories_lengths[0] is not None):
+                        if np.all(np.all(trajectories == trajectories[0,:], axis = 0)):
+                            trajectory_geo = self.utm2geo(trajectories[0][:,1:], self.long_zone, self.hemisphere)
+                            
+                            trajectory_geo[:, 0], trajectory_geo[:, 1] = trajectory_geo[:, 1], trajectory_geo[:, 0].copy()
+                            
+                            trajectory_geo_tuple = [tuple(l) for l in trajectory_geo]
+                            
+                            ls = kml.newlinestring(name="Trajectory")
+                            ls.coords = trajectory_geo_tuple
+                            ls.altitudemode = simplekml.AltitudeMode.absolute
+                            ls.style.linestyle.width = 4
+                            ls.style.linestyle.color = simplekml.Color.green
+                            
+                            for i, pt_coords in enumerate(trajectory_geo_tuple):
+                                pt = kml.newpoint(name = 'pt_' + str(i + 1))
+                                pt.coords = [pt_coords]
+                                pt.style.iconstyle.icon.href = 'http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png'
+                                pt.altitudemode = simplekml.AltitudeMode.absolute
+                        else:
+                            print('Trajectories are not the same for the provided lidar_ids!')
+                            print('Trajectories will not be saved in KML!')                    
                 else:
                     print('Trajectories are not the same for the provided lidar_ids!')
                     print('Trajectories will not be saved in KML!')
