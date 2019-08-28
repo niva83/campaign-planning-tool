@@ -56,10 +56,9 @@ or
 help(CPT.set_utm_zone)
 ```
 ## Examples 
-Working with a new library is always a bit of pain, that's why you can get download [Jupyter examples](https://github.com/niva83/campaign-planning-tool-examples/archive/master.zip) which will ease the use of the tool.
+Working with a new library is always a bit of pain. To get you up with speed download [Jupyter examples](https://github.com/niva83/campaign-planning-tool-examples/archive/master.zip) of the tool.
 <br>
-Also, the instructional videos will be available at the following YouTube channel:<br>
-https://www.youtube.com/user/cadenza83/
+Soon the instructional videos will be available as well!
 
 ## Issues, Requests, Kudos and Curses
 If you have issues running campaign-planning-tool or you have requests or by any chance you want to contribute to the further development of the library please post Issues or make Pull requests on Github. 
