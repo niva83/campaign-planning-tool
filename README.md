@@ -56,7 +56,7 @@ or
 help(CPT.set_utm_zone)
 ```
 ## Examples 
-Working with a new library is always a bit of pain. To get you up with speed download [Jupyter examples](https://github.com/niva83/campaign-planning-tool-examples/archive/master.zip) of the tool.
+Working with a new library is always a bit of pain.<br>To get you up with speed download [Jupyter examples](https://github.com/niva83/campaign-planning-tool-examples/archive/master.zip) showing how to use the library.
 <br>
 Soon the instructional videos will be available as well!
 
