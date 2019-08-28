@@ -71,7 +71,7 @@ If you are using **campaign-planning-tool**, it would be great to cite this repo
 ```
 *repository*
 Nikola Vasiljevic. (2019, August 28). 
-niva83/campaign-planning-tool: Public beta version of campaign-planning-tool (Version v0.1.1). 
+campaign-planning-tool: public beta version 0.1.1 (Version v0.1.1). 
 Zenodo. http://doi.org/10.5281/zenodo.3379721
 
 *paper*
