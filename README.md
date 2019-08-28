@@ -67,8 +67,7 @@ If you have issues running campaign-planning-tool or you have requests or by any
 <br>Use email communication as a last resort!!!
 
 ## How to cite campaign-planning-tool 
-To continue developing and improving **campaign-planning-tool** citations are need.<br>
-Therefore, if you are using **campaign-planning-tool**, you are kindly asked to cite this repository as well the paper which describes methodology which was used to develop the library (Thanks!): 
+If you are using **campaign-planning-tool**, it would be great to cite this repository as well the paper which describes methodology which was used to develop the library: 
 ```
 *repository*
 Nikola Vasiljevic. (2019, July 4). campaign-planning-tool: Beta release (Version 0.1.0). 
