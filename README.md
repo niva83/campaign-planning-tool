@@ -5,7 +5,7 @@ Planning scanning lidar measurement campaigns is not a trivial task. There are m
 
 These tasks have been typically done ad-hoc and manually, thus requiring lidar expertize. However, since 2018 a work has been put to digitalize these processes, making them simpler for end-users.
 
-[After almost a decade of planning and configuring scanning lidar measurement campaigns](https://zenodo.org/record/1442592), the accumulated experience and knowledge has been converted in **campaign-planning-tool** library, fascilitating the above mentioned tasks. 
+[After almost a decade of planning and configuring scanning lidar measurement campaigns](https://zenodo.org/record/1442592), the accumulated experience and knowledge has been converted to **campaign-planning-tool** library, fascilitating the above mentioned tasks. 
 
 **You don't need to be a scanning lidar expert anymore to design and configure scanning lidar campaigns!!!**
 <br>That burden has been eliminated now, or at least that's the hope!
