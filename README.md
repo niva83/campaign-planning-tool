@@ -70,8 +70,9 @@ If you have issues running campaign-planning-tool or you have requests or by any
 If you are using **campaign-planning-tool**, it would be great to cite this repository as well the paper which describes methodology which was used to develop the library: 
 ```
 *repository*
-Nikola Vasiljevic. (2019, July 4). campaign-planning-tool: Beta release (Version 0.1.0). 
-Zenodo. http://doi.org/10.5281/zenodo.3268677
+Nikola Vasiljevic. (2019, August 28). 
+niva83/campaign-planning-tool: Public beta version of campaign-planning-tool (Version v0.1.1). 
+Zenodo. http://doi.org/10.5281/zenodo.3379721
 
 *paper*
 Vasiljević, N., Vignaroli, A., Bechmann, A., and Wagner, R.: 
