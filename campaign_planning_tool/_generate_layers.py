@@ -1225,7 +1225,6 @@ class LayersGIS():
                 if self.points_selector(self.points_id) is not None:
                     tempfolder = tempfile.TemporaryDirectory()
                     self.__tempfolder = Path(tempfolder.name).absolute()
-                    print(self.__tempfolder)
                     self.__export_measurements()
                     self.__export_topography()
                     self.__viewshed_analysis()

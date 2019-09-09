@@ -593,8 +593,6 @@ CLOSE""",
                 # setting temporary folder
                 tempfolder = tempfile.TemporaryDirectory()
                 self.__tempfolder = Path(tempfolder.name).absolute()
-                print(self.__tempfolder)
-
                 file_name_str = layer_id + '.tif'
                 file_path = self.__tempfolder.joinpath(file_name_str)                
                 
@@ -661,9 +659,14 @@ CLOSE""",
 
         Attributes
         ---------
-        file_path : str
-            A path to the GeoTIFF which undergoes
-            the resizing.
+        original_path : str
+            A path to the GeoTIFF image which undergoes resizing.
+        original_file_name : str
+            A file name of the GeoTIFF image which undergoes resizing.
+        target_path : str
+            A path to the resized GeoTIFF image.
+        target_file_name : str
+            A file name of the resized GeoTIFF image.            
         resize_value : int
             Multiplicator indicating how many times
             the original image will be enlarged 
