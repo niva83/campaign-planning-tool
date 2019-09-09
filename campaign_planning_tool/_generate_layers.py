@@ -1225,13 +1225,14 @@ class LayersGIS():
                 if self.points_selector(self.points_id) is not None:
                     tempfolder = tempfile.TemporaryDirectory()
                     self.__tempfolder = Path(tempfolder.name).absolute()
+                    print(self.__tempfolder)
                     self.__export_measurements()
                     self.__export_topography()
                     self.__viewshed_analysis()
                     self.__viewshed_processing()
                     self.flags['los_blck_layer_generated'] = True
                     self.__update_layer_dict('los_blockage', points_id)
-                    tempfolder.cleanup()                             
+#                    tempfolder.cleanup()                             
                 else:
                     print('For points type \''
                            + points_id 

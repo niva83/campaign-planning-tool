@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 
 from pathlib import Path
+import tempfile
 import os, shutil
 
 class Export():
@@ -589,6 +590,13 @@ CLOSE""",
         if layer_id in self.LAYER_ID:
             if self.layer_selector(layer_id) is not None:
                 layer = self.layer_selector(layer_id)
+                # setting temporary folder
+                tempfolder = tempfile.TemporaryDirectory()
+                self.__tempfolder = Path(tempfolder.name).absolute()
+                print(self.__tempfolder)
+
+                file_name_str = layer_id + '.tif'
+                file_path = self.__tempfolder.joinpath(file_name_str)                
                 
                 if len(layer.shape) > 2:
                     layer = np.sum(layer, axis = 2)
@@ -602,8 +610,8 @@ CLOSE""",
                 rows = multi_band_array.shape[0]
                 cols = multi_band_array.shape[1]
                 bands = multi_band_array.shape[2]
-                file_name_str = layer_id + '.tif'
-                file_path = self.OUTPUT_DATA_PATH.joinpath(file_name_str)
+
+
                 dst_filename = file_path.absolute().as_posix()
                 
                 x_pixels = rows  # number of pixels in x
@@ -632,7 +640,9 @@ CLOSE""",
                 dataset.FlushCache()
                 dataset=None
                 
-                self.__resize_tiff(dst_filename, self.ZOOM)
+                self.__resize_tiff(self.__tempfolder, file_name_str, 
+                                   self.OUTPUT_DATA_PATH, file_name_str, self.ZOOM)
+#                tempfolder.cleanup()      
 
             else:
                 print('Requested layer is empty!')
@@ -644,7 +654,8 @@ CLOSE""",
     
                 
     @staticmethod        
-    def __resize_tiff(file_path, resize_value):
+    def __resize_tiff(original_path, original_file_name, 
+                      target_path, target_file_name, resize_value):
         """
         Resize GeoTIFF image.
 
@@ -659,8 +670,10 @@ CLOSE""",
 
         """
 
+        original_file_path = original_path.joinpath(original_file_name).absolute().as_posix()
+        modified_file_path = target_path.joinpath(target_file_name).absolute().as_posix()
 
-        original_file = gdal.Open(file_path)
+        original_file = gdal.Open(original_file_path)
         single_band = original_file.GetRasterBand(1)
         
         y_pixels = single_band.YSize * resize_value
@@ -669,7 +682,7 @@ CLOSE""",
         
         driver = gdal.GetDriverByName('GTiff')
         options = ['PHOTOMETRIC=RGB', 'PROFILE=GeoTIFF']
-        modified_file = driver.Create(file_path,x_pixels, y_pixels,bands,gdal.GDT_Byte,options = options)
+        modified_file = driver.Create(modified_file_path,x_pixels, y_pixels,bands,gdal.GDT_Byte,options = options)
         modified_file.SetProjection(original_file.GetProjection())
         geotransform = list(original_file.GetGeoTransform())
         
