@@ -63,7 +63,7 @@ Soon the instructional videos will be available as well!
 ## Issues, Requests, Kudos and Curses
 If you have issues running campaign-planning-tool or you have requests or by any chance you want to contribute to the further development of the library please post Issues or make Pull requests on Github. 
 
-<br>So far Windows user are currently facing [issues](https://github.com/niva83/campaign-planning-tool/issues). 
+<br>So far Windows user are currently facing an issue running method [export_kml](https://github.com/niva83/campaign-planning-tool/issues/3#issue-490216648). Currently version 0.1.2 is under test which solves the reported issue.
 
 ## How to cite campaign-planning-tool 
 If you are using **campaign-planning-tool**, it would be great to cite this repository as well the paper which describes methodology which was used to develop the library: 
