@@ -3,9 +3,15 @@ import pandas as pd
 import geopandas
 from shapely.geometry import Point
 import whitebox
-from osgeo import gdal, osr, ogr, gdal_array
+
 import srtm
 from pyproj import Proj
+
+# Instead of GDAL
+import rasterio
+import rasterio.warp
+from rasterio.transform import from_origin
+from fiona.crs import from_epsg
 
 # for working with files and folders
 from pathlib import Path
@@ -785,49 +791,6 @@ class LayersGIS():
         else:
             print('Mesh not generated -> orography layer cannot be generated ')
 
-    def __crop_landcover_data(self):
-        """
-        Crops the CORINE landcover data to the mesh area.
-
-        Notes
-        --------
-        It is necessary that the CORINE landcover data path is provided
-        and that the mesh is generated before calling this method.
-
-        Currently the method only works with the CORINE data [1].
-        The CORINE dataset that needs to be download is :
-        'Corine Land Cover - 100 meter 	2018 	Raster 	100m GeoTiff'
-
-        References
-        ----------
-        .. [1] https://land.copernicus.eu/pan-european/corine-land-cover
-
-        See also
-        --------
-        self.generate_mesh() : mesh generation
-        """               
-        if self.flags['mesh_generated']:  
-            if self.flags['landcover_path_set']:
-                if self.flags['output_path_set']:               
-                    input_image = gdal.Open(self.LANDCOVER_DATA_PATH.absolute().as_posix(), gdal.GA_ReadOnly)
-                    storing_file_path = self.OUTPUT_DATA_PATH.joinpath('landcover_cropped_utm.tif') 
-
-                    gdal.Warp(storing_file_path.absolute().as_posix(), 
-                                input_image,format = 'GTiff',
-                                outputBounds=[self.mesh_corners_utm[0,0], self.mesh_corners_utm[0,1],
-                                            self.mesh_corners_utm[1,0], self.mesh_corners_utm[1,1]],
-                                dstSRS='EPSG:'+ self.epsg_code, 
-                                width=int(1 + 2 * self.MESH_EXTENT / self.MESH_RES), 
-                                height=int(1 + 2 * self.MESH_EXTENT / self.MESH_RES))
-
-                    self.flags['landcover_map_clipped'] = True
-                else:
-                    print('No output data folder provided!')
-            else:
-                print('No landcover data provided!')
-        else:
-            print('Mesh not generated -> landcover map cannot be clipped!')    
-
     def __import_landcover_data(self):
         """
         Generates landcover layer based on the CORINE landcover data.
@@ -848,15 +811,27 @@ class LayersGIS():
         self.__crop_landcover_data() : cropping landcover data
         self.generate_mesh() : mesh generation
         """         
-        if self.flags['landcover_map_clipped']:
-            file_path = self.OUTPUT_DATA_PATH.joinpath('landcover_cropped_utm.tif') 
-            im = gdal.Open(file_path.absolute().as_posix())
-            band = im.GetRasterBand(1)
-            land_cover_array = np.flip(band.ReadAsArray(),axis=0)
-            self.landcover_layer = land_cover_array
+        if self.flags['landcover_path_set']:
+            data = rasterio.open(self.LANDCOVER_DATA_PATH.absolute().as_posix())
+            coords_transformed = rasterio.warp.transform(from_epsg(32633),
+                                                         data.crs.data,
+                                                         self.mesh_utm[:,0],
+                                                         self.mesh_utm[:,1])
+            nrows, ncols = self.x.shape
+            coords_transformed = np.asarray(coords_transformed).T
+
+
+            clc_data = []
+
+            with data as src:
+                for val in src.sample(coords_transformed):
+                    clc_data = clc_data + list(val)
+
+            self.landcover_layer = np.array(clc_data).reshape(nrows,ncols)
+
             self.flags['landcover_layer_generated'] = True
         else:
-            print('Landcover map not clipped!')
+            print('No landcover data provided!')
 
     def __generate_restriction_zones(self):
         """
@@ -978,7 +953,6 @@ class LayersGIS():
         """   
         if self.flags['landcover_path_set']:
             try:
-                self.__crop_landcover_data()
                 self.__import_landcover_data()
                 self.__generate_canopy_height()
                 self.__generate_restriction_zones()

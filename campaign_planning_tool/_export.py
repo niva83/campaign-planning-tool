@@ -1,5 +1,11 @@
 import numpy as np
-from osgeo import gdal, osr, ogr, gdal_array
+
+# Instead of GDAL
+import rasterio
+import rasterio.warp
+from rasterio.transform import from_origin
+from fiona.crs import from_epsg
+
 import yaml # installation via conda
 from xml.dom.minidom import parseString
 import dicttoxml
@@ -321,14 +327,14 @@ CLOSE""",
                         output_file.close()
                         return True
                     else:
-                        print('Not allowed pulse lenght!')
+                        print('Not allowed pulse length!')
                         print('Allowed pulse lengths are: 100, 200 and 400 ns!')
                         print('Check self.PULSE_LENGTH constant and set it accordingly!')
                         print('Aborting the operation!')
                         return False
                 else:
-                    print('Not allowed accomulation time! It must be a multiple of 100 ms')
-                    print('Check self.ACCUMULATION_TIME contstant and set it accordingly!')
+                    print('Not allowed accumulation time! It must be a multiple of 100 ms')
+                    print('Check self.ACCUMULATION_TIME constant and set it accordingly!')
                     print('Aborting the operation!')
                     return False
             else:
@@ -391,7 +397,7 @@ CLOSE""",
         scenario_yaml = scenario_yaml.replace('max_no_of_gates', str(self.MAX_NO_OF_GATES))
         yaml_file = yaml_file.replace('insertMEASUREMENTscenarios', scenario_yaml)
         
-        # building transect part of YAML
+        # Building transect part of YAML
         transect_yaml = self.__yaml_template['transect']
         points_str = ""
         points = lidar_dict_sub[lidar_ids[0]]['trajectory'].values
@@ -407,15 +413,14 @@ CLOSE""",
         transect_yaml = transect_yaml.replace('insertTransectPoints', points_str)        
         yaml_file = yaml_file.replace('insertTransects', transect_yaml)
         
-        # exporting to yaml file
+        # Exporting to yaml file
         file_name_str = "measurement_scenario.yaml"
         file_path = self.OUTPUT_DATA_PATH.joinpath(file_name_str) 
         output_file = open(file_path,"w+")
         output_file.write(yaml_file)
         output_file.close()
 
-        # reading the exported yaml file and
-        # converting it to an xml file
+        # Reading the exported yaml file and converting it to an xml file
         xml_file =  self.__yaml2xml(file_path)
         file_name_str = "measurement_scenario.xml"
         file_path = self.OUTPUT_DATA_PATH.joinpath(file_name_str) 
@@ -436,7 +441,7 @@ CLOSE""",
         Notes
         -----
         This method will create following files:
-            (1) Motion program to drive scannner head(s)
+            (1) Motion program to drive scanner head(s)
             (2) Range gate file to configure laser and FPGA
             (3) YAML and XML files containing info from (1) and (2)
         """
@@ -452,7 +457,7 @@ CLOSE""",
                     self.__export_yaml_xml(lidar_ids)
                     print('Measurement scenario export successful!')
                 else:
-                    print('Measurement scenario export unsuccesful!')
+                    print('Measurement scenario export unsuccessful!')
             else:
                 print('One or more lidar ids don\'t exist in the lidar dictionary')
                 print('Available lidar ids: ' + str(list(self.lidar_dictionary.keys())))
@@ -462,6 +467,27 @@ CLOSE""",
             print('Set a proper output folder path!')
             print('Call method set_path(path_str, **kwargs)!')
             print('Aborting the operation!')
+    @staticmethod
+    def __get_corners_geo(map_center, extent, half_res, epsg_code):
+
+        corner_1 = map_center + [-extent,  extent] + [-half_res, half_res]
+        corner_2 = map_center + [ extent,  extent] + [ half_res, half_res]
+        corner_3 = map_center + [ extent, -extent] + [ half_res,-half_res]
+        corner_4 = map_center + [-extent, -extent] + [-half_res,-half_res]
+
+        corners = np.array([corner_4, 
+                            corner_3, 
+                            corner_2, 
+                            corner_1])
+
+        corners_geo = rasterio.warp.transform(from_epsg(epsg_code),
+                                              from_epsg(4326),
+                                              corners[:,0],
+                                              corners[:,1])
+
+        corners_geo = np.asarray(corners_geo).T
+        return  list(map(tuple, corners_geo))  
+
 
     def export_kml(self, file_name, **kwargs):
         """
@@ -491,25 +517,19 @@ CLOSE""",
                     file_name_str = layer + '.tif'
 
                     map_center = np.mean(self.mesh_corners_geo, axis = 0)
+                    corners_geo = self.__get_corners_geo(self.mesh_center[:2], 
+                                                         self.MESH_EXTENT, 
+                                                         self.MESH_RES/2, 
+                                                         self.epsg_code)
+
                     ground = kml.newgroundoverlay(name = layer)
 
-
+                    ground.gxlatlonquad.coords = corners_geo
                     ground.icon.href = file_name_str
-                    ground.latlonbox.north = np.max(self.mesh_corners_geo, axis = 0)[0]
-                    ground.latlonbox.south = np.min(self.mesh_corners_geo, axis = 0)[0]
-                    ground.latlonbox.east = np.max(self.mesh_corners_geo, axis = 0)[1]
-                    ground.latlonbox.west = np.min(self.mesh_corners_geo, axis = 0)[1]
-
-
-                    # ground.latlonbox.north = self.mesh_corners_geo[1,0]
-                    # ground.latlonbox.south = self.mesh_corners_geo[0,0]
-                    # ground.latlonbox.east = self.mesh_corners_geo[1,1]
-                    # ground.latlonbox.west = self.mesh_corners_geo[0,1]
                     ground.color="7Dffffff"
-
                     ground.lookat.latitude = map_center[0]
                     ground.lookat.longitude = map_center[1]
-                    ground.lookat.range = 200
+                    ground.lookat.range = 25000
                     ground.lookat.heading = 0
                     ground.lookat.tilt = 0
                     anything_in = True           
@@ -589,58 +609,54 @@ CLOSE""",
         """
         if layer_id in self.LAYER_ID:
             if self.layer_selector(layer_id) is not None:
-                layer = self.layer_selector(layer_id)
-                # setting temporary folder
-                tempfolder = tempfile.TemporaryDirectory()
-                self.__tempfolder = Path(tempfolder.name).absolute()
                 file_name_str = layer_id + '.tif'
-                file_path = self.__tempfolder.joinpath(file_name_str)                
-                
+                file_path = self.OUTPUT_DATA_PATH.joinpath(file_name_str)                
+                                
+                layer = np.flip(self.layer_selector(layer_id), axis = 0)                
                 if len(layer.shape) > 2:
                     layer = np.sum(layer, axis = 2)
+
+                # Resizing array to produce high resolution GeoTIFF
+                layer = layer.repeat(self.ZOOM, axis=0).repeat(self.ZOOM, axis=1)
         
+                # Creating RGB np array 
                 array_rescaled = (255.0 / layer.max() * (layer - layer.min())).astype(np.uint8)
-                array_rescaled = np.flip(array_rescaled, axis = 0)
-                image = Image.fromarray(np.uint8(plt.cm.RdBu_r(array_rescaled)*255))
-        
+                image = Image.fromarray(np.uint8(plt.cm.RdBu_r(array_rescaled)*255))    
                 multi_band_array = np.array(image)
                 
                 rows = multi_band_array.shape[0]
                 cols = multi_band_array.shape[1]
                 bands = multi_band_array.shape[2]
 
+                # Removing and adding 1/2 resolution from x and y respectevely
+                # in order to properly geolocate GeoTIFF image
+                top_x = self.mesh_corners_utm[:,0].min() - self.MESH_RES / 2
+                top_y = self.mesh_corners_utm[:,1].max() + self.MESH_RES / 2 
 
                 dst_filename = file_path.absolute().as_posix()
+               
+                dataset = rasterio.open(
+                            dst_filename,
+                            'w',
+                            driver = 'GTiff',
+                            height = rows,
+                            width = cols,
+                            count = bands, 
+                            dtype = multi_band_array.dtype,
+                            crs = from_epsg(self.epsg_code),
+                            transform = from_origin(top_x, 
+                                                    top_y, 
+                                                    self.MESH_RES / self.ZOOM, 
+                                                    self.MESH_RES / self.ZOOM)
+                                        )    
                 
-                x_pixels = rows  # number of pixels in x
-                y_pixels = cols  # number of pixels in y
-                driver = gdal.GetDriverByName('GTiff')
-                options = ['PHOTOMETRIC=RGB', 'PROFILE=GeoTIFF']
-                dataset = driver.Create(dst_filename,x_pixels, y_pixels, bands,gdal.GDT_Float32, options)
 
-                # dataset = driver.Create(dst_filename,x_pixels, y_pixels, bands,gdal.GDT_Byte,options = options)
-                # to center pixels I've aded - self.MESH_RES/2
-                origin_x = self.mesh_corners_utm[0][0] - self.MESH_RES/2 
-                origin_y = self.mesh_corners_utm[1][1] - self.MESH_RES/2
-                pixel_width = self.MESH_RES
-                geotrans = (origin_x, pixel_width, 0, origin_y, 0, -pixel_width)
-        
-                proj = osr.SpatialReference()
-                proj.ImportFromEPSG(int(self.epsg_code))
-                proj = proj.ExportToWkt()
-        
+                dataset.write(array_rescaled, 1)
+
                 for band in range(bands):
-                    dataset.GetRasterBand(band + 1).WriteArray(multi_band_array[:,:,band])
-        
-        
-                dataset.SetGeoTransform(geotrans)
-                dataset.SetProjection(proj)
-                dataset.FlushCache()
-                dataset=None
+                    dataset.write(multi_band_array[:,:,band], band + 1)
                 
-                self.__resize_tiff(self.__tempfolder, file_name_str, 
-                                   self.OUTPUT_DATA_PATH, file_name_str, self.ZOOM)
-#                tempfolder.cleanup()      
+                dataset.close()      
 
             else:
                 print('Requested layer is empty!')
@@ -648,60 +664,6 @@ CLOSE""",
         else:
             print('Requested layer does not exist!')
             print('Aborting the the operation!')
-
-    
-                
-    @staticmethod        
-    def __resize_tiff(original_path, original_file_name, 
-                      target_path, target_file_name, resize_value):
-        """
-        Resize GeoTIFF image.
-
-        Attributes
-        ---------
-        original_path : str
-            A path to the GeoTIFF image which undergoes resizing.
-        original_file_name : str
-            A file name of the GeoTIFF image which undergoes resizing.
-        target_path : str
-            A path to the resized GeoTIFF image.
-        target_file_name : str
-            A file name of the resized GeoTIFF image.            
-        resize_value : int
-            Multiplicator indicating how many times
-            the original image will be enlarged 
-
-        """
-
-        original_file_path = original_path.joinpath(original_file_name).absolute().as_posix()
-        modified_file_path = target_path.joinpath(target_file_name).absolute().as_posix()
-
-        original_file = gdal.Open(original_file_path)
-        single_band = original_file.GetRasterBand(1)
-        
-        y_pixels = single_band.YSize * resize_value
-        x_pixels = single_band.XSize * resize_value
-        bands = 4
-        
-        driver = gdal.GetDriverByName('GTiff')
-        options = ['PHOTOMETRIC=RGB', 'PROFILE=GeoTIFF']
-        modified_file = driver.Create(modified_file_path,x_pixels, y_pixels,bands,gdal.GDT_Byte,options = options)
-        modified_file.SetProjection(original_file.GetProjection())
-        geotransform = list(original_file.GetGeoTransform())
-        
-        geotransform[1] /= resize_value
-        geotransform[5] /= resize_value
-        modified_file.SetGeoTransform(geotransform)
-        
-        for i in range(1,bands + 1):
-            single_band = original_file.GetRasterBand(i)
-            
-            data = single_band.ReadAsArray(buf_xsize=x_pixels, buf_ysize=y_pixels)  # Specify a larger buffer size when reading data
-            out_band = modified_file.GetRasterBand(i)
-            out_band.WriteArray(data)
-        
-        out_band.FlushCache()
-        out_band.ComputeStatistics(False)
     
     @staticmethod
     def __yaml2xml(yaml_file_path):
