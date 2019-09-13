@@ -37,7 +37,7 @@ setup(
     # For a discussion on single-sourcing the version across setup.py and the
     # project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.1.2',  # Required
+    version='0.1.3',  # Required
 
     # This is a one-line description or tagline of what your project does. This
     # corresponds to the "Summary" metadata field:
@@ -130,7 +130,7 @@ setup(
     # and refuse to install the project if the version does not match. If you
     # do not support Python 2, you can simplify this to '>=3.5' or similar, see
     # https://packaging.python.org/guides/distributing-packages-using-setuptools/#python-requires
-    python_requires='>=3.6',
+    python_requires='>=3.7',
 
     # This field lists other packages that your project depends on to run.
     # Any package you put here will be installed by pip when your project is
@@ -138,7 +138,8 @@ setup(
     #
     # For an analysis of "install_requires" vs pip's requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
-    install_requires=['pylint','pathlib', 'numpy', 'pandas', 'gdal', 'pyyaml', 'dicttoxml', 'simplekml', 'matplotlib', 'pillow', 'geopandas','whitebox','srtm.py', 'jupyter']#,  # Optional , GDAL does not like to be installed using PIP on MAC!!!
+    install_requires=['rasterio', 'pandas', 'geopandas', 'whitebox', 'srtm.py', 'simplekml', 'matplotlib', 'pillow', 'pyyaml', 'dicttoxml','pylint','pathlib','jupyter']
+
     # List additional groups of dependencies here (e.g. development
     # dependencies). Users will be able to install these using the "extras"
     # syntax, for example:
