@@ -813,7 +813,7 @@ class LayersGIS():
         """         
         if self.flags['landcover_path_set']:
             data = rasterio.open(self.LANDCOVER_DATA_PATH.absolute().as_posix())
-            coords_transformed = rasterio.warp.transform(from_epsg(32633),
+            coords_transformed = rasterio.warp.transform(from_epsg(self.epsg_code),
                                                          data.crs.data,
                                                          self.mesh_utm[:,0],
                                                          self.mesh_utm[:,1])
