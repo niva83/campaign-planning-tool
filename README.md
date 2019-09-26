@@ -70,8 +70,8 @@ If you are using **campaign-planning-tool**, it would be great to cite this repo
 ```
 *repository*
 Nikola Vasiljevic. (2019, August 28). 
-campaign-planning-tool: public beta version 0.1.1 (Version v0.1.1). 
-Zenodo. http://doi.org/10.5281/zenodo.3379721
+campaign-planning-tool v0.1.4. 
+Zenodo. http://doi.org/10.5281/zenodo.3462049 	Sep 26, 2019
 
 *paper*
 Vasiljević, N., Vignaroli, A., Bechmann, A., and Wagner, R.: 
@@ -85,7 +85,7 @@ Well deserved kudos go to awesome developers of following Python libraries that 
 
 * [whitebox](https://pypi.org/project/whitebox/)
 * [srtm.py](https://github.com/tkrajina/srtm.py)
-* [gdal](https://github.com/tkrajina/srtm.py)
+* [rasterio](https://https://rasterio.readthedocs.io/)
 * [geopandas](http://geopandas.org/)
 * [numpy](https://www.numpy.org/)
 * [pandas](https://pandas.pydata.org/)
