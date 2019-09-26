@@ -70,7 +70,7 @@ If you are using **campaign-planning-tool**, it would be great to cite this repo
 ```
 *repository*
 Nikola Vasiljevic. (2019, August 28). 
-campaign-planning-tool v0.1.4. 
+campaign-planning-tool v0.1.3 
 Zenodo. http://doi.org/10.5281/zenodo.3462049 	Sep 26, 2019
 
 *paper*
