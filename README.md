@@ -31,7 +31,7 @@ If you don't have [Anaconda](https://www.anaconda.com/) or [Miniconda](https://d
 
 Afterwards, copy and execute the following command in the terminal:
 ```
-conda create -n CPT -c https://conda.windenergy.dtu.dk/channel/open -c conda-forge --no-channel-priority campaign-planning-tool gdal=2.4
+conda create -n CPT -c https://conda.windenergy.dtu.dk/channel/open -c conda-forge --no-channel-priority campaign-planning-tool
 ```
 This will create a new conda enviroment **CPT**, and download and install **campaign-planning-tool** library together with all the dependencies. Feel free to change the name of the environment to whatever name it suites  you (i.e., simply change CPT to something else).
 
