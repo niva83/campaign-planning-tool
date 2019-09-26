@@ -138,7 +138,7 @@ setup(
     #
     # For an analysis of "install_requires" vs pip's requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
-    install_requires=['rasterio', 'pandas', 'geopandas', 'whitebox', 'srtm.py', 'simplekml', 'matplotlib', 'pillow', 'pyyaml', 'dicttoxml','pylint','pathlib','jupyter']
+    install_requires=['numpy', 'pandas', 'geopandas', 'whitebox', 'srtm.py', 'simplekml', 'matplotlib', 'pillow', 'pyyaml', 'dicttoxml','pylint','pathlib','jupyter', 'rasterio']
 
     # List additional groups of dependencies here (e.g. development
     # dependencies). Users will be able to install these using the "extras"
