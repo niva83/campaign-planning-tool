@@ -27,7 +27,7 @@ For more details check out a:
 With every new version of the library new functionalities will be aded, and this is where you as a community of users can help!
 
 ## How can I get campaign-planning-tool?
-Through DTU hosted **conda-forge**!<br>
+Through **DTU Wind Energy's conda channel**!<br>
 If you don't have [Anaconda](https://www.anaconda.com/) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html) installed on your computer you should install either of them first.
 
 Afterwards, copy and execute the following command in the terminal:
@@ -96,7 +96,7 @@ Well deserved kudos go to awesome developers of following Python libraries that 
 * [jupyter](https://jupyter.org/)
 * [pylint](https://www.pylint.org/)
 
-as well to the members of [RECAST](http://www.recastproject.dk/project) project: [Andrea Vignaroli](https://www.dtu.dk/english/service/phonebook/person?id=94735&tab=2&qt=dtupublicationquery) (DTU), [Andreas Bechmann](https://www.dtu.dk/english/service/phonebook/person?id=20603&tab=1) (DTU), [Rozenn Wagner](https://www.dtu.dk/english/service/phonebook/person?id=38872&tab=2&qt=dtupublicationquery) (DTU) and [Morten Thøgersen](https://dk.linkedin.com/in/morten-lybech-th%C3%B8gersen-4114746) (EMD) who helped in crafting the methodology, and not to forget [Neil Davis](https://www.dtu.dk/english/service/phonebook/person?id=68826&tab=1) (DTU) who helped making the library available through **conda-forge**.
+as well to the members of [RECAST](http://www.recastproject.dk/project) project: [Andrea Vignaroli](https://www.dtu.dk/english/service/phonebook/person?id=94735&tab=2&qt=dtupublicationquery) (DTU), [Andreas Bechmann](https://www.dtu.dk/english/service/phonebook/person?id=20603&tab=1) (DTU), [Rozenn Wagner](https://www.dtu.dk/english/service/phonebook/person?id=38872&tab=2&qt=dtupublicationquery) (DTU) and [Morten Thøgersen](https://dk.linkedin.com/in/morten-lybech-th%C3%B8gersen-4114746) (EMD) who helped in crafting the methodology, and not to forget [Neil Davis](https://www.dtu.dk/english/service/phonebook/person?id=68826&tab=1) (DTU) who helped making the library available through **DTU Wind Energy's conda channel**.
 
 ## License
 campaign-planning-tool is provided under the [BSD-3-Clause](https://opensource.org/licenses/BSD-3-Clause) license.
