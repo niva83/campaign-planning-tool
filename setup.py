@@ -1,16 +1,10 @@
 # Always prefer setuptools over distutils
 from setuptools import setup, find_packages
 from os import path
-# import pypandoc
 
 here = path.abspath(path.dirname(__file__))
 
-# Get the long description from the README file
-# try:
-#     import pypandoc
-#     long_description = pypandoc.convert('README.md', 'rst')
-# except(IOError, ImportError):
-#     long_description = open('README.md').read()
+
 with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
@@ -53,6 +47,5 @@ setup(
                       'pathlib',
                       'jupyter', 
                       'rasterio',
-                      ],
-    zip_safe=False,
+                      ]
 )
