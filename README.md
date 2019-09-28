@@ -1,4 +1,5 @@
-[![DOI](https://zenodo.org/badge/199527963.svg)](https://zenodo.org/badge/latestdoi/199527963)
+[![DOI](https://zenodo.org/badge/199527963.svg)](https://zenodo.org/badge/latestdoi/199527963) <a href="https://www.buymeacoffee.com/z57lyJbHo" rel="nofollow"><img alt="https://img.shields.io/badge/Donate-Buy%20me%20a%20coffee-yellowgreen.svg" src="https://warehouse-camo.cmh1.psfhosted.org/1c939ba1227996b87bb03cf029c14821eab9ad91/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f446f6e6174652d4275792532306d6525323061253230636f666665652d79656c6c6f77677265656e2e737667"></a>
+
 # campaign-planning-tool: <br>Python library for planning and configuring scanning lidar measurement campaigns
 ## Why campaign-planning-tool?
 Planning scanning lidar measurement campaigns is not a trivial task. There are many constraints, originating  both from the campaign site as well from the lidar technology, which a campaign planner needs to consider to derive the best possible layout of the campaign. The same can be said for configuring scanning lidars to acquire high-quality measurements.
@@ -26,7 +27,7 @@ For more details check out a:
 With every new version of the library new functionalities will be aded, and this is where you as a community of users can help!
 
 ## How can I get campaign-planning-tool?
-Through DTU hosted **conda-forge**!<br>
+Through **DTU Wind Energy's conda channel**!<br>
 If you don't have [Anaconda](https://www.anaconda.com/) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html) installed on your computer you should install either of them first.
 
 Afterwards, copy and execute the following command in the terminal:
@@ -95,7 +96,7 @@ Well deserved kudos go to awesome developers of following Python libraries that 
 * [jupyter](https://jupyter.org/)
 * [pylint](https://www.pylint.org/)
 
-as well to the members of [RECAST](http://www.recastproject.dk/project) project: [Andrea Vignaroli](https://www.dtu.dk/english/service/phonebook/person?id=94735&tab=2&qt=dtupublicationquery) (DTU), [Andreas Bechmann](https://www.dtu.dk/english/service/phonebook/person?id=20603&tab=1) (DTU), [Rozenn Wagner](https://www.dtu.dk/english/service/phonebook/person?id=38872&tab=2&qt=dtupublicationquery) (DTU) and [Morten Thøgersen](https://dk.linkedin.com/in/morten-lybech-th%C3%B8gersen-4114746) (EMD) who helped in crafting the methodology, and not to forget [Neil Davis](https://www.dtu.dk/english/service/phonebook/person?id=68826&tab=1) (DTU) who helped making the library available through **conda-forge**.
+as well to the members of [RECAST](http://www.recastproject.dk/project) project: [Andrea Vignaroli](https://www.dtu.dk/english/service/phonebook/person?id=94735&tab=2&qt=dtupublicationquery) (DTU), [Andreas Bechmann](https://www.dtu.dk/english/service/phonebook/person?id=20603&tab=1) (DTU), [Rozenn Wagner](https://www.dtu.dk/english/service/phonebook/person?id=38872&tab=2&qt=dtupublicationquery) (DTU) and [Morten Thøgersen](https://dk.linkedin.com/in/morten-lybech-th%C3%B8gersen-4114746) (EMD) who helped in crafting the methodology, and not to forget [Neil Davis](https://www.dtu.dk/english/service/phonebook/person?id=68826&tab=1) (DTU) who helped making the library available through **DTU Wind Energy's conda channel**.
 
 ## License
 campaign-planning-tool is provided under the [BSD-3-Clause](https://opensource.org/licenses/BSD-3-Clause) license.
