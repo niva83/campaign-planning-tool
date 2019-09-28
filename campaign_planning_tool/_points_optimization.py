@@ -107,7 +107,7 @@ class OptimizeMeasurements():
         if points_id in self.POINTS_ID:
             measurement_pts = self.points_selector(points_id)
             self.points_id = points_id
-    
+
             if measurement_pts is not None:
                 # find discs in 2D (horizontal plane!)
                 points_list = list(measurement_pts[:,(0,1)])
