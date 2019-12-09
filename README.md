@@ -27,12 +27,11 @@ For more details check out a:
 With every new version of the library new functionalities will be aded, and this is where you as a community of users can help!
 
 ## How can I get campaign-planning-tool?
-Through **DTU Wind Energy's conda channel**!<br>
 If you don't have [Anaconda](https://www.anaconda.com/) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html) installed on your computer you should install either of them first.
 
 Afterwards, copy and execute the following command in the terminal:
 ```
-conda create -n CPT -c https://conda.windenergy.dtu.dk/channel/open -c conda-forge campaign-planning-tool rasterio=1.0.28
+conda create -n CPT -c nikola_v campaign-planning-tool rasterio=1.0.28
 ```
 This will create a new conda enviroment **CPT**, and download and install **campaign-planning-tool** library together with all the dependencies. Feel free to change the name of the environment to whatever name it suites  you (i.e., simply change CPT to something else).
 
