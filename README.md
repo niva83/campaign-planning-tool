@@ -1,4 +1,4 @@
-[![DOI](https://zenodo.org/badge/199527963.svg)](https://zenodo.org/badge/latestdoi/199527963) <a href="https://www.buymeacoffee.com/z57lyJbHo" rel="nofollow"><img alt="https://img.shields.io/badge/Donate-Buy%20me%20a%20coffee-yellowgreen.svg" src="https://warehouse-camo.cmh1.psfhosted.org/1c939ba1227996b87bb03cf029c14821eab9ad91/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f446f6e6174652d4275792532306d6525323061253230636f666665652d79656c6c6f77677265656e2e737667"></a>
+[![DOI](https://zenodo.org/badge/199527963.svg)](https://zenodo.org/badge/latestdoi/199527963) <a href="https://www.buymeacoffee.com/z57lyJbHo" rel="nofollow"><img alt="https://img.shields.io/badge/Donate-Buy%20me%20a%20coffee-yellowgreen.svg" src="https://img.shields.io/badge/Donate-Buy%20me%20a%20coffee-yellowgreen.svg"></a>
 
 # campaign-planning-tool: <br>Python library for planning and configuring scanning lidar measurement campaigns
 ## Why campaign-planning-tool?
