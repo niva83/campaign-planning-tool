@@ -72,7 +72,7 @@ Zenodo. http://doi.org/10.5281/zenodo.3462049 	Sep 26, 2019
 *paper*
 Vasiljević, N., Vignaroli, A., Bechmann, A., and Wagner, R.: 
 Digitalization of scanning lidar measurement campaign planning, 
-Wind Energ. Sci. Discuss., in review, 2019. 
+Wind Energ. Sci., 5, 73–87, https://doi.org/10.5194/wes-5-73-2020, 2020. 
 
 ```
 
