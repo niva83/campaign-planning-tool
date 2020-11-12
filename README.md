@@ -34,6 +34,7 @@ Afterwards, copy and execute the following command in the terminal:
 conda create -n CPT -c https://conda.windenergy.dtu.dk/channel/open -c conda-forge campaign-planning-tool rasterio=1.0.28 matplotlib=2
 ```
 This will create a new conda enviroment **CPT**, and download and install **campaign-planning-tool** library together with all the dependencies. Feel free to change the name of the environment to whatever name it suites  you (i.e., simply change CPT to something else).
+> As reported by [jocheco](https://github.com/jocheco) in [issues](https://github.com/niva83/campaign-planning-tool/issues/6), if you are to run **CPT** on `centos8` make sure that `libnsl` is installed. To install it run command `sudo yum install libnsl` 
 
 Following the installation you need to activate newly made environment in the terminal:
 ```
